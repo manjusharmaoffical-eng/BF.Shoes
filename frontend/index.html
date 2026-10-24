@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#111111" />
+  <meta name="description" content="Discover everyday icons and premium sneakers at BF SHOES. Secure checkout with Cash on Delivery." />
+  <title>BF SHOES — Move Different</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <div class="announcement">Complimentary delivery on orders over AED 250 <span aria-hidden="true">✳</span></div>
+  <header class="site-header">
+    <a class="wordmark" href="#top" aria-label="BF Shoes home">BF<span>.</span></a>
+    <nav class="main-nav" aria-label="Main navigation"><a href="#shop">Shop all</a><a href="#story">Our standard</a><a href="#footer">Contact</a></nav>
+    <button class="cart-trigger" id="open-cart" aria-label="Open shopping bag">BAG <span id="cart-count">0</span> <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l1 12H4L5 8Z M9 9V6a3 3 0 0 1 6 0v3"/></svg></button>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="eyebrow-line"></span> THE EVERYDAY ICONS</p>
+        <h1>Less noise.<br /><em>More movement.</em></h1>
+        <p class="hero-description">Considered sneakers for wherever the day takes you. Clean lines, lasting comfort, no compromises.</p>
+        <a class="button button-dark" href="#shop">Explore the collection <span aria-hidden="true">↗</span></a>
+        <div class="hero-meta"><span>01 — 03</span><span class="meta-line"></span><span>Made for everyday</span></div>
+      </div>
+      <div class="hero-visual">
+        <div class="hero-stamp">BF<br />STUDIO<br /><span>VOL. 01</span></div>
+        <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1300&q=85" alt="Statement sneaker in a minimal studio setting" fetchpriority="high" />
+        <div class="visual-caption"><span>THE FORM / 001</span><span>DESIGNED TO GO FURTHER</span></div>
+      </div>
+      <div class="hero-index" aria-hidden="true">B / F</div>
+    </section>
+
+    <section class="ticker" aria-label="Brand values"><div>BUILT FOR THE EVERYDAY <span>✳</span> CLEAN BY DESIGN <span>✳</span> COMFORT THAT MOVES <span>✳</span> BUILT FOR THE EVERYDAY <span>✳</span></div></section>
+
+    <section class="shop-section section-wrap" id="shop">
+      <div class="section-heading"><div><p class="eyebrow">THE ROTATION</p><h2>Good shoes.<br /><em>Every day.</em></h2></div><div class="shop-side"><p>A tighter edit of everyday essentials. Find your pair, choose your fit, and make them yours.</p><div class="filter-row" role="group" aria-label="Filter products"><button class="filter active" data-filter="all">All styles</button><button class="filter" data-filter="available">In stock</button></div></div></div>
+      <div class="catalog-status" id="catalog-status" role="status">Finding your next pair…</div>
+      <div class="product-grid" id="product-grid" aria-live="polite"></div>
+      <div class="empty-state hidden" id="empty-state"><p class="eyebrow">THE SHELF IS QUIET</p><h3>No pairs just yet.</h3><p>Products will appear here once the BF SHOES catalog is connected and stocked.</p></div>
+    </section>
+
+    <section class="manifesto" id="story"><div class="manifesto-image"><img src="https://images.unsplash.com/photo-1495555961986-6d4c1ecb7be3?auto=format&fit=crop&w=1200&q=85" alt="Minimal sneaker detail" loading="lazy" /></div><div class="manifesto-copy"><p class="eyebrow">OUR STANDARD / 001</p><h2>Good design<br />doesn’t need<br /><em>to shout.</em></h2><p>We believe the best pair is the one you reach for without thinking. Understated by design. Made to move with you. Ready for whatever comes next.</p><a href="#shop" class="text-link">Find your everyday pair <span>↗</span></a><div class="manifesto-number">BF—001</div></div></section>
+
+    <section class="promise-row section-wrap"><div><span class="promise-icon">01</span><h3>Easy by design</h3><p>Simple choices. Clear sizing. No fuss.</p></div><div><span class="promise-icon">02</span><h3>Cash on Delivery</h3><p>Pay when your order reaches you.</p></div><div><span class="promise-icon">03</span><h3>Made to move</h3><p>Everyday style, built around comfort.</p></div></section>
+  </main>
+
+  <footer class="site-footer" id="footer"><div class="footer-top"><a class="wordmark wordmark-footer" href="#top">BF<span>.</span></a><p>Move different.<br />Keep it simple.</p><a href="#shop" class="footer-cta">Find your pair <span>↗</span></a></div><div class="footer-bottom"><span>© <span id="year"></span> BF SHOES</span><span>DESIGNED FOR THE EVERYDAY</span><a href="mailto:hello@bfshoes.example">GET IN TOUCH ↗</a></div></footer>
+
+  <div class="scrim" id="scrim"></div>
+  <aside class="cart-drawer" id="cart-drawer" aria-label="Shopping bag" aria-hidden="true"><div class="drawer-head"><div><p class="eyebrow">YOUR ROTATION</p><h2>Your bag <span id="drawer-count">(0)</span></h2></div><button class="icon-button" id="close-cart" aria-label="Close shopping bag">×</button></div><div class="cart-items" id="cart-items"></div><div class="cart-empty" id="cart-empty"><div class="empty-glyph">BF.</div><h3>Your bag is taking a breather.</h3><p>Find a pair that feels like you.</p><button class="button button-dark" id="continue-shopping">Explore sneakers</button></div><div class="drawer-foot hidden" id="drawer-foot"><div class="subtotal-line"><span>Subtotal</span><strong id="cart-subtotal">AED 0</strong></div><p>Delivery fees, if any, are confirmed when your order is reviewed.</p><button class="button button-dark button-full" id="checkout-button">Continue to checkout <span>↗</span></button><div class="cod-note"><span>✓</span> Cash on Delivery available</div></div></aside>
+
+  <div class="modal-backdrop" id="checkout-backdrop" aria-hidden="true"><section class="checkout-modal" role="dialog" aria-modal="true" aria-labelledby="checkout-title"><div class="checkout-head"><div><p class="eyebrow">ALMOST YOURS</p><h2 id="checkout-title">Checkout.</h2><p class="checkout-subtitle">A few details, then we’ll take it from here.</p></div><button class="icon-button" id="close-checkout" aria-label="Close checkout">×</button></div><form id="checkout-form"><div class="form-grid"><label class="field field-wide">Full name<input name="customer_name" autocomplete="name" required minlength="2" maxlength="160" placeholder="Your name" /></label><label class="field">Email address<input name="customer_email" type="email" autocomplete="email" required maxlength="254" placeholder="you@example.com" /></label><label class="field">Phone number<input name="customer_phone" type="tel" autocomplete="tel" required minlength="7" maxlength="30" pattern="[+()0-9 .-]{7,30}" placeholder="+971 50 000 0000" /></label><label class="field field-wide">Delivery address<textarea name="shipping_address" autocomplete="street-address" required minlength="10" maxlength="1000" rows="3" placeholder="Building, street, area, city, and any delivery notes"></textarea></label></div><div class="payment-method"><div class="payment-icon">AED</div><div><strong>Cash on Delivery</strong><p>Pay in cash when your order arrives.</p></div><span class="payment-check">✓</span></div><div class="checkout-summary"><div><span>Order total</span><strong id="checkout-total">AED 0</strong></div><small>Product prices are confirmed from the live catalog. Submitting places a COD order and reserves available stock.</small></div><p class="form-error hidden" id="checkout-error" role="alert"></p><button class="button button-dark button-full" id="place-order" type="submit">Place COD order <span>↗</span></button><p class="privacy-note">Your details are used to process and deliver this order.</p></form></section></div>
+
+  <div class="success-backdrop" id="success-backdrop" aria-hidden="true"><section class="success-card" role="dialog" aria-modal="true" aria-labelledby="success-title"><div class="success-mark">✓</div><p class="eyebrow">ORDER RECEIVED</p><h2 id="success-title">That’s a good move.</h2><p>Your Cash on Delivery order has been placed.</p><div class="order-reference"><span>ORDER NUMBER</span><strong id="success-order-number">—</strong></div><p class="success-small">Keep this reference for your records. Our team will confirm delivery details with you.</p><button class="button button-dark button-full" id="finish-order">Back to the store</button></section></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
