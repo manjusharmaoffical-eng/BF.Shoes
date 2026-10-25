@@ -10,6 +10,8 @@ const checkoutSchema = z.object({
   customer_email: z.string().trim().email().max(254),
   customer_phone: z.string().trim().min(7).max(30).regex(/^[+()0-9 .-]+$/),
   shipping_address: z.string().trim().min(10).max(1000),
+  shipping_country: z.enum(["AE", "IN"]).default("AE"),
+  shipping_pincode: z.string().trim().optional().default(""),
   items: z.array(z.object({ sku: z.string().trim().min(2).max(80), quantity: z.number().int().min(1).max(10) })).min(1).max(20)
 }).strict();
 
@@ -28,6 +30,28 @@ storefrontRouter.get("/products", async (_req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// Customer self-service tracking: order number plus the exact checkout email.
+storefrontRouter.get("/orders/track", async (req, res, next) => {
+  const orderNumber = String(req.query.order_number || "").trim();
+  const email = String(req.query.email || "").trim().toLowerCase();
+  if (!/^\\d{1,18}$/.test(orderNumber) || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || email.length > 254) {
+    return res.status(400).json({ error: "Enter a valid order number and checkout email" });
+  }
+  try {
+    const found = await pool.query(
+      "SELECT order_number, customer_email, status, currency, subtotal_cents, created_at, updated_at FROM orders WHERE order_number=$1 AND customer_email=$2",
+      [orderNumber, email]
+    );
+    if (!found.rowCount) return res.status(404).json({ error: "No matching order found. Check your order number and email." });
+    const items = await pool.query(
+      "SELECT product_name, size_label, color_name, quantity FROM order_items WHERE order_id=(SELECT id FROM orders WHERE order_number=$1 AND customer_email=$2)",
+      [orderNumber, email]
+    );
+    res.set("Cache-Control", "no-store");
+    res.json({ data: { ...found.rows[0], items: items.rows } });
+  } catch (err) { next(err); }
+});
+
 storefrontRouter.post("/orders", async (req, res, next) => {
   const parsed = checkoutSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Please check your checkout details", details: parsed.error.flatten() });
@@ -36,6 +60,17 @@ storefrontRouter.post("/orders", async (req, res, next) => {
     return res.status(400).json({ error: "A valid Idempotency-Key is required" });
   }
   const d = parsed.data;
+  if (d.shipping_country === "IN") {
+    const pin = d.shipping_pincode;
+    if (!/^[1-9][0-9]{5}$/.test(pin)) return res.status(400).json({ error: "Enter a valid six-digit Indian PIN code" });
+    const allowedPins = new Set((process.env.INDIA_DELIVERY_PINCODES || "500052").split(",").map(value => value.trim()).filter(Boolean));
+    if (!allowedPins.size) return res.status(503).json({ error: "India delivery is not configured yet. Please contact the store before ordering." });
+    if (!allowedPins.has(pin)) return res.status(400).json({ error: "Sorry, BF SHOES does not deliver to this PIN code yet." });
+    // Safety gate: catalog prices are currently AED and orders have no separate INR delivery-fee field.
+    return res.status(503).json({ error: "India delivery to this PIN code is planned, but checkout is not enabled yet. INR product pricing and the ₹50 delivery fee must be configured first." });
+  } else if (d.shipping_pincode) {
+    return res.status(400).json({ error: "PIN code is only used for India delivery. Select the correct delivery country." });
+  }
   const idempotencyKey = `store:${suppliedKey}`;
   const requestFingerprint = storefrontRequestFingerprint(d);
   const quantities = aggregateStorefrontItems(d.items);
@@ -79,7 +114,7 @@ storefrontRouter.post("/orders", async (req, res, next) => {
       `INSERT INTO orders(customer_name, customer_email, customer_phone, shipping_address, payment_method,
          currency, subtotal_cents, idempotency_key, request_fingerprint)
        VALUES($1,$2,$3,$4,'cod',$5,$6,$7,$8) RETURNING order_number, status, subtotal_cents, currency, created_at`,
-      [d.customer_name, d.customer_email.toLowerCase(), d.customer_phone, d.shipping_address, currency, subtotal, idempotencyKey, requestFingerprint]
+      [d.customer_name, d.customer_email.toLowerCase(), d.customer_phone, `${d.shipping_address}${d.shipping_country === "IN" ? `, India PIN: ${d.shipping_pincode}` : ""}`, currency, subtotal, idempotencyKey, requestFingerprint]
     );
     const order = inserted.rows[0];
     const orderIdResult = await client.query("SELECT id FROM orders WHERE order_number=$1", [order.order_number]);

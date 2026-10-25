@@ -45,6 +45,7 @@ app.get("/health", async (_req, res) => {
 app.use("/api/v1/auth/login", rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false }));
 // Public storefront endpoints are deliberately separated from admin/integration routes.
 app.use("/api/v1/store/orders", rateLimit({ windowMs: 15 * 60_000, limit: 8, standardHeaders: "draft-7", legacyHeaders: false }));
+app.use("/api/v1/store/orders/track", rateLimit({ windowMs: 15 * 60_000, limit: 8, standardHeaders: "draft-7", legacyHeaders: false }));
 app.use("/api/v1/store", storefrontRouter);
 app.use("/api/v1", router);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

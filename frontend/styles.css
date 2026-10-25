@@ -12,3 +12,25 @@
 .brand-banner-name span{color:#080808;background:#fff;padding:0 .12em .04em;margin-left:.08em;display:inline-block}
 .brand-banner-inner p{margin:16px 0 0;font-size:clamp(10px,2vw,13px);letter-spacing:.16em;font-weight:600;color:#d5d5d5}
 @media(max-width:480px){.brand-banner{padding:30px 12px}}
+
+/* Storefront discovery and retention features */
+.catalog-tools{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 18px}
+.catalog-search{display:flex;align-items:center;gap:10px;min-width:0;width:min(360px,100%);border-bottom:1px solid var(--line);padding:8px 0}
+.catalog-search span{font-size:22px;color:var(--muted)}
+.catalog-search input{width:100%;border:0;outline:0;background:transparent;font-size:11px;color:var(--ink)}
+.sort-label{display:flex;align-items:center;gap:9px;font-size:8px;letter-spacing:.14em;color:var(--muted);white-space:nowrap}
+.sort-label select{border:0;border-bottom:1px solid var(--line);background:transparent;padding:8px 2px;font-size:10px;color:var(--ink);max-width:160px}
+.filter-row{margin-top:4px}
+.filter span{display:inline-grid;place-items:center;min-width:16px;height:16px;border-radius:50%;background:var(--soft);font-size:8px;margin-left:3px}
+.wishlist-toggle{position:absolute;top:10px;right:10px;z-index:2;border:0;background:rgba(245,244,240,.92);width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer}
+.wishlist-toggle.saved{background:var(--ink);color:#fff}
+.newsletter{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center;padding-top:75px;padding-bottom:75px;border-top:1px solid var(--line)}
+.newsletter h2{font:500 clamp(38px,5vw,62px)/1 var(--display);letter-spacing:-.07em;margin:0}
+.newsletter h2 em{font-family:var(--serif);font-weight:400}
+.newsletter>div>p:last-child{color:var(--muted);font-size:11px;line-height:1.7;max-width:300px}
+.newsletter-form label{display:block;font-size:8px;letter-spacing:.15em;margin-bottom:10px}
+.newsletter-form>div{display:flex;border-bottom:1px solid var(--ink)}
+.newsletter-form input{flex:1;min-width:0;border:0;background:transparent;padding:14px 0;outline:0;font-size:12px}
+.newsletter-form button{border:0;background:transparent;font-size:11px;font-weight:700;cursor:pointer;padding:0 5px 0 20px}
+.newsletter-form small{display:block;color:var(--muted);font-size:9px;line-height:1.6;margin-top:10px}
+@media(max-width:620px){.catalog-tools{align-items:flex-start;flex-direction:column;gap:10px}.catalog-search{width:100%}.sort-label{width:100%;justify-content:space-between}.sort-label select{max-width:none}.newsletter{grid-template-columns:1fr;gap:18px;padding-top:52px;padding-bottom:52px}}

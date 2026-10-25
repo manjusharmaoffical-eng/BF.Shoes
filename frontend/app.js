@@ -7,7 +7,8 @@
     'https://images.unsplash.com/photo-1495555961986-6d4c1ecb7be3?auto=format&fit=crop&w=900&q=80',
     'https://images.unsplash.com/photo-1460353581641-37baddab0fa2?auto=format&fit=crop&w=900&q=80'
   ];
-  const state = { products: [], cart: [], selectedSizes: {}, filter: 'all', loading: true, busy: false, pendingCheckout: null };
+  const state = { products: [], cart: [], selectedSizes: {}, filter: 'all', search: '', sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null };
+  try { state.wishlist = new Set(JSON.parse(localStorage.getItem('bf-shoes-wishlist') || '[]').map(String)); } catch { state.wishlist = new Set(); }
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -29,8 +30,10 @@
   function availableVariants(product) { return (product.variants || []).filter(v => Number(v.stock_qty) > 0); }
   function renderProducts() {
     const grid = $('#product-grid');
-    const products = state.products.filter(product => state.filter !== 'available' || availableVariants(product).length > 0);
-    $('#catalog-status').textContent = state.loading ? 'Finding your next pair…' : state.products.length ? `${products.length} ${products.length === 1 ? 'style' : 'styles'} in the rotation` : 'The catalog is connected, but no active products have been added yet.';
+    let products = state.products.filter(product => { const inStock = availableVariants(product).length > 0; const query = state.search.trim().toLowerCase(); const matchesSearch = !query || [product.name, product.brand, product.description, product.slug].some(value => String(value || '').toLowerCase().includes(query)); return (state.filter !== 'available' || inStock) && (state.filter !== 'saved' || state.wishlist.has(String(product.id))) && matchesSearch; });
+    if (state.sort === 'price-low') products.sort((a,b) => Number(a.price_cents)-Number(b.price_cents)); else if (state.sort === 'price-high') products.sort((a,b) => Number(b.price_cents)-Number(a.price_cents)); else if (state.sort === 'name') products.sort((a,b) => String(a.name).localeCompare(String(b.name)));
+    $('#catalog-status').textContent = state.loading ? 'Finding your next pair…' : state.products.length ? `${products.length} ${products.length === 1 ? 'style' : 'styles'} shown` : 'The catalog is connected, but no active products have been added yet.';
+    const wishlistCount = $('#wishlist-count'); if (wishlistCount) wishlistCount.textContent = String(state.wishlist.size);
     $('#empty-state').classList.toggle('hidden', state.loading || products.length > 0);
     if (state.loading) { grid.innerHTML = ''; return; }
     if (!products.length) { grid.innerHTML = ''; return; }
@@ -42,7 +45,7 @@
       const sizes = variants.map(v => `<button class="size-option ${v.sku === selected ? 'selected' : ''}" type="button" data-size-product="${escapeHtml(product.id)}" data-sku="${escapeHtml(v.sku)}" aria-pressed="${v.sku === selected}" ${Number(v.stock_qty) <= 0 ? 'disabled title="Out of stock"' : ''}>${escapeHtml(v.size_label)}</button>`).join('');
       const status = !available.length ? 'Sold out' : (available.length <= 2 ? 'Limited run' : 'Everyday essential');
       return `<article class="product-card" data-product="${escapeHtml(product.id)}">
-        <div class="product-image"><img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(product.name)} sneaker" loading="${index < 3 ? 'eager' : 'lazy'}" onerror="this.onerror=null;this.src='${FALLBACK_IMAGES[index % FALLBACK_IMAGES.length]}'" /><span class="product-tag">${status}</span><button class="quick-add" type="button" data-quick-add="${escapeHtml(product.id)}" aria-label="Quick add ${escapeHtml(product.name)}" ${!available.length ? 'disabled' : ''}>+</button></div>
+        <div class="product-image"><img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(product.name)} sneaker" loading="${index < 3 ? 'eager' : 'lazy'}" onerror="this.onerror=null;this.src='${FALLBACK_IMAGES[index % FALLBACK_IMAGES.length]}'" /><span class="product-tag">${status}</span><button class="wishlist-toggle ${state.wishlist.has(String(product.id)) ? 'saved' : ''}" type="button" data-wishlist="${escapeHtml(product.id)}" aria-label="${state.wishlist.has(String(product.id)) ? 'Remove from wishlist' : 'Save to wishlist'}" aria-pressed="${state.wishlist.has(String(product.id))}">${state.wishlist.has(String(product.id)) ? '♥' : '♡'}</button><button class="quick-add" type="button" data-quick-add="${escapeHtml(product.id)}" aria-label="Quick add ${escapeHtml(product.name)}" ${!available.length ? 'disabled' : ''}>+</button></div>
         <div class="product-info"><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.brand || 'BF SHOES')} · ${escapeHtml(product.description || 'Everyday sneaker').slice(0, 58)}</p></div><strong class="product-price">${money(product.price_cents, product.currency)}</strong></div>
         <div class="product-sizes" aria-label="Choose size for ${escapeHtml(product.name)}">${sizes || '<span class="product-info"><p>No sizes listed</p></span>'}</div>
         <div class="add-row"><button class="button button-dark" type="button" data-add="${escapeHtml(product.id)}" ${!selectedVariant ? 'disabled' : ''}>${selectedVariant ? 'Add to bag' : 'Out of stock'} <span>+</span></button></div>
@@ -83,6 +86,8 @@
   function showCheckoutError(message) { $('#checkout-error').textContent = message; $('#checkout-error').classList.remove('hidden'); }
 
   $('#product-grid').addEventListener('click', event => {
+    const wishlistButton = event.target.closest('[data-wishlist]');
+    if (wishlistButton) { const id = String(wishlistButton.dataset.wishlist); if (state.wishlist.has(id)) state.wishlist.delete(id); else state.wishlist.add(id); try { localStorage.setItem('bf-shoes-wishlist', JSON.stringify([...state.wishlist])); } catch {} renderProducts(); return; }
     const sizeButton = event.target.closest('[data-size-product]');
     if (sizeButton) { state.selectedSizes[sizeButton.dataset.sizeProduct] = sizeButton.dataset.sku; renderProducts(); return; }
     const addButton = event.target.closest('[data-add]');
@@ -117,7 +122,20 @@
   $('#checkout-backdrop').addEventListener('click', event => { if (event.target === $('#checkout-backdrop')) setCheckout(false); });
   $('#finish-order').addEventListener('click', () => { setSuccess(false); state.cart = []; renderCart(); renderProducts(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
   $('#success-backdrop').addEventListener('click', event => { if (event.target === $('#success-backdrop')) setSuccess(false); });
-  $$('.filter').forEach(button => button.addEventListener('click', () => { state.filter = button.dataset.filter; $$('.filter').forEach(b => b.classList.toggle('active', b === button)); renderProducts(); }));
+  $('.filter').forEach(button => button.addEventListener('click', () => { state.filter = button.dataset.filter; $('.filter').forEach(b => b.classList.toggle('active', b === button)); renderProducts(); }));
+  $('#product-search').addEventListener('input', event => { state.search = event.target.value; renderProducts(); });
+  $('#product-sort').addEventListener('change', event => { state.sort = event.target.value; renderProducts(); });
+  const countrySelect = $('#shipping-country');
+  const pinField = $('#india-pin-field');
+  const pinInput = $('#shipping-pincode');
+  countrySelect.addEventListener('change', () => {
+    const india = countrySelect.value === 'IN';
+    pinField.classList.toggle('hidden', !india);
+    pinInput.required = india;
+    if (!india) pinInput.value = '';
+    $('input[name="customer_phone"]').placeholder = india ? '+91 98765 43210' : '+971 50 000 0000';
+  });
+  $('#newsletter-form').addEventListener('submit', event => { event.preventDefault(); $('#newsletter-message').textContent = 'Thanks — newsletter signup will be enabled when email service is connected.'; event.currentTarget.reset(); toast('Signup demo complete. Email delivery is not configured yet.'); });
   document.addEventListener('keydown', event => { if (event.key === 'Escape') { setCheckout(false); setSuccess(false); setDrawer(false); } });
 
   $('#checkout-form').addEventListener('submit', async event => {
@@ -130,6 +148,8 @@
       customer_email: String(formData.get('customer_email') || '').trim(),
       customer_phone: String(formData.get('customer_phone') || '').trim(),
       shipping_address: String(formData.get('shipping_address') || '').trim(),
+      shipping_country: String(formData.get('shipping_country') || 'AE'),
+      shipping_pincode: String(formData.get('shipping_pincode') || '').trim(),
       items: state.cart.map(item => ({ sku: item.variant.sku, quantity: item.quantity }))
     };
     const body = JSON.stringify(payload);
