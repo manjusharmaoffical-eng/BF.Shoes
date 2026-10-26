@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS products (
   brand TEXT NOT NULL DEFAULT 'BF SHOES',
   image_url TEXT,
   price_cents INTEGER NOT NULL CHECK (price_cents >= 0),
-  currency CHAR(3) NOT NULL DEFAULT 'AED',
+  currency CHAR(3) NOT NULL DEFAULT 'INR',
   active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -62,8 +62,10 @@ CREATE TABLE IF NOT EXISTS orders (
   order_number BIGINT GENERATED ALWAYS AS IDENTITY UNIQUE,
   customer_name TEXT NOT NULL,
   customer_email TEXT NOT NULL,
-  currency CHAR(3) NOT NULL DEFAULT 'AED',
-  subtotal_cents INTEGER NOT NULL CHECK (subtotal_cents >= 0),\n  delivery_fee_cents INTEGER NOT NULL DEFAULT 5000 CHECK (delivery_fee_cents >= 0),\n  total_cents INTEGER NOT NULL DEFAULT 0 CHECK (total_cents >= 0),
+  currency CHAR(3) NOT NULL DEFAULT 'INR',
+  subtotal_cents INTEGER NOT NULL CHECK (subtotal_cents >= 0),
+  delivery_fee_cents INTEGER NOT NULL DEFAULT 5000 CHECK (delivery_fee_cents >= 0),
+  total_cents INTEGER NOT NULL DEFAULT 0 CHECK (total_cents >= 0),
   status TEXT NOT NULL DEFAULT 'confirmed'
     CHECK (status IN ('confirmed', 'processing', 'shipped', 'delivered', 'cancelled')),
   idempotency_key TEXT UNIQUE,
@@ -74,7 +76,9 @@ CREATE TABLE IF NOT EXISTS orders (
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS request_fingerprint TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_phone TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_address TEXT;
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT 'cod';\nALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_fee_cents INTEGER NOT NULL DEFAULT 5000 CHECK (delivery_fee_cents >= 0);\nALTER TABLE orders ADD COLUMN IF NOT EXISTS total_cents INTEGER NOT NULL DEFAULT 0 CHECK (total_cents >= 0);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT 'cod';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_fee_cents INTEGER NOT NULL DEFAULT 5000 CHECK (delivery_fee_cents >= 0);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_cents INTEGER NOT NULL DEFAULT 0 CHECK (total_cents >= 0);
 
 CREATE TABLE IF NOT EXISTS order_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -131,7 +135,7 @@ CREATE TABLE IF NOT EXISTS campaigns (
   starts_at TIMESTAMPTZ,
   ends_at TIMESTAMPTZ,
   budget_cents BIGINT NOT NULL DEFAULT 0 CHECK (budget_cents >= 0),
-  currency CHAR(3) NOT NULL DEFAULT 'AED',
+  currency CHAR(3) NOT NULL DEFAULT 'INR',
   created_by UUID REFERENCES admins(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -170,7 +174,7 @@ CREATE TABLE IF NOT EXISTS finance_expenses (
  description TEXT NOT NULL,
  amount_cents BIGINT NOT NULL CHECK (amount_cents > 0),
  expense_date DATE NOT NULL,
- currency CHAR(3) NOT NULL DEFAULT 'AED' CHECK (currency='AED'),
+ currency CHAR(3) NOT NULL DEFAULT 'INR' CHECK (currency='AED'),
  created_by UUID REFERENCES admins(id) ON DELETE SET NULL,
  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
