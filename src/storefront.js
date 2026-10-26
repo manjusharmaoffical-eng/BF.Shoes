@@ -28,7 +28,7 @@ storefrontRouter.get("/products", async (_req, res, next) => {
           'color_name', v.color_name, 'stock_qty', v.stock_qty)
           ORDER BY v.size_label) FILTER (WHERE v.id IS NOT NULL AND v.active = true), '[]') AS variants
        FROM products p LEFT JOIN variants v ON v.product_id = p.id
-       WHERE p.active = true GROUP BY p.id ORDER BY p.created_at DESC LIMIT 100`
+       WHERE p.active = true AND p.currency = 'INR' GROUP BY p.id ORDER BY p.created_at DESC LIMIT 100`
     );
     res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
     res.json({ data: result.rows });
