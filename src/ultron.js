@@ -39,10 +39,10 @@ ultronRouter.get("/status", async (_req, res, next) => {
           SELECT product_id, bool_or(stock_qty <= 5) AS low_stock
           FROM variants WHERE active = true GROUP BY product_id
         ) v ON v.product_id = p.id WHERE p.active = true`),
-      pool.query(`SELECT count(*) FILTER (WHERE status IN ('pending','processing'))::int AS open_orders,
+      pool.query(`SELECT count(*) FILTER (WHERE status IN ('confirmed','processing','shipped'))::int AS open_orders,
         count(*) FILTER (WHERE status = 'delivered' AND updated_at >= now() - interval '30 days')::int AS delivered_last_30_days
         FROM orders`),
-      pool.query(`SELECT count(*)::int AS delivered_units_missing_cost
+      pool.query(`SELECT COALESCE(sum(oi.quantity),0)::int AS delivered_units_missing_cost
         FROM order_items oi JOIN orders o ON o.id = oi.order_id
         WHERE o.status = 'delivered' AND oi.unit_cost_cents IS NULL`)
     ]);
