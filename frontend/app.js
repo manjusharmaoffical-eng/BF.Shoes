@@ -7,12 +7,12 @@
     'https://images.unsplash.com/photo-1495555961986-6d4c1ecb7be3?auto=format&fit=crop&w=900&q=80',
     'https://images.unsplash.com/photo-1460353581641-37baddab0fa2?auto=format&fit=crop&w=900&q=80'
   ];
-  const state = { products: [], cart: [], selectedSizes: {}, filter: 'all', search: '', sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null };
+  const state = { products: [], cart: [], selectedSizes: {}, filter: 'all', search: '', categories: [], colors: [], sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null };
   try { state.wishlist = new Set(JSON.parse(localStorage.getItem('bf-shoes-wishlist') || '[]').map(String)); } catch { state.wishlist = new Set(); }
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  const money = (cents, currency = 'AED') => `${currency} ${(Number(cents || 0) / 100).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const money = (cents, currency = 'INR') => `₹${(Number(cents || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;\n  const DELIVERY_FEE_PAISE = 5000;\n  const checkoutTotalCents = () => totalCents() + (state.cart.length ? DELIVERY_FEE_PAISE : 0);
   const productImage = product => {
     const candidate = typeof product.image_url === 'string' && product.image_url.startsWith('https://') ? product.image_url : '';
     return candidate || FALLBACK_IMAGES[Math.abs(hashCode(product.slug || product.name || 'bf')) % FALLBACK_IMAGES.length];
@@ -38,7 +38,7 @@
   function availableVariants(product) { return (product.variants || []).filter(v => Number(v.stock_qty) > 0); }
   function renderProducts() {
     const grid = $('#product-grid');
-    let products = state.products.filter(product => { const inStock = availableVariants(product).length > 0; const query = state.search.trim().toLowerCase(); const matchesSearch = !query || [product.name, product.brand, product.description, product.slug].some(value => String(value || '').toLowerCase().includes(query)); return (state.filter !== 'available' || inStock) && (state.filter !== 'saved' || state.wishlist.has(String(product.id))) && matchesSearch; });
+    let products = state.products.filter(product => { const inStock = availableVariants(product).length > 0; const query = state.search.trim().toLowerCase(); const matchesSearch = !query || [product.name, product.brand, product.description, product.slug].some(value => String(value || '').toLowerCase().includes(query)); const category=String(product.category || product.category_name || '').toLowerCase(); const matchesCategory=!state.categories.length || state.categories.some(value=>category.includes(value)); const productColors=(product.variants||[]).map(v=>String(v.color_name||'').toLowerCase()); const matchesColor=!state.colors.length || state.colors.some(value=>productColors.some(color=>color.includes(value))); return (state.filter !== 'available' || inStock) && (state.filter !== 'saved' || state.wishlist.has(String(product.id))) && matchesSearch && matchesCategory && matchesColor; });
     if (state.sort === 'price-low') products.sort((a,b) => Number(a.price_cents)-Number(b.price_cents)); else if (state.sort === 'price-high') products.sort((a,b) => Number(b.price_cents)-Number(a.price_cents)); else if (state.sort === 'name') products.sort((a,b) => String(a.name).localeCompare(String(b.name)));
     $('#catalog-status').textContent = state.loading ? 'Finding your next pair…' : state.products.length ? `${products.length} ${products.length === 1 ? 'style' : 'styles'} shown` : 'The catalog is connected, but no active products have been added yet.';
     const countLabel = $('#catalog-count'); if (countLabel) countLabel.textContent = state.loading ? 'Loading products…' : `Showing ${products.length} of ${state.products.length} products`;
@@ -68,8 +68,8 @@
     $('#cart-empty').classList.toggle('hidden', count > 0);
     $('#drawer-foot').classList.toggle('hidden', count === 0);
     $('#cart-items').classList.toggle('hidden', count === 0);
-    $('#cart-subtotal').textContent = money(totalCents(), state.cart[0]?.product.currency || 'AED');
-    $('#checkout-total').textContent = money(totalCents(), state.cart[0]?.product.currency || 'AED');
+    $('#cart-subtotal').textContent = money(checkoutTotalCents(), 'INR');
+    $('#checkout-total').textContent = money(checkoutTotalCents(), 'INR');
     $('#cart-items').innerHTML = state.cart.map(item => `<div class="cart-line"><img src="${escapeHtml(productImage(item.product))}" alt="" /><div><h3>${escapeHtml(item.product.name)}</h3><p>Size ${escapeHtml(item.variant.size_label)} · ${escapeHtml(item.variant.color_name || 'Classic')}</p><div class="qty-control"><button type="button" data-qty="-1" data-sku="${escapeHtml(item.variant.sku)}" aria-label="Decrease quantity">−</button><span>${item.quantity}</span><button type="button" data-qty="1" data-sku="${escapeHtml(item.variant.sku)}" aria-label="Increase quantity" ${item.quantity >= 10 ? 'disabled' : ''}>+</button></div></div><strong class="cart-line-price">${money(Number(item.product.price_cents) * item.quantity, item.product.currency)}</strong></div>`).join('');
   }
   function addToCart(product, variant) {
@@ -85,7 +85,7 @@
   }
   function setCheckout(open) {
     $('#checkout-backdrop').classList.toggle('visible', open); $('#checkout-backdrop').setAttribute('aria-hidden', String(!open)); document.body.classList.toggle('locked', open || $('#cart-drawer').classList.contains('open') || $('#success-backdrop').classList.contains('visible'));
-    if (open) { $('#checkout-error').classList.add('hidden'); $('#checkout-total').textContent = money(totalCents(), state.cart[0]?.product.currency || 'AED'); setTimeout(() => $('input[name="customer_name"]')?.focus(), 80); }
+    if (open) { $('#checkout-error').classList.add('hidden'); $('#checkout-total').textContent = money(checkoutTotalCents(), 'INR'); setTimeout(() => $('input[name="customer_name"]')?.focus(), 80); }
   }
   function setSuccess(open, order = null) {
     $('#success-backdrop').classList.toggle('visible', open); $('#success-backdrop').setAttribute('aria-hidden', String(!open));
@@ -137,8 +137,8 @@
   $('#header-wishlist')?.addEventListener('click', () => { state.filter='saved'; $$('.filter').forEach(b=>b.classList.toggle('active',b.dataset.filter==='saved')); renderProducts(); $('#shop').scrollIntoView({behavior:'smooth',block:'start'}); });
   $('#account-link')?.addEventListener('click', () => toast('Account support is coming soon. You can shop and check out as a guest.'));
   $('#price-range')?.addEventListener('input', event => { $('#price-range-value').textContent=`₹${Number(event.target.value).toLocaleString('en-IN')}`; });
-  $$('.catalog-sidebar [data-category]').forEach(input => input.addEventListener('change', () => { const checked=$$('.catalog-sidebar [data-category]:checked').map(x=>x.dataset.category); state.search=checked.length?checked.join(' '):''; $('#product-search').value=state.search; renderProducts(); }));
-  $$('.catalog-sidebar [data-color]').forEach(input => input.addEventListener('change', () => { const checked=$$('.catalog-sidebar [data-color]:checked').map(x=>x.dataset.color.toLowerCase()); state.search=checked.join(' '); $('#product-search').value=state.search; renderProducts(); }));
+  $('.catalog-sidebar [data-category]').forEach(input => input.addEventListener('change', () => { state.categories=$('.catalog-sidebar [data-category]:checked').map(x=>x.dataset.category.toLowerCase()); renderProducts(); }));
+  $('.catalog-sidebar [data-color]').forEach(input => input.addEventListener('change', () => { state.colors=$('.catalog-sidebar [data-color]:checked').map(x=>x.dataset.color.toLowerCase()); renderProducts(); }));
   $$('.view-mode').forEach(button=>button.addEventListener('click',()=>{$$('.view-mode').forEach(b=>b.classList.toggle('active',b===button));$('#product-grid').classList.toggle('list-view',button.textContent.trim()==='☷');}));
   $('#product-sort').addEventListener('change', event => { state.sort = event.target.value; renderProducts(); });
 
@@ -189,7 +189,7 @@
       customer_email: String(formData.get('customer_email') || '').trim(),
       customer_phone: String(formData.get('customer_phone') || '').trim(),
       shipping_address: String(formData.get('shipping_address') || '').trim(),
-      shipping_country: String(formData.get('shipping_country') || 'AE'),
+      shipping_country: 'IN',
       shipping_pincode: String(formData.get('shipping_pincode') || '').trim(),
       items: state.cart.map(item => ({ sku: item.variant.sku, quantity: item.quantity }))
     };
