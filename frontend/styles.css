@@ -195,3 +195,15 @@ body{background:#fff;color:#121820;font-size:13px}
  .product-sizes{flex-wrap:wrap}
  .size-option{min-width:21px;height:21px}
 }
+
+.payment-options{border:0;padding:0;margin:18px 0}
+.payment-options legend{font-weight:700;margin-bottom:10px}
+.payment-choice{display:flex;align-items:center;gap:12px;margin:8px 0;cursor:pointer}
+.payment-choice>input{accent-color:#111;flex:0 0 auto}
+.payment-copy{flex:1}
+.payment-copy strong{display:block}
+.payment-copy p{margin:4px 0 0}
+.payment-status{font-size:11px;color:#777;text-align:right;max-width:100px}
+.payment-unavailable{opacity:.62;cursor:not-allowed}
+.payment-setup-note{font-size:12px;color:#686868;line-height:1.5;margin:10px 0}
+#india-pin-field.hidden{display:none}
