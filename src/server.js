@@ -10,6 +10,7 @@ import { businessRouter } from "./business.js";
 import { newsletterRouter } from "./newsletter.js";
 import { financeRouter } from "./finance.js";
 import { aiStudioRouter } from "./ai-studio.js";
+import { ultronRouter } from "./ultron.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -62,6 +63,7 @@ app.use("/api/v1/business", businessRouter);
 app.use("/api/v1/finance", financeRouter);
 app.use("/api/v1/ai", aiStudioRouter);
 app.use("/api/v1/ai-studio", aiStudioRouter);
+app.use("/api/v1/ultron", ultronRouter);
 app.use("/api/v1", router);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 app.use(express.static(path.resolve(__dirname, "../frontend"), { index: "index.html", maxAge: process.env.NODE_ENV === "production" ? "1h" : 0 }));
