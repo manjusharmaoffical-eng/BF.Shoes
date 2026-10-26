@@ -75,6 +75,22 @@
 </fieldset><div class="checkout-summary"><div><span>Order total</span><strong id="checkout-total">₹0.00</strong></div><small>INR prices and ₹50 delivery fee apply. COD only. Delivery PIN: 500052.</small></div><p class="form-error hidden" id="checkout-error" role="alert"></p><button class="button button-dark button-full" id="place-order" type="submit">Place COD order <span>↗</span></button><p class="privacy-note">Your details are used to process and deliver this order.</p></form></section></div>
 
   <div class="success-backdrop" id="success-backdrop" aria-hidden="true"><section class="success-card" role="dialog" aria-modal="true" aria-labelledby="success-title"><div class="success-mark">✓</div><p class="eyebrow">ORDER RECEIVED</p><h2 id="success-title">That’s a good move.</h2><p>Your Cash on Delivery order has been placed.</p><div class="order-reference"><span>ORDER NUMBER</span><strong id="success-order-number">—</strong></div><p class="success-small">Keep this reference for your records. Our team will confirm delivery details with you.</p><button class="button button-dark button-full" id="finish-order">Back to the store</button></section></div>
+  <div class="modal-backdrop account-backdrop" id="account-backdrop" aria-hidden="true">
+    <section class="checkout-modal account-modal" role="dialog" aria-modal="true" aria-labelledby="account-title">
+      <div class="checkout-head"><div><p class="eyebrow">BF SHOES ACCOUNT</p><h2 id="account-title">Welcome back.</h2><p class="checkout-subtitle" id="account-intro">Sign in to your BF SHOES account.</p></div><button class="icon-button" id="account-close" type="button" aria-label="Close account dialog">×</button></div>
+      <form id="account-form" class="account-form">
+        <label class="field hidden" id="account-name-field">Full name<input id="account-name" name="name" autocomplete="name" minlength="2" maxlength="160" placeholder="Your full name"></label>
+        <label class="field">Email address<input id="account-email" name="email" type="email" autocomplete="email" required maxlength="254" placeholder="you@example.com"></label>
+        <label class="field">Password<input id="account-password" name="password" type="password" autocomplete="current-password" required minlength="12" maxlength="200" placeholder="At least 12 characters"></label>
+        <p class="account-password-hint">Use at least 12 characters, including uppercase, lowercase, and a number when creating an account.</p>
+        <p class="form-error hidden" id="account-message" role="status" aria-live="polite"></p>
+        <button class="button button-dark button-full" id="account-submit" type="submit">Sign in</button>
+        <button class="account-switch" id="account-switch" type="button">New to BF SHOES? Create an account</button>
+      </form>
+      <div id="account-profile" class="hidden account-profile"><div class="account-avatar">BF</div><h3 id="account-profile-name"></h3><p id="account-profile-email"></p><p class="account-profile-note">Customer account created. Keep your account details private on shared devices.</p><button class="button button-dark button-full" id="account-signout" type="button">Sign out</button></div>
+    </section>
+  </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script defer src="/customer-auth.js"></script>
 </body>
 </html>
