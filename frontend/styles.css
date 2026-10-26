@@ -314,7 +314,7 @@ body{background:#fff;color:#121820;font-size:13px}
 /* Compact mobile/tablet filters: keep category, brand and colour off the homepage flow */
 .catalog-actions{display:flex;align-items:center;gap:8px}
 .mobile-filter-trigger,.mobile-filter-heading{display:none}
-@media(max-width:780px){
+@media(max-width:1024px){
  .catalog-layout{position:relative}
  .mobile-filter-trigger{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:30px;padding:0 11px;border:1px solid #d9dde2;border-radius:5px;background:#fff;color:#111;font-size:11px;font-weight:600;white-space:nowrap}
  .catalog-layout .catalog-sidebar{display:block;position:fixed;z-index:61;left:0;top:0;bottom:0;width:min(86vw,340px);max-width:340px;overflow-y:auto;overscroll-behavior:contain;padding:18px 16px 28px;background:#fff;border:0;border-radius:0 10px 10px 0;box-shadow:12px 0 36px #0002;transform:translateX(-110%);visibility:hidden;transition:transform .22s ease,visibility .22s ease;grid-template-columns:none}
