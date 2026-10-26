@@ -118,8 +118,8 @@ storefrontRouter.post("/orders", async (req, res, next) => {
 
     const inserted = await client.query(
       `INSERT INTO orders(customer_name, customer_email, customer_phone, shipping_address, payment_method,
-         currency, subtotal_cents, idempotency_key, request_fingerprint)
-       VALUES($1,$2,$3,$4,'cod',$5,$6,$7,$8) RETURNING order_number, status, subtotal_cents, currency, created_at`,
+         currency, subtotal_cents, delivery_fee_cents, total_cents, idempotency_key, request_fingerprint)
+       VALUES($1,$2,$3,$4,'cod',$5,$6,5000,$6+5000,$7,$8) RETURNING order_number, status, subtotal_cents, delivery_fee_cents, total_cents, currency, created_at`,
       [d.customer_name, d.customer_email.toLowerCase(), d.customer_phone, `${d.shipping_address}${d.shipping_country === "IN" ? `, India PIN: ${d.shipping_pincode}` : ""}`, currency, subtotal, idempotencyKey, requestFingerprint]
     );
     const order = inserted.rows[0];
