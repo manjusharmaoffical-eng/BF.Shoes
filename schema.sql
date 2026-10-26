@@ -215,3 +215,35 @@ CREATE TABLE IF NOT EXISTS product_images (
  UNIQUE(product_id, image_url)
 );
 CREATE INDEX IF NOT EXISTS product_images_product_idx ON product_images(product_id, sort_order, created_at);
+
+
+-- India GST and UAE VAT invoice profiles. Rates are configured by the owner.
+CREATE TABLE IF NOT EXISTS tax_profiles (
+ id UUID PRIMARY KEY DEFAULT gen_random_uuid(), jurisdiction TEXT NOT NULL CHECK (jurisdiction IN ('IN_GST','AE_VAT')),
+ profile_name TEXT NOT NULL, seller_name TEXT NOT NULL, seller_address TEXT NOT NULL, registration_number TEXT NOT NULL DEFAULT '',
+ seller_state TEXT NOT NULL DEFAULT '', currency CHAR(3) NOT NULL CHECK (currency IN ('INR','AED')),
+ tax_rate_bps INTEGER NOT NULL CHECK (tax_rate_bps BETWEEN 0 AND 10000), active BOOLEAN NOT NULL DEFAULT TRUE,
+ created_by UUID REFERENCES admins(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+ updated_at TIMESTAMPTZ NOT NULL DEFAULT now(), UNIQUE(jurisdiction, profile_name)
+);
+CREATE TABLE IF NOT EXISTS tax_invoices (
+ id UUID PRIMARY KEY DEFAULT gen_random_uuid(), order_id UUID NOT NULL REFERENCES orders(id) ON DELETE RESTRICT,
+ profile_id UUID NOT NULL REFERENCES tax_profiles(id) ON DELETE RESTRICT, invoice_number TEXT NOT NULL UNIQUE,
+ jurisdiction TEXT NOT NULL CHECK (jurisdiction IN ('IN_GST','AE_VAT')), currency CHAR(3) NOT NULL,
+ invoice_date DATE NOT NULL DEFAULT CURRENT_DATE, seller_snapshot JSONB NOT NULL, buyer_snapshot JSONB NOT NULL, lines JSONB NOT NULL,
+ subtotal_cents BIGINT NOT NULL CHECK (subtotal_cents >= 0), discount_cents BIGINT NOT NULL DEFAULT 0 CHECK (discount_cents >= 0),
+ tax_rate_bps INTEGER NOT NULL CHECK (tax_rate_bps BETWEEN 0 AND 10000), cgst_cents BIGINT NOT NULL DEFAULT 0 CHECK (cgst_cents >= 0),
+ sgst_cents BIGINT NOT NULL DEFAULT 0 CHECK (sgst_cents >= 0), igst_cents BIGINT NOT NULL DEFAULT 0 CHECK (igst_cents >= 0),
+ vat_cents BIGINT NOT NULL DEFAULT 0 CHECK (vat_cents >= 0), total_cents BIGINT NOT NULL CHECK (total_cents >= 0),
+ place_of_supply TEXT NOT NULL DEFAULT '', tax_treatment TEXT NOT NULL CHECK (tax_treatment IN ('INTRA_STATE','INTER_STATE','UAE_VAT','ZERO_RATED','EXEMPT')),
+ status TEXT NOT NULL DEFAULT 'issued' CHECK (status IN ('issued','void','credited')),
+ created_by UUID REFERENCES admins(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+ UNIQUE(order_id, profile_id)
+);
+CREATE INDEX IF NOT EXISTS tax_invoices_date_idx ON tax_invoices(invoice_date DESC);
+CREATE INDEX IF NOT EXISTS tax_invoices_jurisdiction_date_idx ON tax_invoices(jurisdiction, invoice_date DESC);
+CREATE TABLE IF NOT EXISTS tax_credit_notes (
+ id UUID PRIMARY KEY DEFAULT gen_random_uuid(), invoice_id UUID NOT NULL REFERENCES tax_invoices(id) ON DELETE RESTRICT,
+ credit_note_number TEXT NOT NULL UNIQUE, reason TEXT NOT NULL, amount_cents BIGINT NOT NULL CHECK (amount_cents > 0),
+ tax_cents BIGINT NOT NULL CHECK (tax_cents >= 0), created_by UUID REFERENCES admins(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
