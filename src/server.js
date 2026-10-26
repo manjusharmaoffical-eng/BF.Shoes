@@ -23,10 +23,16 @@ if (!Number.isInteger(trustProxyHops) || trustProxyHops < 0 || trustProxyHops > 
 }
 app.set("trust proxy", trustProxyHops);
 app.use(helmet());
-const allowedOrigins = (process.env.ADMIN_ORIGIN || "").split(",").map(s => s.trim()).filter(Boolean);
+const configuredOrigins = (process.env.ADMIN_ORIGIN || "").split(",").map(s => s.trim()).filter(Boolean);
+// Vercel assigns a unique hostname to each preview deployment. Add only this
+// deployment's exact Vercel and branch hostnames; never allow a broad *.vercel.app wildcard.
+const vercelOrigins = [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL]
+  .filter(Boolean)
+  .map(value => /^https?:\/\//i.test(value) ? new URL(value).origin : `https://${value}`);
+const allowedOrigins = new Set([...configuredOrigins, ...vercelOrigins]);
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    if (!origin || allowedOrigins.has(origin)) return callback(null, true);
     return callback(new Error("Origin not allowed by CORS"));
   },
   methods: ["GET", "POST", "PATCH", "OPTIONS"],
