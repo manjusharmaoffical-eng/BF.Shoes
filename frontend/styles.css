@@ -309,3 +309,23 @@ body{background:#fff;color:#121820;font-size:13px}
  .footer-top{gap:16px;flex-wrap:wrap}
  .footer-bottom{font-size:9px}
 }
+
+
+/* Compact mobile/tablet filters: keep category, brand and colour off the homepage flow */
+.catalog-actions{display:flex;align-items:center;gap:8px}
+.mobile-filter-trigger,.mobile-filter-heading{display:none}
+@media(max-width:780px){
+ .catalog-layout{position:relative}
+ .mobile-filter-trigger{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:30px;padding:0 11px;border:1px solid #d9dde2;border-radius:5px;background:#fff;color:#111;font-size:11px;font-weight:600;white-space:nowrap}
+ .catalog-layout .catalog-sidebar{display:block;position:fixed;z-index:61;left:0;top:0;bottom:0;width:min(86vw,340px);max-width:340px;overflow-y:auto;overscroll-behavior:contain;padding:18px 16px 28px;background:#fff;border:0;border-radius:0 10px 10px 0;box-shadow:12px 0 36px #0002;transform:translateX(-110%);visibility:hidden;transition:transform .22s ease,visibility .22s ease;grid-template-columns:none}
+ .catalog-layout.filters-open .catalog-sidebar{transform:translateX(0);visibility:visible}
+ .catalog-layout.filters-open:before{content:"";position:fixed;inset:0;z-index:60;background:#0b0d10a6}
+ .mobile-filter-heading{display:flex;align-items:center;justify-content:space-between;padding:4px 0 16px;margin-bottom:8px;border-bottom:1px solid #e4e6e9;font-size:15px}
+ .mobile-filter-heading button{width:32px;height:32px;border:1px solid #e2e5e9;border-radius:50%;background:#fff;font-size:23px;line-height:1}
+ .catalog-sidebar .catalog-search{display:flex;width:100%;grid-column:auto}
+ .catalog-sidebar details{display:block}
+ .catalog-sidebar details label{font-size:12px}
+ body.filters-locked{overflow:hidden}
+ .catalog-results-bar{align-items:center;flex-wrap:wrap}
+}
+@media(prefers-reduced-motion:reduce){.catalog-layout .catalog-sidebar{transition:none}}
