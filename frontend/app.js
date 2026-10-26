@@ -20,7 +20,15 @@
   function hashCode(value) { let hash = 0; for (let i = 0; i < value.length; i++) hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0; return hash; }
   function toast(message) { const el = $('#toast'); el.textContent = message; el.classList.add('show'); clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.remove('show'), 2600); }
   async function request(url, options = {}) {
-    const response = await fetch(url, { ...options, headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) } });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 9000);
+    let response;
+    try {
+      response = await fetch(url, { ...options, signal: controller.signal, headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) } });
+    } catch (error) {
+      if (error.name === 'AbortError') throw new Error('The product service took too long to respond. Please refresh in a moment.');
+      throw new Error('Could not connect to the BF SHOES product service. Please try again shortly.');
+    } finally { clearTimeout(timeout); }
     const data = await response.json().catch(() => ({}));
     if (!response.ok) { const error = new Error(data.error || 'Something went wrong. Please try again.'); error.status = response.status; throw error; }
     return data;
@@ -180,8 +188,10 @@
       $('#catalog-status').textContent = state.products.length ? '' : 'The catalog is connected, but no active products have been added yet.';
     } catch (error) {
       $('#catalog-status').textContent = '';
+      $('#catalog-count').textContent = 'Collection temporarily unavailable';
       $('#empty-state').classList.remove('hidden');
-      $('#empty-state').innerHTML = `<p class="eyebrow">CONNECTION NEEDED</p><h3>We couldn’t reach the collection.</h3><p>${escapeHtml(error.message)} Check that the BF SHOES API is running and its database is configured.</p>`;
+      $('#empty-state').innerHTML = `<p class="eyebrow">CONNECTION NEEDED</p><h3>We’re preparing your collection.</h3><p>${escapeHtml(error.message)} Please refresh shortly. We won’t show fake products or incorrect prices.</p><button class="button button-dark" type="button" id="retry-products">Try again ↻</button>`;
+      $('#retry-products')?.addEventListener('click', loadProducts, { once: true });
     } finally { state.loading = false; renderProducts(); }
   }
   async function loadActiveCampaigns() {
