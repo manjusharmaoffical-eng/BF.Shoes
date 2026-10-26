@@ -131,15 +131,15 @@
   $('#checkout-backdrop').addEventListener('click', event => { if (event.target === $('#checkout-backdrop')) setCheckout(false); });
   $('#finish-order').addEventListener('click', () => { setSuccess(false); state.cart = []; renderCart(); renderProducts(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
   $('#success-backdrop').addEventListener('click', event => { if (event.target === $('#success-backdrop')) setSuccess(false); });
-  $('.filter').forEach(button => button.addEventListener('click', () => { state.filter = button.dataset.filter; $('.filter').forEach(b => b.classList.toggle('active', b === button)); renderProducts(); }));
+  $$('.filter').forEach(button => button.addEventListener('click', () => { state.filter = button.dataset.filter; $$('.filter').forEach(b => b.classList.toggle('active', b === button)); renderProducts(); }));
   $('#product-search').addEventListener('input', event => { state.search = event.target.value; const headerSearch=$('#header-product-search'); if(headerSearch) headerSearch.value=event.target.value; renderProducts(); });
   $('#header-product-search')?.addEventListener('input', event => { $('#product-search').value=event.target.value; state.search=event.target.value; renderProducts(); if(event.target.value) $('#shop').scrollIntoView({behavior:'smooth',block:'start'}); });
-  $('#header-wishlist')?.addEventListener('click', () => { state.filter='saved'; $('.filter').forEach(b=>b.classList.toggle('active',b.dataset.filter==='saved')); renderProducts(); $('#shop').scrollIntoView({behavior:'smooth',block:'start'}); });
+  $('#header-wishlist')?.addEventListener('click', () => { state.filter='saved'; $$('.filter').forEach(b=>b.classList.toggle('active',b.dataset.filter==='saved')); renderProducts(); $('#shop').scrollIntoView({behavior:'smooth',block:'start'}); });
   $('#account-link')?.addEventListener('click', () => toast('Account support is coming soon. You can shop and check out as a guest.'));
   $('#price-range')?.addEventListener('input', event => { $('#price-range-value').textContent=`₹${Number(event.target.value).toLocaleString('en-IN')}`; });
-  $('.catalog-sidebar [data-category]').forEach(input => input.addEventListener('change', () => { const checked=$('.catalog-sidebar [data-category]:checked').map(x=>x.dataset.category); state.search=checked.length?checked.join(' '):''; $('#product-search').value=state.search; renderProducts(); }));
-  $('.catalog-sidebar [data-color]').forEach(input => input.addEventListener('change', () => { const checked=$('.catalog-sidebar [data-color]:checked').map(x=>x.dataset.color.toLowerCase()); state.search=checked.join(' '); $('#product-search').value=state.search; renderProducts(); }));
-  $('.view-mode').forEach(button=>button.addEventListener('click',()=>{$('.view-mode').forEach(b=>b.classList.toggle('active',b===button));$('#product-grid').classList.toggle('list-view',button.textContent.trim()==='☷');}));
+  $$('.catalog-sidebar [data-category]').forEach(input => input.addEventListener('change', () => { const checked=$$('.catalog-sidebar [data-category]:checked').map(x=>x.dataset.category); state.search=checked.length?checked.join(' '):''; $('#product-search').value=state.search; renderProducts(); }));
+  $$('.catalog-sidebar [data-color]').forEach(input => input.addEventListener('change', () => { const checked=$$('.catalog-sidebar [data-color]:checked').map(x=>x.dataset.color.toLowerCase()); state.search=checked.join(' '); $('#product-search').value=state.search; renderProducts(); }));
+  $$('.view-mode').forEach(button=>button.addEventListener('click',()=>{$$('.view-mode').forEach(b=>b.classList.toggle('active',b===button));$('#product-grid').classList.toggle('list-view',button.textContent.trim()==='☷');}));
   $('#product-sort').addEventListener('change', event => { state.sort = event.target.value; renderProducts(); });
   const countrySelect = $('#shipping-country');
   if (countrySelect) {
