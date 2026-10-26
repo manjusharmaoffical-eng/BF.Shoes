@@ -12,7 +12,9 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  const money = (cents, currency = 'INR') => `₹${(Number(cents || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;\n  const DELIVERY_FEE_PAISE = 5000;\n  const checkoutTotalCents = () => totalCents() + (state.cart.length ? DELIVERY_FEE_PAISE : 0);
+  const money = (cents, currency = 'INR') => `₹${(Number(cents || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const DELIVERY_FEE_PAISE = 5000;
+  const checkoutTotalCents = () => totalCents() + (state.cart.length ? DELIVERY_FEE_PAISE : 0);
   const productImage = product => {
     const candidate = typeof product.image_url === 'string' && product.image_url.startsWith('https://') ? product.image_url : '';
     return candidate || FALLBACK_IMAGES[Math.abs(hashCode(product.slug || product.name || 'bf')) % FALLBACK_IMAGES.length];
