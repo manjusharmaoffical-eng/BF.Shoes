@@ -39,7 +39,7 @@ storefrontRouter.get("/products", async (_req, res, next) => {
 storefrontRouter.get("/orders/track", async (req, res, next) => {
   const orderNumber = String(req.query.order_number || "").trim();
   const email = String(req.query.email || "").trim().toLowerCase();
-  if (!/^\\d{1,18}$/.test(orderNumber) || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || email.length > 254) {
+  if (!/^\d{1,18}$/.test(orderNumber) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
     return res.status(400).json({ error: "Enter a valid order number and checkout email" });
   }
   try {

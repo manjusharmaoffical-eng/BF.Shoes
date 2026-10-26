@@ -180,7 +180,7 @@
     try {
       const response = await request('/api/v1/store/campaigns/active');
       const campaigns = Array.isArray(response.data) ? response.data : [];
-      const banner = $('#campaign-banner');
+      const banner = $('#campaign-strip');
       if (!banner || !campaigns.length) return;
       const campaign = campaigns[0];
       const link = document.createElement('a');

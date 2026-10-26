@@ -19,7 +19,7 @@ financeRouter.get("/summary",async(req,res,next)=>{const parsed=dateQuery.safePa
    COALESCE(sum(oi.units_missing_cost),0)::int AS units_missing_cost,
    COALESCE(sum(oi.units_sold),0)::int AS units_sold,
    COALESCE(sum(oi.cogs_cents),0)::bigint AS cogs_cents
-   FROM orders o LEFT JOIN (SELECT order_id, sum(quantity)::int AS units_sold, sum(quantity) FILTER (WHERE unit_cost_cents IS NULL)::int AS units_missing_cost, sum(quantity*unit_cost_cents) FILTER (WHERE unit_cost_cents IS NOT NULL)::bigint AS cogs_cents FROM order_items GROUP BY order_id) oi ON oi.order_id=o.id
+   FROM orders o LEFT JOIN (SELECT order_id, sum(quantity)::int AS units_sold, sum(quantity) FILTER (WHERE unit_cost_cents IS NULL)::int AS units_missing_cost, sum(quantity::bigint*unit_cost_cents::bigint) FILTER (WHERE unit_cost_cents IS NOT NULL)::bigint AS cogs_cents FROM order_items GROUP BY order_id) oi ON oi.order_id=o.id
    WHERE o.status='delivered' AND ($1::date IS NULL OR o.updated_at::date >= $1) AND ($2::date IS NULL OR o.updated_at::date <= $2)`,[from,to]),
   pool.query("SELECT COALESCE(sum(amount_cents),0)::bigint AS total_cents FROM finance_expenses WHERE ($1::date IS NULL OR expense_date >= $1) AND ($2::date IS NULL OR expense_date <= $2)",[from,to]),
   pool.query("SELECT category,COALESCE(sum(amount_cents),0)::bigint AS amount_cents FROM finance_expenses WHERE ($1::date IS NULL OR expense_date >= $1) AND ($2::date IS NULL OR expense_date <= $2) GROUP BY category ORDER BY category",[from,to]),
