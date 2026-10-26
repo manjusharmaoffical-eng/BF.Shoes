@@ -174,7 +174,7 @@ CREATE TABLE IF NOT EXISTS finance_expenses (
  description TEXT NOT NULL,
  amount_cents BIGINT NOT NULL CHECK (amount_cents > 0),
  expense_date DATE NOT NULL,
- currency CHAR(3) NOT NULL DEFAULT 'INR' CHECK (currency='AED'),
+ currency CHAR(3) NOT NULL DEFAULT 'INR' CHECK (currency='INR'),
  created_by UUID REFERENCES admins(id) ON DELETE SET NULL,
  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
