@@ -11,7 +11,7 @@ const checkoutSchema = z.object({
   customer_email: z.string().trim().email().max(254),
   customer_phone: z.string().trim().min(7).max(30).regex(/^[+()0-9 .-]+$/),
   shipping_address: z.string().trim().min(10).max(1000),
-  shipping_country: z.enum(["AE"]).default("AE"),
+  shipping_country: z.literal("IN").default("IN"),
   shipping_pincode: z.string().trim().optional().default(""),
   items: z.array(z.object({ sku: z.string().trim().min(2).max(80), quantity: z.number().int().min(1).max(10) })).min(1).max(20)
 }).strict();
@@ -66,7 +66,7 @@ storefrontRouter.post("/orders", async (req, res, next) => {
     return res.status(400).json({ error: "A valid Idempotency-Key is required" });
   }
   const d = parsed.data;
-  if (d.shipping_country === "IN") {
+  if (d.shipping_country !== "IN") return res.status(400).json({ error: "BF SHOES currently delivers in India only." });\n  if (d.shipping_pincode !== "500052") return res.status(400).json({ error: "BF SHOES currently delivers only to PIN code 500052." });\n  if (d.shipping_country === "IN") {
     const pin = d.shipping_pincode;
     if (!/^[1-9][0-9]{5}$/.test(pin)) return res.status(400).json({ error: "Enter a valid six-digit Indian PIN code" });
     const allowedPins = new Set((process.env.INDIA_DELIVERY_PINCODES || "500052").split(",").map(value => value.trim()).filter(Boolean));
