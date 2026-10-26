@@ -106,6 +106,7 @@ businessRouter.patch("/campaigns/:id", requireScope("campaigns:write"), async (r
   try {
     const result = await pool.query("UPDATE campaigns SET " + sets.join(", ") + ", updated_at=now() WHERE id=$" + values.length + " RETURNING *", values);
     if (!result.rowCount) return res.status(404).json({ error: "Campaign not found" });
+    await pool.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES($1,$2,'campaign.update','campaign',$3)", [req.actor.type,req.actor.id,result.rows[0].id]);
     res.json({ data: result.rows[0] });
   } catch (err) { next(err); }
 });
