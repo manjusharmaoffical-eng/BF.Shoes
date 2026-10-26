@@ -141,6 +141,27 @@
   $$('.catalog-sidebar [data-color]').forEach(input => input.addEventListener('change', () => { const checked=$$('.catalog-sidebar [data-color]:checked').map(x=>x.dataset.color.toLowerCase()); state.search=checked.join(' '); $('#product-search').value=state.search; renderProducts(); }));
   $$('.view-mode').forEach(button=>button.addEventListener('click',()=>{$$('.view-mode').forEach(b=>b.classList.toggle('active',b===button));$('#product-grid').classList.toggle('list-view',button.textContent.trim()==='☷');}));
   $('#product-sort').addEventListener('change', event => { state.sort = event.target.value; renderProducts(); });
+
+  // Keep the catalog filter controls in a slide-out panel on smaller screens.
+  const catalogLayout = $('.catalog-layout');
+  const mobileFilterTrigger = $('#mobile-filter-trigger');
+  const closeMobileFilters = $('#close-mobile-filters');
+  function setMobileFilters(open) {
+    if (!catalogLayout || !mobileFilterTrigger) return;
+    catalogLayout.classList.toggle('filters-open', open);
+    mobileFilterTrigger.setAttribute('aria-expanded', String(open));
+    document.body.classList.toggle('filters-locked', open);
+  }
+  mobileFilterTrigger?.addEventListener('click', () => setMobileFilters(!catalogLayout.classList.contains('filters-open')));
+  closeMobileFilters?.addEventListener('click', () => setMobileFilters(false));
+  catalogLayout?.addEventListener('click', event => {
+    if (catalogLayout.classList.contains('filters-open') && event.target === catalogLayout) setMobileFilters(false);
+  });
+  $('.catalog-sidebar input').forEach(input => input.addEventListener('change', () => {
+    if (window.matchMedia('(max-width: 780px)').matches && input.type === 'checkbox') setMobileFilters(false);
+  }));
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') setMobileFilters(false); });
+
   const countrySelect = $('#shipping-country');
   if (countrySelect) {
     countrySelect.addEventListener('change', () => {
