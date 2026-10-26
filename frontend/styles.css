@@ -34,3 +34,6 @@
 .newsletter-form button{border:0;background:transparent;font-size:11px;font-weight:700;cursor:pointer;padding:0 5px 0 20px}
 .newsletter-form small{display:block;color:var(--muted);font-size:9px;line-height:1.6;margin-top:10px}
 @media(max-width:620px){.catalog-tools{align-items:flex-start;flex-direction:column;gap:10px}.catalog-search{width:100%}.sort-label{width:100%;justify-content:space-between}.sort-label select{max-width:none}.newsletter{grid-template-columns:1fr;gap:18px;padding-top:52px;padding-bottom:52px}}
+
+/* Live campaign banners from approved active storefront campaigns. */
+.campaign-strip{margin:0 auto;padding:14px 20px;background:#111;color:#fff;text-align:center;display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap}.campaign-strip a{color:inherit;text-decoration:underline;text-underline-offset:3px}.campaign-strip img{max-height:58px;max-width:100px;object-fit:cover}.campaign-strip.hidden{display:none}

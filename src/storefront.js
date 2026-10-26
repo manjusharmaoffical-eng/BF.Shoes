@@ -16,10 +16,14 @@ const checkoutSchema = z.object({
   items: z.array(z.object({ sku: z.string().trim().min(2).max(80), quantity: z.number().int().min(1).max(10) })).min(1).max(20)
 }).strict();
 
+storefrontRouter.get("/campaigns/active", async (_req,res,next) => {
+ try { const result=await pool.query(`SELECT id,name,headline,image_url,target_url,coupon_code,discount_percent FROM campaigns WHERE status='active' AND kind='banner' AND (starts_at IS NULL OR starts_at<=now()) AND (ends_at IS NULL OR ends_at>now()) ORDER BY updated_at DESC LIMIT 5`);res.set("Cache-Control","public, max-age=30, stale-while-revalidate=60");res.json({data:result.rows}) } catch(err){next(err)}
+});
+
 storefrontRouter.get("/products", async (_req, res, next) => {
   try {
     const result = await pool.query(
-      `SELECT p.id, p.name, p.slug, p.description, p.brand, p.price_cents, p.currency, p.image_url,
+      `SELECT p.id, p.name, p.slug, p.description, p.short_description, p.seo_title, p.seo_description, p.brand, p.price_cents, p.currency, p.image_url,
         COALESCE(json_agg(json_build_object('id', v.id, 'sku', v.sku, 'size_label', v.size_label,
           'color_name', v.color_name, 'stock_qty', v.stock_qty)
           ORDER BY v.size_label) FILTER (WHERE v.id IS NOT NULL AND v.active = true), '[]') AS variants
@@ -94,7 +98,7 @@ storefrontRouter.post("/orders", async (req, res, next) => {
     const skus = [...quantities.keys()].sort();
     const found = await client.query(
       `SELECT v.id AS variant_id, v.sku, v.size_label, v.color_name, v.stock_qty,
-              v.active AS variant_active, p.name AS product_name, p.price_cents, p.currency, p.active AS product_active
+              v.active AS variant_active, p.name AS product_name, p.price_cents, p.unit_cost_cents, p.currency, p.active AS product_active
        FROM variants v JOIN products p ON p.id=v.product_id
        WHERE v.sku = ANY($1::text[]) ORDER BY v.sku FOR UPDATE OF v`, [skus]
     );
@@ -124,9 +128,9 @@ storefrontRouter.post("/orders", async (req, res, next) => {
       const v = bySku.get(sku);
       await client.query("UPDATE variants SET stock_qty=stock_qty-$1, updated_at=now() WHERE id=$2", [qty, v.variant_id]);
       await client.query(
-        `INSERT INTO order_items(order_id, variant_id, sku, product_name, size_label, color_name, unit_price_cents, quantity, line_total_cents)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-        [orderId, v.variant_id, sku, v.product_name, v.size_label, v.color_name, v.price_cents, qty, Number(v.price_cents) * qty]
+        `INSERT INTO order_items(order_id, variant_id, sku, product_name, size_label, color_name, unit_price_cents, quantity, line_total_cents, unit_cost_cents)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [orderId, v.variant_id, sku, v.product_name, v.size_label, v.color_name, v.price_cents, qty, Number(v.price_cents) * qty, v.unit_cost_cents ?? null]
       );
       await client.query("INSERT INTO inventory_movements(variant_id, delta, reason, reference_order_id) VALUES($1,$2,$3,$4)", [v.variant_id, -qty, "storefront_cod_order", orderId]);
     }
