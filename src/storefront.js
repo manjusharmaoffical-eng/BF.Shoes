@@ -24,6 +24,7 @@ storefrontRouter.get("/products", async (_req, res, next) => {
   try {
     const result = await pool.query(
       `SELECT p.id, p.name, p.slug, p.description, p.short_description, p.seo_title, p.seo_description, p.brand, p.price_cents, p.currency, p.image_url,
+        COALESCE((SELECT json_agg(json_build_object('id', pi.id, 'image_url', pi.image_url, 'alt_text', pi.alt_text) ORDER BY pi.sort_order, pi.created_at) FROM product_images pi WHERE pi.product_id=p.id), '[]') AS image_gallery,
         COALESCE(json_agg(json_build_object('id', v.id, 'sku', v.sku, 'size_label', v.size_label,
           'color_name', v.color_name, 'stock_qty', v.stock_qty)
           ORDER BY v.size_label) FILTER (WHERE v.id IS NOT NULL AND v.active = true), '[]') AS variants

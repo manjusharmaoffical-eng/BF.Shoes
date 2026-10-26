@@ -103,11 +103,16 @@ aiStudioRouter.post("/save-image", async (req, res, next) => {
   let image;
   try { image = new URL(parsed.data.image_url); } catch { return res.status(400).json({ error: "Invalid image URL" }); }
   if (!cloud || image.hostname !== "res.cloudinary.com" || !image.pathname.startsWith(`/${cloud}/image/upload/`)) return res.status(400).json({ error: "Image URL does not match the configured media account" });
+  const client = await pool.connect();
   try {
-    const result = await pool.query("UPDATE products SET image_url=$1,updated_at=now() WHERE id=$2 RETURNING id,name,image_url,updated_at", [parsed.data.image_url, parsed.data.product_id]);
-    if (!result.rowCount) return res.status(404).json({ error: "Product not found" });
-    await pool.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES('admin',$1,'product.ai_image_saved','product',$2)", [req.actor.id, result.rows[0].id]);
+    await client.query("BEGIN");
+    const result = await client.query("UPDATE products SET image_url=$1,updated_at=now() WHERE id=$2 RETURNING id,name,image_url,updated_at", [parsed.data.image_url, parsed.data.product_id]);
+    if (!result.rowCount) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Product not found" }); }
+    await client.query("INSERT INTO product_images(product_id,image_url,alt_text,sort_order,created_by) VALUES($1,$2,$3,COALESCE((SELECT max(sort_order)+1 FROM product_images WHERE product_id=$1),0),$4) ON CONFLICT(product_id,image_url) DO NOTHING", [result.rows[0].id, parsed.data.image_url, `${result.rows[0].name} product image`, req.actor.id]);
+    await client.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES('admin',$1,'product.ai_image_saved','product',$2)", [req.actor.id, result.rows[0].id]);
+    await client.query("COMMIT");
     res.set("Cache-Control", "no-store");
-    res.json({ data: result.rows[0], note: "Product image updated." });
-  } catch (err) { next(err); }
+    res.json({ data: result.rows[0], note: "Product image saved to the product gallery and set as the primary image." });
+  } catch (err) { await client.query("ROLLBACK").catch(() => {}); next(err); }
+  finally { client.release(); }
 });

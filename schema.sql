@@ -201,3 +201,17 @@ CREATE TABLE IF NOT EXISTS finance_repayments (
  CHECK (principal_cents + interest_cents = amount_cents)
 );
 CREATE INDEX IF NOT EXISTS finance_repayments_funding_idx ON finance_repayments(funding_id, paid_date DESC);
+
+
+-- Product image gallery for AI-generated and manually curated product media.
+CREATE TABLE IF NOT EXISTS product_images (
+ id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+ product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+ image_url TEXT NOT NULL CHECK (image_url LIKE 'https://%'),
+ alt_text TEXT NOT NULL DEFAULT '',
+ sort_order INTEGER NOT NULL DEFAULT 0 CHECK (sort_order >= 0),
+ created_by UUID REFERENCES admins(id) ON DELETE SET NULL,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+ UNIQUE(product_id, image_url)
+);
+CREATE INDEX IF NOT EXISTS product_images_product_idx ON product_images(product_id, sort_order, created_at);
