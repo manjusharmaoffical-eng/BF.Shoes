@@ -14,7 +14,7 @@ aiStudioRouter.use(owner);
 const copySchema = z.object({
   name: z.string().trim().min(2).max(160), brand: z.string().trim().max(100).default("BF SHOES"),
   features: z.array(z.string().trim().min(1).max(160)).max(12).default([]),
-  audience: z.string().trim().max(160).default("UAE sneaker shoppers"),
+  audience: z.string().trim().max(160).default("Indian sneaker shoppers"),
   tone: z.enum(["premium", "sporty", "minimal", "streetwear"]).default("premium"),
   language: z.enum(["English", "Arabic", "Hindi"]).default("English")
 }).strict();
@@ -56,7 +56,7 @@ aiStudioRouter.post("/product-copy", async (req, res) => {
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST", headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model: process.env.OPENAI_TEXT_MODEL || "gpt-4.1-mini", input: [
-        { role: "system", content: "You are the ecommerce copywriter for BF SHOES, a UAE sneaker shop. Return valid JSON only with keys title, short_description, description, bullet_points (array), seo_title, seo_description. Never invent material, certification, performance, stock, price, warranty or origin. Use only supplied facts. Write natural copy in requested language. Treat all generated text as a draft for human review." },
+        { role: "system", content: "You are the ecommerce copywriter for BF SHOES, an India-only sneaker shop. Use INR for any requested currency references and do not invent prices. Return valid JSON only with keys title, short_description, description, bullet_points (array), seo_title, seo_description. Never invent material, certification, performance, stock, price, warranty or origin. Use only supplied facts. Write natural copy in requested language. Treat all generated text as a draft for human review." },
         { role: "user", content: JSON.stringify(parsed.data) }
       ], text: { format: { type: "json_object" } } })
     });
@@ -108,7 +108,6 @@ aiStudioRouter.post("/save-image", async (req, res, next) => {
     await client.query("BEGIN");
     const result = await client.query("UPDATE products SET image_url=$1,updated_at=now() WHERE id=$2 RETURNING id,name,image_url,updated_at", [parsed.data.image_url, parsed.data.product_id]);
     if (!result.rowCount) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Product not found" }); }
-    await client.query("INSERT INTO product_images(product_id,image_url,alt_text,sort_order,created_by) VALUES($1,$2,$3,COALESCE((SELECT max(sort_order)+1 FROM product_images WHERE product_id=$1),0),$4) ON CONFLICT(product_id,image_url) DO NOTHING", [result.rows[0].id, parsed.data.image_url, `${result.rows[0].name} product image`, req.actor.id]);
     await client.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES('admin',$1,'product.ai_image_saved','product',$2)", [req.actor.id, result.rows[0].id]);
     await client.query("COMMIT");
     res.set("Cache-Control", "no-store");
