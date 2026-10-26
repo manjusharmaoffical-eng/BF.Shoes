@@ -145,3 +145,53 @@ body{background:#fff;color:#121820;font-size:13px}
 .wordmark-footer .bf-logo-copy{font-size:18px;letter-spacing:-.03em}
 @media(max-width:780px){.hero-product{opacity:.96;transform:scale(1.1)}.hero-photo{background-position:58% center}.bf-logo-copy{font-size:17px}}
 @media(max-width:430px){.bf-logo-mark{font-size:25px}.bf-logo-copy{font-size:14px}.wordmark-footer .bf-logo-copy{font-size:15px}}
+
+/* Final visual polish: closer to the supplied BF reference */
+.site-header{min-height:70px}
+.wordmark{min-width:165px}
+.bf-logo-mark{font-weight:900;transform:skew(-8deg);letter-spacing:-.14em}
+.bf-logo-copy{font-weight:800}
+.hero-reference{min-height:220px;height:220px;grid-template-columns:35% 1fr 195px}
+.hero-photo{background-image:linear-gradient(90deg,rgba(0,0,0,.88) 0%,rgba(0,0,0,.56) 43%,rgba(0,0,0,.12) 75%),url('https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=2000&q=90')}
+.hero-product{background-image:url('https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?auto=format&fit=crop&w=1200&q=90');background-size:contain;filter:grayscale(1) contrast(1.2);opacity:.96}
+.hero-benefits{gap:12px}
+.catalog-topline{margin-bottom:17px}
+.catalog-sidebar{background:#fcfcfd}
+.catalog-sidebar details{padding:10px 0}
+.catalog-sidebar details label{transition:color .15s}
+.catalog-sidebar details label:hover{color:#000}
+.product-grid{align-items:stretch}
+.product-image{position:relative;overflow:hidden}
+.product-image img{width:100%;height:100%;object-fit:contain;padding:8px;transition:transform .25s ease}
+.product-card:hover .product-image img{transform:scale(1.035)}
+.product-tag{z-index:1}
+.product-price{white-space:nowrap}
+.add-row .button{background:#080b0f;color:#fff}
+.add-row .button:hover{background:#252b32}
+@media(max-width:780px){
+ .site-header{gap:9px}
+ .wordmark{min-width:0}
+ .hero-reference{height:225px;min-height:225px;grid-template-columns:43% 1fr}
+ .hero-photo{background-position:57% center}
+ .hero-product{grid-column:2;grid-row:1}
+ .hero-benefits{display:none}
+ .catalog-sidebar{grid-template-columns:1fr 1fr}
+ .catalog-sidebar details:nth-of-type(1){grid-column:1/-1}
+ .catalog-sidebar details:nth-of-type(4){grid-column:1/-1}
+ .catalog-sidebar .filter-row{grid-column:1/-1}
+ .catalog-results-bar{margin-top:4px}
+}
+@media(max-width:430px){
+ .site-header{padding:10px 3%}
+ .bf-logo-copy{font-size:13px}
+ .bf-logo-copy small{font-size:7px}
+ .main-nav{gap:16px}
+ .hero-reference .hero-copy{padding-left:5%}
+ .hero-reference h1{font-size:34px}
+ .hero-product{background-position:center;transform:scale(1.14)}
+ .catalog-sidebar{grid-template-columns:1fr 1fr}
+ .product-card{padding:5px}
+ .product-image{height:135px}
+ .product-sizes{flex-wrap:wrap}
+ .size-option{min-width:21px;height:21px}
+}
