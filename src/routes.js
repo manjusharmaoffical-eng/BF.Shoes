@@ -236,7 +236,7 @@ router.post("/orders", authenticate, requireScope("orders:write"), async (req, r
     const skus = [...quantities.keys()].sort();
     const found = await client.query(
       `SELECT v.id AS variant_id, v.sku, v.size_label, v.color_name, v.stock_qty,
-              v.active AS variant_active, p.name AS product_name, p.price_cents, p.currency, p.active AS product_active
+              v.active AS variant_active, p.name AS product_name, p.price_cents, p.unit_cost_cents, p.currency, p.active AS product_active
        FROM variants v JOIN products p ON p.id=v.product_id
        WHERE v.sku = ANY($1::text[]) ORDER BY v.sku FOR UPDATE OF v`,
       [skus]
@@ -266,9 +266,9 @@ router.post("/orders", authenticate, requireScope("orders:write"), async (req, r
       await client.query("UPDATE variants SET stock_qty=stock_qty-$1, updated_at=now() WHERE id=$2", [qty, v.variant_id]);
       const lineTotal = v.price_cents * qty;
       const item = await client.query(
-        `INSERT INTO order_items(order_id, variant_id, sku, product_name, size_label, color_name, unit_price_cents, quantity, line_total_cents)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-        [order.id, v.variant_id, sku, v.product_name, v.size_label, v.color_name, v.price_cents, qty, lineTotal]
+        `INSERT INTO order_items(order_id, variant_id, sku, product_name, size_label, color_name, unit_price_cents, quantity, line_total_cents, unit_cost_cents)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+        [order.id, v.variant_id, sku, v.product_name, v.size_label, v.color_name, v.price_cents, qty, lineTotal, v.unit_cost_cents ?? null]
       );
       await client.query(
         "INSERT INTO inventory_movements(variant_id, delta, reason, reference_order_id) VALUES($1,$2,$3,$4)",
