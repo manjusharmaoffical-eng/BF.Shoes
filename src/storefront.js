@@ -93,7 +93,7 @@ storefrontRouter.post("/orders", async (req, res, next) => {
       if (existing.rows[0].request_fingerprint !== requestFingerprint) {
         return res.status(409).json({ error: "This checkout key was already used for a different order. Refresh your cart and try again." });
       }
-      return res.status(200).json({ data: { order_number: existing.rows[0].order_number, status: existing.rows[0].status, subtotal_cents: existing.rows[0].subtotal_cents, currency: existing.rows[0].currency }, idempotent_replay: true });
+      return res.status(200).json({ data: { order_number: existing.rows[0].order_number, status: existing.rows[0].status, subtotal_cents: existing.rows[0].subtotal_cents, delivery_fee_cents: existing.rows[0].delivery_fee_cents, total_cents: existing.rows[0].total_cents, currency: existing.rows[0].currency }, idempotent_replay: true });
     }
 
     const skus = [...quantities.keys()].sort();
