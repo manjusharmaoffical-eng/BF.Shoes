@@ -68,7 +68,7 @@
     $('#cart-empty').classList.toggle('hidden', count > 0);
     $('#drawer-foot').classList.toggle('hidden', count === 0);
     $('#cart-items').classList.toggle('hidden', count === 0);
-    $('#cart-subtotal').textContent = money(checkoutTotalCents(), 'INR');
+    $('#cart-subtotal').textContent = money(totalCents(), 'INR'); const delivery=$('#cart-delivery-fee'); if(delivery) delivery.textContent=money(state.cart.length ? DELIVERY_FEE_PAISE : 0,'INR');
     $('#checkout-total').textContent = money(checkoutTotalCents(), 'INR');
     $('#cart-items').innerHTML = state.cart.map(item => `<div class="cart-line"><img src="${escapeHtml(productImage(item.product))}" alt="" /><div><h3>${escapeHtml(item.product.name)}</h3><p>Size ${escapeHtml(item.variant.size_label)} · ${escapeHtml(item.variant.color_name || 'Classic')}</p><div class="qty-control"><button type="button" data-qty="-1" data-sku="${escapeHtml(item.variant.sku)}" aria-label="Decrease quantity">−</button><span>${item.quantity}</span><button type="button" data-qty="1" data-sku="${escapeHtml(item.variant.sku)}" aria-label="Increase quantity" ${item.quantity >= 10 ? 'disabled' : ''}>+</button></div></div><strong class="cart-line-price">${money(Number(item.product.price_cents) * item.quantity, item.product.currency)}</strong></div>`).join('');
   }
