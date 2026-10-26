@@ -6,6 +6,8 @@ import rateLimit from "express-rate-limit";
 import { pool } from "./db.js";
 import { router } from "./routes.js";
 import { storefrontRouter } from "./storefront.js";
+import { businessRouter } from "./business.js";
+import { newsletterRouter } from "./newsletter.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -47,6 +49,8 @@ app.use("/api/v1/auth/login", rateLimit({ windowMs: 15 * 60_000, limit: 10, stan
 app.use("/api/v1/store/orders", rateLimit({ windowMs: 15 * 60_000, limit: 8, standardHeaders: "draft-7", legacyHeaders: false }));
 app.use("/api/v1/store/orders/track", rateLimit({ windowMs: 15 * 60_000, limit: 8, standardHeaders: "draft-7", legacyHeaders: false }));
 app.use("/api/v1/store", storefrontRouter);
+app.use("/api/v1/newsletter", rateLimit({ windowMs: 60 * 60_000, limit: 5, standardHeaders: "draft-7", legacyHeaders: false }), newsletterRouter);
+app.use("/api/v1/business", businessRouter);
 app.use("/api/v1", router);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 app.use(express.static(path.resolve(__dirname, "../frontend"), { index: "index.html", maxAge: process.env.NODE_ENV === "production" ? "1h" : 0 }));

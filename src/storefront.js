@@ -2,6 +2,7 @@ import express from "express";
 import { z } from "zod";
 import { pool } from "./db.js";
 import { aggregateStorefrontItems, storefrontRequestFingerprint } from "./storefront-policies.js";
+import { deliverEmail } from "./email.js";
 
 export const storefrontRouter = express.Router();
 
@@ -10,7 +11,7 @@ const checkoutSchema = z.object({
   customer_email: z.string().trim().email().max(254),
   customer_phone: z.string().trim().min(7).max(30).regex(/^[+()0-9 .-]+$/),
   shipping_address: z.string().trim().min(10).max(1000),
-  shipping_country: z.enum(["AE", "IN"]).default("AE"),
+  shipping_country: z.enum(["AE"]).default("AE"),
   shipping_pincode: z.string().trim().optional().default(""),
   items: z.array(z.object({ sku: z.string().trim().min(2).max(80), quantity: z.number().int().min(1).max(10) })).min(1).max(20)
 }).strict();
@@ -131,6 +132,10 @@ storefrontRouter.post("/orders", async (req, res, next) => {
     }
     await client.query("INSERT INTO audit_events(actor_type, actor_id, action, resource_type, resource_id) VALUES('system', NULL, 'storefront.order.create', 'order', $1)", [String(orderId)]);
     await client.query("COMMIT");
+    // Email is best-effort and must never roll back a committed order.
+    try {
+      await deliverEmail({ kind: "order_confirmation", recipient: d.customer_email.toLowerCase(), subject: `BF SHOES order #${order.order_number} confirmed`, textBody: `Hi ${d.customer_name},\\n\\nYour BF SHOES order #${order.order_number} has been received.\\nTotal: ${order.currency} ${(Number(order.subtotal_cents) / 100).toFixed(2)}\\nPayment: Cash on Delivery\\n\\nWe will update you as your order progresses.` });
+    } catch { /* order is committed; notification delivery is non-blocking */ }
     res.status(201).json({ data: order });
   } catch (err) {
     if (client) await client.query("ROLLBACK").catch(() => {});

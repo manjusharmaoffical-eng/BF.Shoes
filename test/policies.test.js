@@ -2,9 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { canTransitionOrder, orderRequestFingerprint, scopesForAdminRole } from "../src/policies.js";
 
-test("administrator gets wildcard scope and staff is read-only", () => {
+test("owner gets wildcard scope, manager gets operational write scopes, staff stays read-only", () => {
   assert.deepEqual(scopesForAdminRole("admin"), ["*"]);
-  assert.deepEqual(scopesForAdminRole("staff"), ["products:read", "inventory:read", "orders:read"]);
+  assert.ok(scopesForAdminRole("manager").includes("inventory:write"));
+  assert.ok(scopesForAdminRole("manager").includes("campaigns:write"));
+  assert.ok(scopesForAdminRole("manager").includes("analytics:read"));
+  assert.deepEqual(scopesForAdminRole("staff"), ["products:read", "inventory:read", "orders:read", "analytics:read", "campaigns:read"]);
+  assert.equal(scopesForAdminRole("staff").includes("orders:write"), false);
   assert.deepEqual(scopesForAdminRole("unknown"), []);
 });
 

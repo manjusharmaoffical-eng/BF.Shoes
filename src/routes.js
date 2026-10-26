@@ -295,8 +295,8 @@ const statusSchema = z.object({
   status: z.enum(["processing", "shipped", "delivered", "cancelled"])
 });
 router.patch("/orders/:id/status", authenticate, requireScope("orders:write"), async (req, res, next) => {
-  if (req.actor.type !== "admin" || req.actor.role !== "admin") {
-    return res.status(403).json({ error: "Only an administrator can change order status" });
+  if (req.actor.type !== "admin" || !["admin", "manager"].includes(req.actor.role)) {
+    return res.status(403).json({ error: "Owner or manager permission required to change order status" });
   }
   const parsed = statusSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid order status" });
@@ -337,7 +337,7 @@ router.patch("/orders/:id/status", authenticate, requireScope("orders:write"), a
 });
 
 router.post("/admin/api-keys", authenticate, requireScope("keys:write"), async (req, res, next) => {
-  if (req.actor.type !== "admin" || req.actor.role !== "admin") {
+  if (req.actor.type !== "admin" || !["admin", "manager"].includes(req.actor.role)) {
     return res.status(403).json({ error: "Only a logged-in administrator can issue API keys" });
   }
   const schema = z.object({
@@ -369,7 +369,7 @@ router.post("/admin/api-keys", authenticate, requireScope("keys:write"), async (
 
 router.get("/admin/api-keys", authenticate, requireScope("keys:write"), async (req, res, next) => {
   try {
-    if (req.actor.type !== "admin" || req.actor.role !== "admin") return res.status(403).json({ error: "Admin login required" });
+    if (req.actor.type !== "admin" || !["admin", "manager"].includes(req.actor.role)) return res.status(403).json({ error: "Admin login required" });
     const result = await pool.query(
       "SELECT id, label, key_prefix, scopes, active, expires_at, created_at, last_used_at FROM api_keys ORDER BY created_at DESC"
     );
@@ -378,7 +378,7 @@ router.get("/admin/api-keys", authenticate, requireScope("keys:write"), async (r
 });
 
 router.post("/admin/api-keys/:id/revoke", authenticate, requireScope("keys:write"), async (req, res, next) => {
-  if (req.actor.type !== "admin" || req.actor.role !== "admin") {
+  if (req.actor.type !== "admin" || !["admin", "manager"].includes(req.actor.role)) {
     return res.status(403).json({ error: "Admin login required" });
   }
   let client;

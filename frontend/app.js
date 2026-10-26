@@ -126,16 +126,12 @@
   $('#product-search').addEventListener('input', event => { state.search = event.target.value; renderProducts(); });
   $('#product-sort').addEventListener('change', event => { state.sort = event.target.value; renderProducts(); });
   const countrySelect = $('#shipping-country');
-  const pinField = $('#india-pin-field');
-  const pinInput = $('#shipping-pincode');
-  countrySelect.addEventListener('change', () => {
-    const india = countrySelect.value === 'IN';
-    pinField.classList.toggle('hidden', !india);
-    pinInput.required = india;
-    if (!india) pinInput.value = '';
-    $('input[name="customer_phone"]').placeholder = india ? '+91 98765 43210' : '+971 50 000 0000';
-  });
-  $('#newsletter-form').addEventListener('submit', event => { event.preventDefault(); $('#newsletter-message').textContent = 'Thanks — newsletter signup will be enabled when email service is connected.'; event.currentTarget.reset(); toast('Signup demo complete. Email delivery is not configured yet.'); });
+  if (countrySelect) {
+    countrySelect.addEventListener('change', () => {
+      $('input[name="customer_phone"]').placeholder = '+971 50 000 0000';
+    });
+  }
+  $('#newsletter-form').addEventListener('submit', async event => { event.preventDefault(); const form=event.currentTarget, button=form.querySelector('button[type=submit],button:not([type])'); if(button)button.disabled=true; $('#newsletter-message').textContent='Submitting…'; try { const email=String(new FormData(form).get('email')||'').trim(); const result=await request('/api/v1/newsletter/subscribe',{method:'POST',body:JSON.stringify({email})}); $('#newsletter-message').textContent=result.message+(result.email_status==='sent'?' Email confirmation sent.': ' Your signup is saved; email delivery may need configuration.'); form.reset(); } catch(error) { $('#newsletter-message').textContent=error.message||'Signup failed. Please try again.'; } finally { if(button)button.disabled=false; } });
   document.addEventListener('keydown', event => { if (event.key === 'Escape') { setCheckout(false); setSuccess(false); setDrawer(false); } });
 
   $('#checkout-form').addEventListener('submit', async event => {
