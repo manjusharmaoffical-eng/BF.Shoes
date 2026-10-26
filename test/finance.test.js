@@ -4,13 +4,13 @@ import { calculateProfit } from "../src/finance-math.js";
 
 test("profit report stays incomplete when any sold units lack recorded cost", () => {
   assert.deepEqual(calculateProfit({ revenueCents: "10000", cogsCents: "4000", expensesCents: "1000", missingCostUnits: 2 }), {
-    gross_profit_cents: null, operating_profit_cents: null, complete: false, missing_cost_units: 2
+    gross_profit_cents: null, operating_profit_cents: null, net_profit_cents: null, complete: false, missing_cost_units: 2
   });
 });
 
 test("profit is calculated exactly in integer cents when costs are complete", () => {
-  assert.deepEqual(calculateProfit({ revenueCents: "9007199254741000", cogsCents: "300", expensesCents: "50", missingCostUnits: 0 }), {
-    gross_profit_cents: "9007199254740700", operating_profit_cents: "9007199254740650", complete: true, missing_cost_units: 0
+  assert.deepEqual(calculateProfit({ revenueCents: "9007199254741000", cogsCents: "300", expensesCents: "50", interestCents: "25", missingCostUnits: 0 }), {
+    gross_profit_cents: "9007199254740700", operating_profit_cents: "9007199254740650", net_profit_cents: "9007199254740625", complete: true, missing_cost_units: 0
   });
 });
 
