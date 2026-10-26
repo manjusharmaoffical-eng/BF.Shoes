@@ -137,7 +137,7 @@
   $('#product-search').addEventListener('input', event => { state.search = event.target.value; const headerSearch=$('#header-product-search'); if(headerSearch) headerSearch.value=event.target.value; renderProducts(); });
   $('#header-product-search')?.addEventListener('input', event => { $('#product-search').value=event.target.value; state.search=event.target.value; renderProducts(); if(event.target.value) $('#shop').scrollIntoView({behavior:'smooth',block:'start'}); });
   $('#header-wishlist')?.addEventListener('click', () => { state.filter='saved'; $$('.filter').forEach(b=>b.classList.toggle('active',b.dataset.filter==='saved')); renderProducts(); $('#shop').scrollIntoView({behavior:'smooth',block:'start'}); });
-  $('#account-link')?.addEventListener('click', () => toast('Account support is coming soon. You can shop and check out as a guest.'));
+
   $('#price-range')?.addEventListener('input', event => { $('#price-range-value').textContent=`₹${Number(event.target.value).toLocaleString('en-IN')}`; });
   $$('.catalog-sidebar [data-category]').forEach(input => input.addEventListener('change', () => { state.categories=$$('.catalog-sidebar [data-category]:checked').map(x=>x.dataset.category.toLowerCase()); renderProducts(); }));
   $$('.catalog-sidebar [data-color]').forEach(input => input.addEventListener('change', () => { state.colors=$$('.catalog-sidebar [data-color]:checked').map(x=>x.dataset.color.toLowerCase()); renderProducts(); }));
