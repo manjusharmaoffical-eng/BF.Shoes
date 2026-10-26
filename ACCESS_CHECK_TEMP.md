@@ -1,1 +1,0 @@
-Temporary GitHub connector write-permission check. This file will be removed immediately.
