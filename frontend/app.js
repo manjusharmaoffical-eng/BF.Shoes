@@ -150,6 +150,14 @@
   $('#newsletter-form').addEventListener('submit', async event => { event.preventDefault(); const form=event.currentTarget, button=form.querySelector('button[type=submit],button:not([type])'); if(button)button.disabled=true; $('#newsletter-message').textContent='Submitting…'; try { const email=String(new FormData(form).get('email')||'').trim(); const result=await request('/api/v1/newsletter/subscribe',{method:'POST',body:JSON.stringify({email})}); $('#newsletter-message').textContent=result.message+(result.email_status==='sent'?' Email confirmation sent.': ' Your signup is saved; email delivery may need configuration.'); form.reset(); } catch(error) { $('#newsletter-message').textContent=error.message||'Signup failed. Please try again.'; } finally { if(button)button.disabled=false; } });
   document.addEventListener('keydown', event => { if (event.key === 'Escape') { setCheckout(false); setSuccess(false); setDrawer(false); } });
 
+  $('#shipping-country')?.addEventListener('change', event => {
+    const isIndia = event.target.value === 'IN';
+    $('#india-pin-field')?.classList.toggle('hidden', !isIndia);
+    const pin = $('#shipping-pincode');
+    if (pin) { pin.required = isIndia; if (!isIndia) pin.value = ''; }
+    const phone = $('input[name="customer_phone"]');
+    if (phone) phone.placeholder = isIndia ? '+91 98765 43210' : '+971 50 000 0000';
+  });
   $('#checkout-form').addEventListener('submit', async event => {
     event.preventDefault(); if (state.busy || !state.cart.length) return;
     const form = event.currentTarget; if (!form.reportValidity()) return;
