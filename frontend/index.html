@@ -13,46 +13,48 @@
   <script defer src="/app.js"></script>
 </head>
 <body>
-  <div class="announcement">Complimentary delivery on orders over AED 250 <span aria-hidden="true">✳</span></div>
+  <div class="announcement">BF SHOES ORIGINALS · PREMIUM LOOK · EVERYDAY COMFORT <span aria-hidden="true">✳</span></div>
   <section id="campaign-strip" class="campaign-strip hidden" aria-label="Current BF SHOES offers"></section>
   <style>.campaign-strip{background:#111;color:#fff;padding:10px 5vw;display:flex;justify-content:center;gap:14px;align-items:center;text-align:center}.campaign-strip.hidden{display:none}.campaign-strip a{color:inherit;text-decoration:none;display:flex;gap:14px;align-items:center;justify-content:center}.campaign-strip img{width:56px;height:42px;object-fit:cover;border-radius:2px}.campaign-strip strong{font-size:13px;letter-spacing:.04em}.campaign-strip span{font-size:12px;opacity:.8}@media(max-width:600px){.campaign-strip{padding:8px 12px}.campaign-strip img{width:44px;height:38px}}</style>
-  <section class="brand-banner" aria-label="BF SHOES brand">
-    <div class="brand-banner-inner">
-      <span class="brand-banner-kicker">BUILT FOR EVERY STEP</span>
-      <div class="brand-banner-name">BF <span>SHOES</span></div>
-      <p>LESS NOISE. MORE MOVEMENT.</p>
-    </div>
-  </section>
   <header class="site-header">
-    <a class="wordmark" href="#top" aria-label="BF Shoes home">BF<span>.</span></a>
-    <nav class="main-nav" aria-label="Main navigation"><a href="#shop">Shop all</a><a href="#story">Our standard</a><a href="#footer">Contact</a></nav>
-    <button class="cart-trigger" id="open-cart" aria-label="Open shopping bag">BAG <span id="cart-count">0</span> <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l1 12H4L5 8Z M9 9V6a3 3 0 0 1 6 0v3"/></svg></button>
+    <a class="wordmark" href="#top" aria-label="BF Shoes home"><span class="bf-logo-mark">BF</span><span class="bf-logo-copy">BF SHOES<small>STEP INTO BETTER</small></span></a>
+    <nav class="main-nav" aria-label="Main navigation"><a class="nav-current" href="#top">Home</a><a href="#shop">Shop</a><a href="#shop">Brands</a><a href="#shop">New Arrivals</a><a href="#shop">Best Sellers</a><a href="#shop">Sale</a><a href="#story">About</a></nav>
+    <label class="header-search"><input id="header-product-search" type="search" placeholder="Search for shoes..." aria-label="Search for shoes"><span>⌕</span></label>
+    <button class="header-icon" type="button" aria-label="Account" id="account-link">♙</button><button class="header-icon" type="button" aria-label="Wishlist" id="header-wishlist">♡</button>
+    <button class="cart-trigger" id="open-cart" aria-label="Open shopping bag"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l1 12H4L5 8Z M9 9V6a3 3 0 0 1 6 0v3"/></svg><span id="cart-count">0</span></button>
   </header>
 
   <main id="top">
-    <section class="hero">
+    <section class="hero hero-reference">
+      <div class="hero-photo"></div>
       <div class="hero-copy">
-        <p class="eyebrow"><span class="eyebrow-line"></span> THE EVERYDAY ICONS</p>
-        <h1>Less noise.<br /><em>More movement.</em></h1>
-        <p class="hero-description">Considered sneakers for wherever the day takes you. Clean lines, lasting comfort, no compromises.</p>
-        <a class="button button-dark" href="#shop">Explore the collection <span aria-hidden="true">↗</span></a>
-        <div class="hero-meta"><span>01 — 03</span><span class="meta-line"></span><span>Made for everyday</span></div>
+        <p class="eyebrow">PREMIUM FOOTWEAR</p>
+        <h1>BF SHOES</h1>
+        <p class="hero-tagline">Style <span>|</span> Comfort <span>|</span> Performance</p>
+        <a class="button button-light" href="#shop">Shop Now <span aria-hidden="true">→</span></a>
       </div>
-      <div class="hero-visual">
-        <div class="hero-stamp">BF<br />STUDIO<br /><span>VOL. 01</span></div>
-        <img src="/banner-right-shoe.jpg" alt="Statement sneaker in a minimal studio setting" fetchpriority="high" />
-        <div class="visual-caption"><span>THE FORM / 001</span><span>DESIGNED TO GO FURTHER</span></div>
-      </div>
-      <div class="hero-index" aria-hidden="true">B / F</div>
+      <div class="hero-product" role="img" aria-label="Premium black and white athletic sneaker"></div>
+      <div class="hero-benefits"><div>✧ <span>Premium Quality</span></div><div>♧ <span>Comfort Fit</span></div><div>◇ <span>Trendy Designs</span></div><div>◎ <span>Worldwide Shipping</span></div></div>
     </section>
 
     <section class="ticker" aria-label="Brand values"><div>BUILT FOR THE EVERYDAY <span>✳</span> CLEAN BY DESIGN <span>✳</span> COMFORT THAT MOVES <span>✳</span> BUILT FOR THE EVERYDAY <span>✳</span></div></section>
 
     <section class="shop-section section-wrap" id="shop">
-      <div class="section-heading"><div><p class="eyebrow">THE ROTATION</p><h2>Good shoes.<br /><em>Every day.</em></h2></div><div class="shop-side"><p>A tighter edit of everyday essentials. Find your pair, choose your fit, and make them yours.</p><div class="catalog-tools"><label class="catalog-search"><span aria-hidden="true">⌕</span><input id="product-search" type="search" placeholder="Search sneakers…" aria-label="Search sneakers" autocomplete="off"></label><label class="sort-label">SORT <select id="product-sort" aria-label="Sort products"><option value="featured">Featured</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option><option value="name">Name: A–Z</option></select></label></div><div class="filter-row" role="group" aria-label="Filter products"><button class="filter active" data-filter="all">All styles</button><button class="filter" data-filter="available">In stock</button><button class="filter" data-filter="saved">Wishlist <span id="wishlist-count">0</span></button></div></div></div>
+      <div class="catalog-topline"><div><p class="eyebrow">BF SHOES COLLECTION</p><h2>Find your <strong>next pair.</strong></h2></div><label class="sort-label">Sort by: <select id="product-sort" aria-label="Sort products"><option value="featured">Popularity</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option><option value="name">Name: A–Z</option></select></label></div>
+      <div class="catalog-layout">
+      <aside class="catalog-sidebar" aria-label="Product filters">
+        <label class="catalog-search"><span aria-hidden="true">⌕</span><input id="product-search" type="search" placeholder="Search shoes..." aria-label="Search sneakers" autocomplete="off"></label>
+        <details open><summary>Categories</summary><label><input type="checkbox" data-category="men"> Men's Shoes</label><label><input type="checkbox" data-category="women"> Women's Shoes</label><label><input type="checkbox" data-category="kids"> Kids' Shoes</label><label><input type="checkbox" data-category="sports"> Sports Shoes</label><label><input type="checkbox" data-category="casual"> Casual Shoes</label><label><input type="checkbox" data-category="running"> Running Shoes</label><label><input type="checkbox" data-category="formal"> Formal Shoes</label></details>
+        <details open><summary>Brand</summary><label><input type="checkbox" checked disabled> BF <span class="filter-count" id="brand-count">(50)</span></label></details>
+        <details open><summary>Size</summary><label><input type="checkbox" data-size="6"> UK 6</label><label><input type="checkbox" data-size="7"> UK 7</label><label><input type="checkbox" data-size="8"> UK 8</label><label><input type="checkbox" data-size="9"> UK 9</label><label><input type="checkbox" data-size="10"> UK 10</label><label><input type="checkbox" data-size="11"> UK 11</label><label><input type="checkbox" data-size="12"> UK 12</label></details>
+        <details open><summary>Color</summary><label><input type="checkbox" data-color="Black"><i class="color-dot" style="--dot:#111"></i>Black</label><label><input type="checkbox" data-color="White"><i class="color-dot" style="--dot:#fff"></i>White</label><label><input type="checkbox" data-color="Gray"><i class="color-dot" style="--dot:#8e969e"></i>Gray</label><label><input type="checkbox" data-color="Blue"><i class="color-dot" style="--dot:#337ed6"></i>Blue</label><label><input type="checkbox" data-color="Red"><i class="color-dot" style="--dot:#e92b3d"></i>Red</label><label><input type="checkbox" data-color="Green"><i class="color-dot" style="--dot:#20a55b"></i>Green</label><label><input type="checkbox" data-color="Beige"><i class="color-dot" style="--dot:#c4b19a"></i>Beige</label></details>
+        <details open><summary>Price Range</summary><input class="price-range" type="range" min="699" max="4999" value="4999" id="price-range"><div class="price-range-labels"><span>₹699</span><span id="price-range-value">₹4,999</span></div></details>
+        <div class="filter-row" role="group" aria-label="Availability filters"><button class="filter active" data-filter="all">All styles</button><button class="filter" data-filter="available">In stock</button><button class="filter" data-filter="saved">Wishlist <span id="wishlist-count">0</span></button></div>
+      </aside>
+      <div class="catalog-results"><div class="catalog-results-bar"><span id="catalog-count">Showing products</span><div class="view-toggle"><button class="view-mode active" type="button" aria-label="Grid view">▦</button><button class="view-mode" type="button" aria-label="List view">☷</button></div></div>
       <div class="catalog-status" id="catalog-status" role="status">Finding your next pair…</div>
       <div class="product-grid" id="product-grid" aria-live="polite"></div>
-      <div class="empty-state hidden" id="empty-state"><p class="eyebrow">THE SHELF IS QUIET</p><h3>No pairs just yet.</h3><p>Products will appear here once the BF SHOES catalog is connected and stocked.</p></div>
+      <div class="empty-state hidden" id="empty-state"><p class="eyebrow">THE SHELF IS QUIET</p><h3>No pairs just yet.</h3><p>Products will appear here once the BF SHOES catalog is connected and stocked.</p></div></div></div>
     </section>
 
     <section class="manifesto" id="story"><div class="manifesto-image"><img src="/banner-left-shoe.jpg" alt="Minimal sneaker detail" loading="lazy" /></div><div class="manifesto-copy"><p class="eyebrow">OUR STANDARD / 001</p><h2>Good design<br />doesn’t need<br /><em>to shout.</em></h2><p>We believe the best pair is the one you reach for without thinking. Understated by design. Made to move with you. Ready for whatever comes next.</p><a href="#shop" class="text-link">Find your everyday pair <span>↗</span></a><div class="manifesto-number">BF—001</div></div></section>
