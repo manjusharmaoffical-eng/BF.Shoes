@@ -2,6 +2,7 @@ import express from "express";
 import { z } from "zod";
 import { pool } from "./db.js";
 import { authenticate } from "./auth.js";
+import { calculateProfit } from "./finance-math.js";
 
 export const financeRouter = express.Router();
 financeRouter.use(authenticate);
@@ -28,8 +29,9 @@ financeRouter.get("/summary",async(req,res,next)=>{const parsed=dateQuery.safePa
    (f.principal_cents-COALESCE(sum(r.principal_cents),0))::bigint AS outstanding_principal_cents
    FROM finance_funding f LEFT JOIN finance_repayments r ON r.funding_id=f.id GROUP BY f.id ORDER BY f.start_date DESC`)
  ]);
- const s=sales.rows[0],e=expenseTotal.rows[0]; const missing=Number(s.units_missing_cost)>0;
- res.set("Cache-Control","no-store");res.json({data:{currency:"AED",sales:s,expenses:e.total_cents,expenses_by_category:costs.rows,funding:funding.rows,profit:{gross_profit_cents:missing?null:String(Number(s.revenue_cents)-Number(s.cogs_cents)),operating_profit_cents:missing?null:String(Number(s.revenue_cents)-Number(s.cogs_cents)-Number(e.total_cents)),complete:!missing,missing_cost_units:Number(s.units_missing_cost)},note:missing?"Profit is unavailable as a final figure because some delivered units have no recorded cost. Enter product costs before relying on profit reports.":"Profit estimate uses delivered order value less recorded cost of goods and recorded expenses; tax, unrecorded costs and refunds may be incomplete."}});
+ const s=sales.rows[0],e=expenseTotal.rows[0];
+ const profit=calculateProfit({revenueCents:s.revenue_cents,cogsCents:s.cogs_cents,expensesCents:e.total_cents,missingCostUnits:Number(s.units_missing_cost)});
+ res.set("Cache-Control","no-store");res.json({data:{currency:"AED",sales:s,expenses:e.total_cents,expenses_by_category:costs.rows,funding:funding.rows,profit,note:!profit.complete?"Profit is unavailable as a final figure because some delivered units have no recorded cost. Enter actual product costs before relying on profit reports.":"Profit estimate uses delivered order value less recorded cost of goods and recorded expenses; tax, unrecorded costs and refunds may be incomplete."}});
  }catch(err){next(err)}});
 financeRouter.get("/expenses",async(_req,res,next)=>{try{const r=await pool.query("SELECT * FROM finance_expenses ORDER BY expense_date DESC,created_at DESC LIMIT 500");res.json({data:r.rows})}catch(e){next(e)}});
 financeRouter.post("/expenses",async(req,res,next)=>{const p=expenseSchema.safeParse(req.body);if(!p.success)return res.status(400).json({error:"Invalid expense",details:p.error.flatten()});try{const v=p.data;const r=await pool.query("INSERT INTO finance_expenses(category,description,amount_cents,expense_date,currency,created_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING *",[v.category,v.description,v.amount_cents,v.expense_date,v.currency,req.actor.id]);await audit(req,"finance.expense.create","finance_expense",r.rows[0].id);res.status(201).json({data:r.rows[0]})}catch(e){next(e)}});
