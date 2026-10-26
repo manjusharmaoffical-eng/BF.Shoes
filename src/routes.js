@@ -38,6 +38,36 @@ router.get("/auth/me", authenticate, (req, res) => {
   res.json({ actor: { type: req.actor.type, id: req.actor.id, role: req.actor.role, scopes: req.actor.scopes } });
 });
 
+const passwordChangeSchema = z.object({
+  current_password: z.string().min(1).max(200),
+  new_password: z.string().min(14).max(200)
+}).strict().refine(v => v.current_password !== v.new_password, { message: "New password must differ from current password" });
+router.post("/auth/change-password", authenticate, async (req, res, next) => {
+  if (req.actor.type !== "admin") return res.status(403).json({ error: "Admin account required" });
+  const parsed = passwordChangeSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid password change", details: parsed.error.flatten() });
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query("BEGIN");
+    const found = await client.query("SELECT id, password_hash, active FROM admins WHERE id=$1 FOR UPDATE", [req.actor.id]);
+    const admin = found.rows[0];
+    if (!admin?.active) { await client.query("ROLLBACK"); return res.status(401).json({ error: "Admin account inactive" }); }
+    if (!(await checkPassword(parsed.data.current_password, admin.password_hash))) {
+      await client.query("ROLLBACK");
+      return res.status(401).json({ error: "Current password is incorrect" });
+    }
+    const passwordHash = await bcrypt.hash(parsed.data.new_password, 12);
+    await client.query("UPDATE admins SET password_hash=$1 WHERE id=$2", [passwordHash, admin.id]);
+    await client.query("INSERT INTO audit_events(actor_type, actor_id, action, resource_type, resource_id) VALUES('admin',$1,'admin.password_change','admin',$1::text)", [admin.id]);
+    await client.query("COMMIT");
+    res.json({ message: "Password changed. Sign out and sign in again; existing access tokens expire within 15 minutes." });
+  } catch (err) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
+    next(err);
+  } finally { client?.release(); }
+});
+
 const productSchema = z.object({
   name: z.string().trim().min(1).max(160),
   slug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(180),
