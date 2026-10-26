@@ -23,8 +23,7 @@ storefrontRouter.get("/campaigns/active", async (_req,res,next) => {
 storefrontRouter.get("/products", async (_req, res, next) => {
   try {
     const result = await pool.query(
-      `SELECT p.id, p.name, p.slug, p.description, p.short_description, p.seo_title, p.seo_description, p.brand, p.price_cents, p.currency, p.image_url,
-        COALESCE((SELECT json_agg(json_build_object('id', pi.id, 'image_url', pi.image_url, 'alt_text', pi.alt_text) ORDER BY pi.sort_order, pi.created_at) FROM product_images pi WHERE pi.product_id=p.id), '[]') AS image_gallery,
+      `SELECT p.id, p.name, p.slug, p.description, p.brand, p.price_cents, p.currency, p.image_url,
         COALESCE(json_agg(json_build_object('id', v.id, 'sku', v.sku, 'size_label', v.size_label,
           'color_name', v.color_name, 'stock_qty', v.stock_qty)
           ORDER BY v.size_label) FILTER (WHERE v.id IS NOT NULL AND v.active = true), '[]') AS variants
@@ -66,7 +65,9 @@ storefrontRouter.post("/orders", async (req, res, next) => {
     return res.status(400).json({ error: "A valid Idempotency-Key is required" });
   }
   const d = parsed.data;
-  if (d.shipping_country !== "IN") return res.status(400).json({ error: "BF SHOES currently delivers in India only." });\n  if (d.shipping_pincode !== "500052") return res.status(400).json({ error: "BF SHOES currently delivers only to PIN code 500052." });\n  if (d.shipping_country === "IN") {
+  if (d.shipping_country !== "IN") return res.status(400).json({ error: "BF SHOES currently delivers in India only." });
+  if (d.shipping_pincode !== "500052") return res.status(400).json({ error: "BF SHOES currently delivers only to PIN code 500052." });
+  if (d.shipping_country === "IN") {
     const pin = d.shipping_pincode;
     if (!/^[1-9][0-9]{5}$/.test(pin)) return res.status(400).json({ error: "Enter a valid six-digit Indian PIN code" });
     const allowedPins = new Set((process.env.INDIA_DELIVERY_PINCODES || "500052").split(",").map(value => value.trim()).filter(Boolean));
@@ -139,7 +140,13 @@ storefrontRouter.post("/orders", async (req, res, next) => {
     await client.query("COMMIT");
     // Email is best-effort and must never roll back a committed order.
     try {
-      await deliverEmail({ kind: "order_confirmation", recipient: d.customer_email.toLowerCase(), subject: `BF SHOES order #${order.order_number} confirmed`, textBody: `Hi ${d.customer_name},\\n\\nYour BF SHOES order #${order.order_number} has been received.\\nTotal: ${order.currency} ${(Number(order.subtotal_cents) / 100).toFixed(2)}\\nPayment: Cash on Delivery\\n\\nWe will update you as your order progresses.` });
+      await deliverEmail({ kind: "order_confirmation", recipient: d.customer_email.toLowerCase(), subject: `BF SHOES order #${order.order_number} confirmed`, textBody: `Hi ${d.customer_name},\
+\
+Your BF SHOES order #${order.order_number} has been received.\
+Total: ${order.currency} ${(Number(order.subtotal_cents) / 100).toFixed(2)}\
+Payment: Cash on Delivery\
+\
+We will update you as your order progresses.` });
     } catch { /* order is committed; notification delivery is non-blocking */ }
     res.status(201).json({ data: order });
   } catch (err) {
