@@ -15,6 +15,27 @@
   let mode = 'signin';
   let customer = null;
   let token = null;
+  const SESSION_KEY = 'bf-shoes-customer-token';
+
+  try { token = sessionStorage.getItem(SESSION_KEY); } catch { token = null; }
+
+  async function restoreSession() {
+    if (!token) return;
+    try {
+      const response = await fetch('/api/v1/customer-auth/me', {
+        headers: { Authorization: 'Bearer ' + token },
+        cache: 'no-store'
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.customer) throw new Error('Session expired');
+      customer = data.customer;
+      accountButton?.setAttribute('aria-label', 'Signed in customer account');
+    } catch {
+      customer = null;
+      token = null;
+      try { sessionStorage.removeItem(SESSION_KEY); } catch {}
+    }
+  }
 
   function showMessage(text, error = false) {
     message.textContent = text;
@@ -62,6 +83,7 @@
   switcher?.addEventListener('click', () => setMode(mode === 'signin' ? 'signup' : 'signin'));
   $('#account-signout')?.addEventListener('click', () => {
     customer = null; token = null;
+    try { sessionStorage.removeItem(SESSION_KEY); } catch {}
     $('#account-profile').classList.add('hidden');
     form.classList.remove('hidden');
     setMode('signin');
@@ -85,6 +107,7 @@
       if (!response.ok) throw new Error(data.error || 'Could not sign in. Please try again.');
       customer = data.customer;
       token = data.access_token;
+      try { sessionStorage.setItem(SESSION_KEY, token); } catch {}
       form.reset();
       renderAccount();
       accountButton.setAttribute('aria-label', 'Signed in customer account');
@@ -96,4 +119,7 @@
     }
   });
   setMode('signin');
+  restoreSession().then(() => {
+    if (customer && backdrop?.classList.contains('visible')) renderAccount();
+  });
 })();
