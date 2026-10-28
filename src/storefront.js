@@ -94,8 +94,8 @@ storefrontRouter.post("/orders", async (req, res, next) => {
     const allowedPins = new Set((process.env.INDIA_DELIVERY_PINCODES || "500052").split(",").map(value => value.trim()).filter(Boolean));
     if (!allowedPins.size) return res.status(503).json({ error: "India delivery is not configured yet. Please contact the store before ordering." });
     if (!allowedPins.has(pin)) return res.status(400).json({ error: "Sorry, BF SHOES does not deliver to this PIN code yet." });
-    // Safety gate: catalog prices are currently AED and orders have no separate INR delivery-fee field.
-    return res.status(503).json({ error: "India delivery to this PIN code is planned, but checkout is not enabled yet. INR product pricing and the ₹50 delivery fee must be configured first." });
+    // INR catalog pricing and the ₹50 delivery fee are configured in the database.
+    // Continue through transactional order creation after the PIN is validated.
   } else if (d.shipping_pincode) {
     return res.status(400).json({ error: "PIN code is only used for India delivery. Select the correct delivery country." });
   }
@@ -127,6 +127,11 @@ storefrontRouter.post("/orders", async (req, res, next) => {
     );
     if (found.rowCount !== skus.length) { await client.query("ROLLBACK"); return res.status(400).json({ error: "One or more selected sizes are no longer available" }); }
     const bySku = new Map(found.rows.map(row => [row.sku, row]));
+    // Never create an India order from a non-INR catalog item.
+    if (found.rows.some(v => v.currency !== "INR")) {
+      await client.query("ROLLBACK");
+      return res.status(503).json({ error: "This item is not configured for INR checkout yet." });
+    }
     let subtotal = 0;
     for (const [sku, qty] of quantities) {
       const v = bySku.get(sku);
