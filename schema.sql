@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS orders (
   order_number BIGINT GENERATED ALWAYS AS IDENTITY UNIQUE,
   customer_name TEXT NOT NULL,
   customer_email TEXT NOT NULL,
-  currency CHAR(3) NOT NULL DEFAULT 'AED',
+  currency CHAR(3) NOT NULL DEFAULT 'INR',
   subtotal_cents INTEGER NOT NULL CHECK (subtotal_cents >= 0),
   status TEXT NOT NULL DEFAULT 'confirmed'
     CHECK (status IN ('confirmed', 'processing', 'shipped', 'delivered', 'cancelled')),
