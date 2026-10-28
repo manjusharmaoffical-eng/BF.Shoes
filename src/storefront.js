@@ -10,7 +10,7 @@ const checkoutSchema = z.object({
   customer_email: z.string().trim().email().max(254),
   customer_phone: z.string().trim().min(7).max(30).regex(/^[+()0-9 .-]+$/),
   shipping_address: z.string().trim().min(10).max(1000),
-  shipping_country: z.enum(["AE", "IN"]).default("AE"),
+  shipping_country: z.literal("IN").default("IN" ),
   shipping_pincode: z.string().trim().optional().default(""),
   items: z.array(z.object({ sku: z.string().trim().min(2).max(80), quantity: z.number().int().min(1).max(10) })).min(1).max(20)
 }).strict();
