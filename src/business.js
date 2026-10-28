@@ -158,6 +158,10 @@ businessRouter.post("/products/:id/variants/bulk", requireScope("products:write"
       if (v.stock_qty > 0) await client.query("INSERT INTO inventory_movements(variant_id,delta,reason,actor_admin_id) VALUES($1,$2,'initial_stock',$3)", [row.rows[0].id,v.stock_qty,req.actor.type === "admin" ? req.actor.id : null]);
       created.push(row.rows[0]);
     }
+    await client.query(
+      "INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES($1,$2,'inventory.variants.bulk_create','product',$3)",
+      [req.actor.type, req.actor.id, req.params.id]
+    );
     await client.query("COMMIT");
     res.status(201).json({ data: created });
   } catch (err) {
