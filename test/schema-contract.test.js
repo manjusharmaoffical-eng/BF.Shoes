@@ -36,7 +36,7 @@ test("schema.sql contains the required business tables and columns", () => {
   }
 });
 
-test("checkout schema keeps India COD delivery disabled until prices are configured", () => {
+test("checkout schema keeps India COD delivery disabled until prices are configured", async () => {
   const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
   assert.match(storefront, /payment_method[\\s\\S]*'cod'/i);
   assert.match(storefront, /INR product pricing and the ₹50 delivery fee must be configured first/);
