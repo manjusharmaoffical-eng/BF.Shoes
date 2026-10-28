@@ -38,13 +38,47 @@ router.get("/auth/me", authenticate, (req, res) => {
   res.json({ actor: { type: req.actor.type, id: req.actor.id, role: req.actor.role, scopes: req.actor.scopes } });
 });
 
+const passwordChangeSchema = z.object({
+  current_password: z.string().min(1).max(200),
+  new_password: z.string().min(14).max(200)
+}).strict().refine(v => v.current_password !== v.new_password, { message: "New password must differ from current password" });
+router.post("/auth/change-password", authenticate, async (req, res, next) => {
+  if (req.actor.type !== "admin") return res.status(403).json({ error: "Admin account required" });
+  const parsed = passwordChangeSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid password change", details: parsed.error.flatten() });
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query("BEGIN");
+    const found = await client.query("SELECT id, password_hash, active FROM admins WHERE id=$1 FOR UPDATE", [req.actor.id]);
+    const admin = found.rows[0];
+    if (!admin?.active) { await client.query("ROLLBACK"); return res.status(401).json({ error: "Admin account inactive" }); }
+    if (!(await checkPassword(parsed.data.current_password, admin.password_hash))) {
+      await client.query("ROLLBACK");
+      return res.status(401).json({ error: "Current password is incorrect" });
+    }
+    const passwordHash = await bcrypt.hash(parsed.data.new_password, 12);
+    await client.query("UPDATE admins SET password_hash=$1 WHERE id=$2", [passwordHash, admin.id]);
+    await client.query("INSERT INTO audit_events(actor_type, actor_id, action, resource_type, resource_id) VALUES('admin',$1,'admin.password_change','admin',$1::text)", [admin.id]);
+    await client.query("COMMIT");
+    res.json({ message: "Password changed. Sign out and sign in again; existing access tokens expire within 15 minutes." });
+  } catch (err) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
+    next(err);
+  } finally { client?.release(); }
+});
+
 const productSchema = z.object({
   name: z.string().trim().min(1).max(160),
   slug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(180),
   description: z.string().max(5000).optional().default(""),
+  short_description: z.string().max(500).optional().default(""),
+  seo_title: z.string().max(200).optional().default(""),
+  seo_description: z.string().max(320).optional().default(""),
   brand: z.string().trim().max(100).optional().default("BF SHOES"),
   image_url: z.string().url().max(2000).refine(value => value.startsWith("https://"), "Image URL must use HTTPS").optional().nullable().default(null),
   price_cents: z.number().int().min(0).max(100000000),
+  unit_cost_cents: z.number().int().min(0).max(100000000).optional().nullable(),
   currency: z.string().regex(/^[A-Za-z]{3}$/).optional().default("AED")
 });
 router.get("/products", authenticate, requireScope("products:read"), async (req, res, next) => {
@@ -72,9 +106,9 @@ router.post("/products", authenticate, requireScope("products:write"), async (re
     client = await pool.connect();
     await client.query("BEGIN");
     const result = await client.query(
-      `INSERT INTO products(name, slug, description, brand, image_url, price_cents, currency)
-       VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [p.name, p.slug, p.description, p.brand, p.image_url, p.price_cents, p.currency.toUpperCase()]
+      `INSERT INTO products(name, slug, description, short_description, seo_title, seo_description, brand, image_url, price_cents, unit_cost_cents, currency)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+      [p.name, p.slug, p.description, p.short_description, p.seo_title, p.seo_description, p.brand, p.image_url, p.price_cents, p.unit_cost_cents ?? null, p.currency.toUpperCase()]
     );
     await client.query(
       "INSERT INTO audit_events(actor_type, actor_id, action, resource_type, resource_id) VALUES($1,$2,$3,$4,$5)",
@@ -87,6 +121,25 @@ router.post("/products", authenticate, requireScope("products:write"), async (re
     if (err.code === "23505") return res.status(409).json({ error: "Product slug already exists" });
     next(err);
   } finally { client?.release(); }
+});
+
+const productUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(160).optional(),
+  description: z.string().max(5000).optional(),
+  short_description: z.string().max(500).optional(),
+  seo_title: z.string().max(200).optional(),
+  seo_description: z.string().max(320).optional(),
+  price_cents: z.number().int().min(0).max(100000000).optional(),
+  unit_cost_cents: z.number().int().min(0).max(100000000).nullable().optional(),
+  image_url: z.string().url().max(2000).refine(v => v.startsWith("https://")).nullable().optional(),
+  active: z.boolean().optional()
+}).strict().refine(v => Object.keys(v).length > 0);
+router.patch("/products/:id", authenticate, requireScope("products:write"), async (req,res,next) => {
+ const parsed=productUpdateSchema.safeParse(req.body);
+ if(!parsed.success)return res.status(400).json({error:"Invalid product update",details:parsed.error.flatten()});
+ const entries=Object.entries(parsed.data),values=entries.map(([,v])=>v),sets=entries.map(([k],i)=>`${k}=$${i+1}`);
+ values.push(req.params.id);
+ try{const result=await pool.query(`UPDATE products SET ${sets.join(", ")},updated_at=now() WHERE id=$${values.length} RETURNING id,name,slug,description,short_description,seo_title,seo_description,brand,image_url,price_cents,unit_cost_cents,currency,active,updated_at`,values);if(!result.rowCount)return res.status(404).json({error:"Product not found"});await pool.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES($1,$2,'product.update','product',$3)",[req.actor.type,req.actor.id,result.rows[0].id]);res.json({data:result.rows[0]})}catch(err){next(err)}
 });
 
 const variantSchema = z.object({
@@ -213,7 +266,7 @@ router.post("/orders", authenticate, requireScope("orders:write"), async (req, r
     const skus = [...quantities.keys()].sort();
     const found = await client.query(
       `SELECT v.id AS variant_id, v.sku, v.size_label, v.color_name, v.stock_qty,
-              v.active AS variant_active, p.name AS product_name, p.price_cents, p.currency, p.active AS product_active
+              v.active AS variant_active, p.name AS product_name, p.price_cents, p.unit_cost_cents, p.currency, p.active AS product_active
        FROM variants v JOIN products p ON p.id=v.product_id
        WHERE v.sku = ANY($1::text[]) ORDER BY v.sku FOR UPDATE OF v`,
       [skus]
@@ -243,9 +296,9 @@ router.post("/orders", authenticate, requireScope("orders:write"), async (req, r
       await client.query("UPDATE variants SET stock_qty=stock_qty-$1, updated_at=now() WHERE id=$2", [qty, v.variant_id]);
       const lineTotal = v.price_cents * qty;
       const item = await client.query(
-        `INSERT INTO order_items(order_id, variant_id, sku, product_name, size_label, color_name, unit_price_cents, quantity, line_total_cents)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-        [order.id, v.variant_id, sku, v.product_name, v.size_label, v.color_name, v.price_cents, qty, lineTotal]
+        `INSERT INTO order_items(order_id, variant_id, sku, product_name, size_label, color_name, unit_price_cents, quantity, line_total_cents, unit_cost_cents)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+        [order.id, v.variant_id, sku, v.product_name, v.size_label, v.color_name, v.price_cents, qty, lineTotal, v.unit_cost_cents ?? null]
       );
       await client.query(
         "INSERT INTO inventory_movements(variant_id, delta, reason, reference_order_id) VALUES($1,$2,$3,$4)",
@@ -295,8 +348,8 @@ const statusSchema = z.object({
   status: z.enum(["processing", "shipped", "delivered", "cancelled"])
 });
 router.patch("/orders/:id/status", authenticate, requireScope("orders:write"), async (req, res, next) => {
-  if (req.actor.type !== "admin" || req.actor.role !== "admin") {
-    return res.status(403).json({ error: "Only an administrator can change order status" });
+  if (req.actor.type !== "admin" || !["admin", "manager"].includes(req.actor.role)) {
+    return res.status(403).json({ error: "Owner or manager permission required to change order status" });
   }
   const parsed = statusSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid order status" });
@@ -337,7 +390,7 @@ router.patch("/orders/:id/status", authenticate, requireScope("orders:write"), a
 });
 
 router.post("/admin/api-keys", authenticate, requireScope("keys:write"), async (req, res, next) => {
-  if (req.actor.type !== "admin" || req.actor.role !== "admin") {
+  if (req.actor.type !== "admin" || !["admin", "manager"].includes(req.actor.role)) {
     return res.status(403).json({ error: "Only a logged-in administrator can issue API keys" });
   }
   const schema = z.object({
@@ -369,7 +422,7 @@ router.post("/admin/api-keys", authenticate, requireScope("keys:write"), async (
 
 router.get("/admin/api-keys", authenticate, requireScope("keys:write"), async (req, res, next) => {
   try {
-    if (req.actor.type !== "admin" || req.actor.role !== "admin") return res.status(403).json({ error: "Admin login required" });
+    if (req.actor.type !== "admin" || !["admin", "manager"].includes(req.actor.role)) return res.status(403).json({ error: "Admin login required" });
     const result = await pool.query(
       "SELECT id, label, key_prefix, scopes, active, expires_at, created_at, last_used_at FROM api_keys ORDER BY created_at DESC"
     );
@@ -378,7 +431,7 @@ router.get("/admin/api-keys", authenticate, requireScope("keys:write"), async (r
 });
 
 router.post("/admin/api-keys/:id/revoke", authenticate, requireScope("keys:write"), async (req, res, next) => {
-  if (req.actor.type !== "admin" || req.actor.role !== "admin") {
+  if (req.actor.type !== "admin" || !["admin", "manager"].includes(req.actor.role)) {
     return res.status(403).json({ error: "Admin login required" });
   }
   let client;

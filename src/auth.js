@@ -8,7 +8,7 @@ export async function authenticate(req, res, next) {
     const auth = req.get("authorization") || "";
     if (auth.startsWith("Bearer ")) {
       const claims = verifyAccessToken(auth.slice(7));
-      if (claims.typ !== "admin" || !claims.sub || !["admin", "staff"].includes(claims.role)) {
+      if (claims.typ !== "admin" || !claims.sub || !["admin", "manager", "staff"].includes(claims.role)) {
         return res.status(401).json({ error: "Invalid access token" });
       }
       const result = await pool.query(

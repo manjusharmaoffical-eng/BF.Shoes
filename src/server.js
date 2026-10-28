@@ -5,7 +5,14 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import { pool } from "./db.js";
 import { router } from "./routes.js";
+import { customerAuthRouter } from "./customer-auth.js";
 import { storefrontRouter } from "./storefront.js";
+import { businessRouter } from "./business.js";
+import { newsletterRouter } from "./newsletter.js";
+import { financeRouter } from "./finance.js";
+import { aiStudioRouter } from "./ai-studio.js";
+import { ultronRouter } from "./ultron.js";
+import { invoicesRouter } from "./invoices.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,10 +28,16 @@ if (!Number.isInteger(trustProxyHops) || trustProxyHops < 0 || trustProxyHops > 
 }
 app.set("trust proxy", trustProxyHops);
 app.use(helmet());
-const allowedOrigins = (process.env.ADMIN_ORIGIN || "").split(",").map(s => s.trim()).filter(Boolean);
+const configuredOrigins = (process.env.ADMIN_ORIGIN || "").split(",").map(s => s.trim()).filter(Boolean);
+// Vercel assigns a unique hostname to each preview deployment. Add only this
+// deployment's exact Vercel and branch hostnames; never allow a broad *.vercel.app wildcard.
+const vercelOrigins = [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL]
+  .filter(Boolean)
+  .map(value => /^https?:\/\//i.test(value) ? new URL(value).origin : `https://${value}`);
+const allowedOrigins = new Set([...configuredOrigins, ...vercelOrigins]);
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    if (!origin || allowedOrigins.has(origin)) return callback(null, true);
     return callback(new Error("Origin not allowed by CORS"));
   },
   methods: ["GET", "POST", "PATCH", "OPTIONS"],
@@ -47,6 +60,14 @@ app.use("/api/v1/auth/login", rateLimit({ windowMs: 15 * 60_000, limit: 10, stan
 app.use("/api/v1/store/orders", rateLimit({ windowMs: 15 * 60_000, limit: 8, standardHeaders: "draft-7", legacyHeaders: false }));
 app.use("/api/v1/store/orders/track", rateLimit({ windowMs: 15 * 60_000, limit: 8, standardHeaders: "draft-7", legacyHeaders: false }));
 app.use("/api/v1/store", storefrontRouter);
+app.use("/api/v1/customer-auth", rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false }), customerAuthRouter);
+app.use("/api/v1/newsletter", rateLimit({ windowMs: 60 * 60_000, limit: 5, standardHeaders: "draft-7", legacyHeaders: false }), newsletterRouter);
+app.use("/api/v1/business", businessRouter);
+app.use("/api/v1/finance", financeRouter);
+app.use("/api/v1/ai", aiStudioRouter);
+app.use("/api/v1/ai-studio", aiStudioRouter);
+app.use("/api/v1/ultron", ultronRouter);
+app.use("/api/v1/invoices", invoicesRouter);
 app.use("/api/v1", router);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 app.use(express.static(path.resolve(__dirname, "../frontend"), { index: "index.html", maxAge: process.env.NODE_ENV === "production" ? "1h" : 0 }));

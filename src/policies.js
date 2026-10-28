@@ -1,13 +1,11 @@
 import crypto from "node:crypto";
 
-export const STAFF_SCOPES = Object.freeze([
-  "products:read",
-  "inventory:read",
-  "orders:read"
-]);
+export const STAFF_SCOPES = Object.freeze(["products:read", "inventory:read", "orders:read", "analytics:read", "campaigns:read"]);
+export const MANAGER_SCOPES = Object.freeze(["products:read", "products:write", "inventory:read", "inventory:write", "orders:read", "orders:write", "analytics:read", "campaigns:read", "campaigns:write"]);
 
 export function scopesForAdminRole(role) {
   if (role === "admin") return ["*"];
+  if (role === "manager") return [...MANAGER_SCOPES];
   if (role === "staff") return [...STAFF_SCOPES];
   return [];
 }
