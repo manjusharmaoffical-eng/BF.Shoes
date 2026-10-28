@@ -12,7 +12,7 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  const money = (cents, currency = 'AED') => `${currency} ${(Number(cents || 0) / 100).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const money = (cents, currency = 'INR') => `₹${(Number(cents || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const productImage = product => {
     const candidate = typeof product.image_url === 'string' && product.image_url.startsWith('https://') ? product.image_url : '';
     return candidate || FALLBACK_IMAGES[Math.abs(hashCode(product.slug || product.name || 'bf')) % FALLBACK_IMAGES.length];
@@ -59,7 +59,7 @@
     $('#cart-empty').classList.toggle('hidden', count > 0);
     $('#drawer-foot').classList.toggle('hidden', count === 0);
     $('#cart-items').classList.toggle('hidden', count === 0);
-    $('#cart-subtotal').textContent = money(totalCents(), state.cart[0]?.product.currency || 'AED');
+    $('#cart-subtotal').textContent = money(totalCents(), state.cart[0]?.product.currency || 'INR');
     $('#checkout-total').textContent = money(totalCents(), state.cart[0]?.product.currency || 'AED');
     $('#cart-items').innerHTML = state.cart.map(item => `<div class="cart-line"><img src="${escapeHtml(productImage(item.product))}" alt="" /><div><h3>${escapeHtml(item.product.name)}</h3><p>Size ${escapeHtml(item.variant.size_label)} · ${escapeHtml(item.variant.color_name || 'Classic')}</p><div class="qty-control"><button type="button" data-qty="-1" data-sku="${escapeHtml(item.variant.sku)}" aria-label="Decrease quantity">−</button><span>${item.quantity}</span><button type="button" data-qty="1" data-sku="${escapeHtml(item.variant.sku)}" aria-label="Increase quantity" ${item.quantity >= 10 ? 'disabled' : ''}>+</button></div></div><strong class="cart-line-price">${money(Number(item.product.price_cents) * item.quantity, item.product.currency)}</strong></div>`).join('');
   }
@@ -148,7 +148,7 @@
       customer_email: String(formData.get('customer_email') || '').trim(),
       customer_phone: String(formData.get('customer_phone') || '').trim(),
       shipping_address: String(formData.get('shipping_address') || '').trim(),
-      shipping_country: String(formData.get('shipping_country') || 'AE'),
+      shipping_country: String(formData.get('shipping_country') || 'IN'),
       shipping_pincode: String(formData.get('shipping_pincode') || '').trim(),
       items: state.cart.map(item => ({ sku: item.variant.sku, quantity: item.quantity }))
     };
