@@ -64,10 +64,21 @@ aiStudioRouter.post("/product-copy", async (req, res) => {
     if (!response.ok) return res.status(502).json({ error: "AI text generation failed", provider_status: response.status });
     const raw = data.output?.flatMap(part => part.content || []).find(part => part.type === "output_text")?.text;
     if (!raw) return res.status(502).json({ error: "AI provider returned no text" });
-    let copy;
-    try { copy = JSON.parse(raw); } catch { return res.status(502).json({ error: "AI response could not be parsed" }); }
+    let decoded;
+    try { decoded = JSON.parse(raw); } catch { return res.status(502).json({ error: "AI response could not be parsed" }); }
+    // Validate provider output before it reaches the admin UI; never trust generated JSON.
+    const copySchemaOutput = z.object({
+      title: z.string().trim().min(2).max(160),
+      short_description: z.string().trim().min(2).max(320),
+      description: z.string().trim().min(2).max(5000),
+      bullet_points: z.array(z.string().trim().min(2).max(240)).min(1).max(8),
+      seo_title: z.string().trim().min(2).max(160),
+      seo_description: z.string().trim().min(2).max(320)
+    }).strict();
+    const validated = copySchemaOutput.safeParse(decoded);
+    if (!validated.success) return res.status(502).json({ error: "AI provider returned incomplete or invalid product copy", details: validated.error.flatten() });
     res.set("Cache-Control", "no-store");
-    res.json({ data: copy, review_required: true });
+    res.json({ data: validated.data, review_required: true });
   } catch { res.status(502).json({ error: "AI provider is temporarily unavailable" }); }
 });
 
