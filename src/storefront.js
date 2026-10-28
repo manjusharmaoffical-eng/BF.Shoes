@@ -10,7 +10,7 @@ const checkoutSchema = z.object({
   customer_email: z.string().trim().email().max(254),
   customer_phone: z.string().trim().min(7).max(30).regex(/^[+()0-9 .-]+$/),
   shipping_address: z.string().trim().min(10).max(1000),
-  shipping_country: z.enum(["AE", "IN"]).default("AE"),
+  shipping_country: z.literal("IN").default("IN" ),
   shipping_pincode: z.string().trim().optional().default(""),
   items: z.array(z.object({ sku: z.string().trim().min(2).max(80), quantity: z.number().int().min(1).max(10) })).min(1).max(20)
 }).strict();
@@ -66,8 +66,6 @@ storefrontRouter.post("/orders", async (req, res, next) => {
     const allowedPins = new Set((process.env.INDIA_DELIVERY_PINCODES || "500052").split(",").map(value => value.trim()).filter(Boolean));
     if (!allowedPins.size) return res.status(503).json({ error: "India delivery is not configured yet. Please contact the store before ordering." });
     if (!allowedPins.has(pin)) return res.status(400).json({ error: "Sorry, BF SHOES does not deliver to this PIN code yet." });
-    // Safety gate: catalog prices are currently AED and orders have no separate INR delivery-fee field.
-    return res.status(503).json({ error: "India delivery to this PIN code is planned, but checkout is not enabled yet. INR product pricing and the ₹50 delivery fee must be configured first." });
   } else if (d.shipping_pincode) {
     return res.status(400).json({ error: "PIN code is only used for India delivery. Select the correct delivery country." });
   }
@@ -108,7 +106,7 @@ storefrontRouter.post("/orders", async (req, res, next) => {
       if (!Number.isSafeInteger(subtotal) || subtotal > 2000000000) { await client.query("ROLLBACK"); return res.status(400).json({ error: "Order total exceeds limit" }); }
     }
     const currency = found.rows[0].currency;
-    if (found.rows.some(v => v.currency !== currency)) { await client.query("ROLLBACK"); return res.status(400).json({ error: "Mixed currencies are not supported" }); }
+    if (currency !== "INR" || found.rows.some(v => v.currency !== "INR")) { await client.query("ROLLBACK"); return res.status(503).json({ error: "Checkout is enabled for India only. The selected products must have verified INR prices before ordering." }); }
 
     const inserted = await client.query(
       `INSERT INTO orders(customer_name, customer_email, customer_phone, shipping_address, payment_method,
