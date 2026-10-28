@@ -45,7 +45,7 @@ const productSchema = z.object({
   brand: z.string().trim().max(100).optional().default("BF SHOES"),
   image_url: z.string().url().max(2000).refine(value => value.startsWith("https://"), "Image URL must use HTTPS").optional().nullable().default(null),
   price_cents: z.number().int().min(0).max(100000000),
-  currency: z.string().regex(/^[A-Za-z]{3}$/).optional().default("AED")
+  currency: z.literal("INR").optional().default("INR")
 });
 router.get("/products", authenticate, requireScope("products:read"), async (req, res, next) => {
   try {
