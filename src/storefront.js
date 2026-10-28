@@ -16,8 +16,29 @@ const checkoutSchema = z.object({
   items: z.array(z.object({ sku: z.string().trim().min(2).max(80), quantity: z.number().int().min(1).max(10) })).min(1).max(20)
 }).strict();
 
-storefrontRouter.get("/campaigns/active", async (_req,res,next) => {
- try { const result=await pool.query(`SELECT id,name,headline,image_url,target_url,coupon_code,discount_percent FROM campaigns WHERE status='active' AND kind='banner' AND (starts_at IS NULL OR starts_at<=now()) AND (ends_at IS NULL OR ends_at>now()) ORDER BY updated_at DESC LIMIT 5`);res.set("Cache-Control","public, max-age=30, stale-while-revalidate=60");res.json({data:result.rows}) } catch(err){next(err)}
+storefrontRouter.get("/campaigns/active", async (_req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, name, headline, image_url, target_url, coupon_code, discount_percent
+       FROM campaigns
+       WHERE status = 'active' AND kind = 'banner'
+         AND (starts_at IS NULL OR starts_at <= now())
+         AND (ends_at IS NULL OR ends_at > now())
+       ORDER BY updated_at DESC
+       LIMIT 5`
+    );
+    res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
+    return res.json({ data: result.rows });
+  } catch (err) {
+    // Keep the public storefront available if the optional campaign migration
+    // has not been applied to this environment yet. An empty campaign table
+    // already returns [] naturally; other database failures must remain visible.
+    if (err.code === "42P01" && /campaigns/i.test(err.message || "")) {
+      res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
+      return res.json({ data: [] });
+    }
+    return next(err);
+  }
 });
 
 storefrontRouter.get("/products", async (_req, res, next) => {
