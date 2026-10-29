@@ -164,11 +164,7 @@ body{background:#f7f8fa;color:#11151b}
  .catalog-layout.filters-open .catalog-sidebar{grid-template-columns:1fr 1fr;padding:12px}
 }
 
-/* A single real catalog item should feel deliberately featured, not lost in a four-column shelf. */
-.product-grid:has(.product-card:only-child){grid-template-columns:minmax(0,420px);justify-content:center;gap:24px}
-.product-grid:has(.product-card:only-child) .product-image{height:clamp(250px,28vw,360px)}
-.product-grid:has(.product-card:only-child) .product-card{padding:12px 12px 16px}
-@media(max-width:780px){
- .product-grid:has(.product-card:only-child){grid-template-columns:minmax(0,1fr);justify-content:center}
- .product-grid:has(.product-card:only-child) .product-image{height:clamp(260px,70vw,360px)}
-}
+/* Preserve the selected reference layout: four product columns on desktop, two on mobile.
+   Never silently switch to a centered single-card template when inventory is low. */
+@media(min-width:1101px){.product-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:1100px) and (min-width:781px){.product-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
