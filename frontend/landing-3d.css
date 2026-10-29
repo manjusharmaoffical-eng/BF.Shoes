@@ -1,10 +1,10 @@
 /* BF SHOES — 3D launch landing experience */
-:root{--bf-electric:#c7ff43;--bf-night:#06080b;--bf-silver:#d8dce2}
+:root{--bf-electric:#e31b2f;--bf-night:#06080b;--bf-silver:#d8dce2}
 html{scroll-padding-top:100px}
 body{background:#f7f8fa;color:#11151b}
-.launch-announcement{position:relative;z-index:25;min-height:36px;padding:9px clamp(14px,4vw,56px);display:flex;align-items:center;justify-content:center;gap:12px;background:linear-gradient(90deg,#10151b,#050608 52%,#10151b);color:#f6f7f9;font-size:9px;font-weight:800;letter-spacing:.16em;text-align:center}
-.launch-live-dot{width:6px;height:6px;flex:0 0 6px;border-radius:50%;background:var(--bf-electric);box-shadow:0 0 12px #c7ff43aa}
-.launch-announcement>a{margin-left:12px;color:var(--bf-electric);white-space:nowrap;border-bottom:1px solid #c7ff4380;padding-bottom:2px}
+.launch-announcement{position:relative;z-index:25;min-height:36px;padding:9px clamp(14px,4vw,56px);display:flex;align-items:center;justify-content:center;gap:12px;background:linear-gradient(90deg,#fff,#f5f5f5 52%,#fff);color:#111;font-size:9px;font-weight:800;letter-spacing:.16em;text-align:center}
+.launch-live-dot{width:6px;height:6px;flex:0 0 6px;border-radius:50%;background:var(--bf-electric);box-shadow:0 0 12px #e31b2faa}
+.launch-announcement>a{margin-left:12px;color:var(--bf-electric);white-space:nowrap;border-bottom:1px solid #e31b2f80;padding-bottom:2px}
 .launch-announcement>a span{margin-left:5px;font-size:13px}
 .site-header{background:#080a0d;border-bottom-color:#272c33}
 .site-header .wordmark,.site-header .bf-logo-mark,.site-header .bf-logo-copy{color:#fff}
@@ -14,31 +14,31 @@ body{background:#f7f8fa;color:#11151b}
 .site-header .header-search{border-color:#303741;background:#14191f}
 .site-header .header-icon,.site-header .cart-trigger{color:#fff}
 .site-header .cart-trigger span{background:var(--bf-electric);color:#080a0d}
-.hero-reference{height:clamp(490px,48vw,700px);min-height:clamp(490px,48vw,700px);grid-template-columns:minmax(360px,.88fr) minmax(0,1.12fr);background:radial-gradient(ellipse at 73% 48%,#222c37 0,#0c1117 39%,#050608 75%);border-bottom:1px solid #252b33;isolation:isolate}
-.hero-reference:before{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(110deg,rgba(3,5,8,.98) 0%,rgba(3,5,8,.9) 35%,rgba(3,5,8,.15) 76%),radial-gradient(circle at 74% 50%,rgba(199,255,67,.12),transparent 35%);pointer-events:none}
-.hero-reference .hero-photo{z-index:-2;opacity:.3;background-image:linear-gradient(90deg,rgba(4,6,9,.85),rgba(4,6,9,.1)),url('https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=2000&q=90');background-position:center 54%;background-size:cover;filter:saturate(.4)}
+.hero-reference{height:clamp(490px,48vw,700px);min-height:clamp(490px,48vw,700px);grid-template-columns:minmax(360px,.88fr) minmax(0,1.12fr);background:radial-gradient(ellipse at 73% 48%,#353535 0,#151515 39%,#050505 75%);border-bottom:1px solid #252b33;isolation:isolate}
+.hero-reference:before{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(110deg,rgba(3,5,8,.98) 0%,rgba(3,5,8,.9) 35%,rgba(3,5,8,.15) 76%),radial-gradient(circle at 74% 50%,rgba(227,27,47,.18),transparent 35%);pointer-events:none}
+.hero-reference .hero-photo{z-index:-2;opacity:.3;background-image:linear-gradient(90deg,rgba(4,4,4,.85),rgba(4,4,4,.1));background-position:center 54%;background-size:cover;filter:saturate(.4)}
 .hero-reference .hero-copy{grid-column:1;grid-row:1;padding:clamp(46px,7vw,100px) 20px 92px clamp(24px,7vw,110px);justify-content:center;align-items:flex-start;z-index:4}
 .hero-reference .eyebrow{display:flex;align-items:center;gap:10px;color:var(--bf-electric);font-size:10px;letter-spacing:.2em;margin:0 0 24px}
-.hero-eyebrow-line{width:25px;height:1px;background:var(--bf-electric);box-shadow:0 0 8px #c7ff4380}
+.hero-eyebrow-line{width:25px;height:1px;background:var(--bf-electric);box-shadow:0 0 8px #e31b2f80}
 .hero-reference h1{font-size:clamp(58px,7.5vw,112px);font-weight:900;letter-spacing:-.09em;line-height:.88;color:#fff;text-shadow:0 8px 45px #0009;white-space:nowrap}
 .hero-title-period{color:var(--bf-electric)}
 .hero-reference .hero-tagline{margin:22px 0 0;gap:12px;color:#e2e6eb;font-size:10px;font-weight:800;letter-spacing:.13em}
 .hero-reference .hero-tagline span{color:var(--bf-electric);font-size:11px}
 .hero-reference .hero-intro{max-width:330px;color:#aeb7c2;line-height:1.8;font-size:13px;margin:18px 0 24px}
-.hero-reference .button-light{min-height:48px;border:1px solid var(--bf-electric);border-radius:3px;background:var(--bf-electric);color:#090b0d;font-size:11px;font-weight:900;letter-spacing:.01em;gap:28px;padding:0 20px;box-shadow:0 7px 30px #c7ff4320;transition:transform .25s,box-shadow .25s,background .25s}
-.hero-reference .button-light:hover{transform:translateY(-3px);box-shadow:0 12px 34px #c7ff4350;background:#d5ff70}
-.hero-reference .hero-product{position:relative;grid-column:2;grid-row:1;align-self:stretch;min-width:0;min-height:0;background-image:url('https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?auto=format&fit=crop&w=1400&q=90');background-size:contain;background-position:center 52%;background-repeat:no-repeat;filter:drop-shadow(0 38px 34px #000b) contrast(1.12) saturate(.8);mix-blend-mode:normal;transform:scale(1.07) rotate(-5deg);animation:bf-float 6s ease-in-out infinite;z-index:2}
-.hero-reference .hero-product:before{content:"";position:absolute;inset:12% 7%;border:1px solid #c7ff4345;border-radius:50%;transform:perspective(800px) rotateX(67deg) rotateZ(-18deg) scale(1.15);box-shadow:0 0 40px #c7ff4312,inset 0 0 36px #c7ff4310;pointer-events:none}
-.hero-reference .hero-product:after{content:"";position:absolute;width:72%;height:15%;left:14%;bottom:15%;border-radius:50%;background:#c7ff43;filter:blur(54px);opacity:.13;transform:rotate(-12deg);pointer-events:none}
+.hero-reference .button-light{min-height:48px;border:1px solid var(--bf-electric);border-radius:3px;background:var(--bf-electric);color:#090b0d;font-size:11px;font-weight:900;letter-spacing:.01em;gap:28px;padding:0 20px;box-shadow:0 7px 30px #e31b2f20;transition:transform .25s,box-shadow .25s,background .25s}
+.hero-reference .button-light:hover{transform:translateY(-3px);box-shadow:0 12px 34px #e31b2f50;background:#ff4b59}
+.hero-reference .hero-product{position:relative;grid-column:2;grid-row:1;align-self:stretch;min-width:0;min-height:0;background-image:url('/bf-shoes-hero.svg');background-size:contain;background-position:center 52%;background-repeat:no-repeat;filter:drop-shadow(0 38px 34px #000b) contrast(1.12) saturate(.8);mix-blend-mode:normal;transform:scale(1.07) rotate(-5deg);animation:bf-float 6s ease-in-out infinite;z-index:2}
+.hero-reference .hero-product:before{content:"";position:absolute;inset:12% 7%;border:1px solid #e31b2f45;border-radius:50%;transform:perspective(800px) rotateX(67deg) rotateZ(-18deg) scale(1.15);box-shadow:0 0 40px #e31b2f12,inset 0 0 36px #e31b2f10;pointer-events:none}
+.hero-reference .hero-product:after{content:"";position:absolute;width:72%;height:15%;left:14%;bottom:15%;border-radius:50%;background:#e31b2f;filter:blur(54px);opacity:.13;transform:rotate(-12deg);pointer-events:none}
 @keyframes bf-float{0%,100%{transform:translateY(0) scale(1.07) rotate(-5deg)}50%{transform:translateY(-13px) scale(1.09) rotate(-3deg)}}
 .hero-orbit-label{position:absolute;right:clamp(20px,4vw,62px);top:30px;z-index:4;display:flex;flex-direction:column;gap:5px;text-align:right;color:#f4f6f8;font-size:8px;font-weight:800;letter-spacing:.18em}
 .hero-orbit-label span:first-child{color:var(--bf-electric);font-size:11px}
 .hero-reference .hero-benefits{position:absolute;left:clamp(24px,7vw,110px);right:clamp(20px,4vw,62px);bottom:23px;display:flex;flex-wrap:wrap;gap:10px 25px;border-top:1px solid #ffffff24;padding-top:17px;color:#f5f6f7;font-size:11px;z-index:5}
 .hero-reference .hero-benefits div{gap:8px;color:var(--bf-electric)}
 .hero-reference .hero-benefits span{color:#d8dce2;font-size:10px;letter-spacing:.02em}
-.ticker{display:block;background:var(--bf-electric);color:#0a0d0f;padding:14px 0}
+.ticker{display:block;background:#e31b2f;color:#fff;padding:14px 0}
 .ticker div{font-size:10px;letter-spacing:.2em}
-.ticker span{color:#111;padding:0 25px}
+.ticker span{color:#fff;padding:0 25px}
 .shop-section{background:#f7f8fa}
 .catalog-topline .eyebrow{color:#5e6772}
 .catalog-topline h2{color:#0b1016}
@@ -76,4 +76,25 @@ body{background:#f7f8fa;color:#11151b}
  .hero-reference .hero-benefits{display:none}
  .ticker{padding:11px 0}
 }
+@media(prefers-reduced-motion:reduce){.hero-reference .hero-product{animation:none}}
+
+/* Final brand palette: white, red and black only. Local sneaker art avoids external image failures. */
+:root{--bf-electric:#e31b2f;--bf-night:#050505;--bf-silver:#e5e5e5}
+.launch-announcement{background:#fff;color:#111;border-bottom:1px solid #e6e6e6}
+.launch-announcement>a{color:#e31b2f;border-color:#e31b2f80}
+.launch-live-dot{background:#e31b2f;box-shadow:0 0 10px #e31b2f55}
+.site-header{background:#050505;border-bottom-color:#282828}
+.hero-reference{background:radial-gradient(ellipse at 74% 48%,#292929 0,#111 43%,#050505 78%)}
+.hero-reference:before{background:linear-gradient(110deg,rgba(3,3,3,.98) 0%,rgba(3,3,3,.88) 35%,rgba(3,3,3,.08) 76%),radial-gradient(circle at 74% 50%,rgba(227,27,47,.2),transparent 35%)}
+.hero-reference .hero-photo{background-image:radial-gradient(circle at 70% 40%,rgba(227,27,47,.15),transparent 40%);opacity:1}
+.hero-reference .hero-product{background-image:url('/bf-shoes-hero.svg');background-size:contain;background-position:center;background-repeat:no-repeat;filter:drop-shadow(0 30px 30px #0009);mix-blend-mode:normal}
+.hero-reference .hero-product:after{background:#e31b2f;opacity:.2}
+.ticker{background:#e31b2f;color:#fff}
+.ticker span{color:#fff}
+.button-light,.hero-reference .button-light{background:#e31b2f;color:#fff;border-color:#e31b2f;box-shadow:0 7px 30px #e31b2f20}
+.hero-reference .button-light:hover{background:#bd1022;border-color:#bd1022;box-shadow:0 12px 34px #e31b2f40}
+.catalog-topline h2 strong{color:#e31b2f}
+.product-card:hover{box-shadow:0 16px 35px #e31b2f16}
+.manifesto{background:#f0f0f0}
+.site-footer{background:#050505}
 @media(prefers-reduced-motion:reduce){.hero-reference .hero-product{animation:none}}

@@ -163,7 +163,7 @@
     state.loading = true;
     renderProducts();
     try {
-      const response = await request(API_BASE);
+      const response = await request(`${API_BASE}/products`);
       state.products = Array.isArray(response) ? response : (response.data || response.products || []);
       if (!Array.isArray(state.products)) state.products = [];
     } catch (error) {
