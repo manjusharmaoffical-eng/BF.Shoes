@@ -1,28 +1,50 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 650" role="img" aria-labelledby="title desc">
-<title id="title">BF SHOES red, white and black performance sneaker</title><desc id="desc">A clean side profile of a modern athletic sneaker, white upper, black sole and red accent stripes, on a transparent background.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc">
+<title id="title">BF SHOES — signature black and red sneaker</title>
+<desc id="desc">Premium black technical sneaker with a bold white BF side mark, red motion stripes and a sculpted black and white sole, rendered in a dramatic studio style.</desc>
 <defs>
- <linearGradient id="upper" x1="0" y1="0" x2=".8" y2="1"><stop offset="0" stop-color="#fff"/><stop offset=".55" stop-color="#f4f4f4"/><stop offset="1" stop-color="#d8d8d8"/></linearGradient>
- <linearGradient id="sole" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#303030"/><stop offset="1" stop-color="#050505"/></linearGradient>
- <linearGradient id="red" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff3547"/><stop offset="1" stop-color="#b90d20"/></linearGradient>
- <filter id="shadow" x="-30%" y="-40%" width="160%" height="190%"><feGaussianBlur stdDeviation="18"/></filter>
+ <linearGradient id="upper" x1="0" y1="0" x2=".9" y2="1"><stop offset="0" stop-color="#343434"/><stop offset=".34" stop-color="#111"/><stop offset=".72" stop-color="#050505"/><stop offset="1" stop-color="#202020"/></linearGradient>
+ <linearGradient id="mesh" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#454545"/><stop offset=".45" stop-color="#171717"/><stop offset="1" stop-color="#090909"/></linearGradient>
+ <linearGradient id="sole" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f8f8f8"/><stop offset=".23" stop-color="#d8d8d8"/><stop offset=".27" stop-color="#292929"/><stop offset="1" stop-color="#030303"/></linearGradient>
+ <linearGradient id="red" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff5360"/><stop offset=".5" stop-color="#e31b2f"/><stop offset="1" stop-color="#920717"/></linearGradient>
+ <radialGradient id="halo"><stop offset="0" stop-color="#e31b2f" stop-opacity=".24"/><stop offset="1" stop-color="#e31b2f" stop-opacity="0"/></radialGradient>
+ <pattern id="weave" width="13" height="13" patternUnits="userSpaceOnUse"><path d="M0 2L11 13M-3 5L5 -3M5 16L16 5" stroke="#aaa" stroke-opacity=".14" stroke-width="1.6"/></pattern>
+ <filter id="shadow" x="-30%" y="-50%" width="170%" height="210%"><feGaussianBlur stdDeviation="22"/></filter>
+ <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="22"/></filter>
 </defs>
-<ellipse cx="515" cy="526" rx="360" ry="35" fill="#000" opacity=".22" filter="url(#shadow)"/>
-<g transform="rotate(-7 500 340)">
- <path d="M132 386 C177 375 211 346 250 303 L333 190 Q354 164 389 177 L516 250 Q575 281 648 307 L778 352 Q824 367 858 402 L883 435 Q894 451 873 466 L818 486 L226 492 Q169 487 134 454 Q116 438 119 412 Z" fill="url(#upper)" stroke="#111" stroke-width="8" stroke-linejoin="round"/>
- <path d="M132 415 Q211 433 290 422 L487 412 Q600 409 700 430 L850 428 L880 449 Q890 463 870 475 L817 494 L226 500 Q163 493 129 458 Q116 442 132 415Z" fill="url(#sole)" stroke="#050505" stroke-width="7"/>
- <path d="M145 452 Q271 474 410 455 Q582 438 731 461 L855 459" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" opacity=".9"/>
- <path d="M258 321 L328 217 Q346 194 365 204 L450 252 L370 348 Z" fill="#fff" stroke="#111" stroke-width="6"/>
- <path d="M355 207 L450 258 L398 346 L313 334 Z" fill="#e8e8e8" stroke="#111" stroke-width="5"/>
- <path d="M472 270 L422 354 L468 375 L526 291 Z" fill="url(#red)" stroke="#111" stroke-width="5"/>
- <path d="M530 295 L482 379 L523 395 L578 316 Z" fill="url(#red)" stroke="#111" stroke-width="5"/>
- <path d="M589 319 L543 401 L583 414 L637 340 Z" fill="url(#red)" stroke="#111" stroke-width="5"/>
- <path d="M250 305 L329 191 Q351 166 389 180 L422 199" fill="none" stroke="#111" stroke-width="8" stroke-linecap="round"/>
- <path d="M380 211 L472 268 M364 234 L456 289 M348 258 L440 310" fill="none" stroke="#777" stroke-width="7" stroke-linecap="round"/>
- <path d="M390 196 L466 242" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
- <path d="M644 307 L761 347 Q798 359 826 384 L763 396 L644 363Z" fill="#efefef" stroke="#111" stroke-width="6"/>
- <path d="M141 400 Q173 399 205 385" fill="none" stroke="url(#red)" stroke-width="12" stroke-linecap="round"/>
- <path d="M231 490 L817 487" stroke="#e31b2f" stroke-width="7" stroke-linecap="round"/>
- <path d="M165 439 L202 443 M183 456 L220 459 M205 473 L242 475" stroke="#777" stroke-width="4" stroke-linecap="round"/>
- <text x="670" y="398" font-family="Arial,sans-serif" font-size="23" font-weight="900" letter-spacing="4" fill="#111" transform="rotate(7 670 398)">BF</text>
+<ellipse cx="620" cy="625" rx="420" ry="45" fill="#000" opacity=".85" filter="url(#shadow)"/>
+<ellipse cx="650" cy="600" rx="300" ry="90" fill="url(#halo)" filter="url(#glow)"/>
+<g transform="rotate(-6 600 370)">
+ <!-- upper silhouette -->
+ <path d="M142 436Q199 415 259 350L360 215Q386 184 421 202L558 279Q630 321 715 345L876 389Q926 405 964 444L1000 483Q1015 502 990 520L927 541L250 550Q184 544 142 506Q122 486 126 461Z" fill="url(#upper)" stroke="#050505" stroke-width="12" stroke-linejoin="round"/>
+ <path d="M143 437Q199 415 259 350L360 215Q386 184 421 202L558 279Q630 321 715 345L876 389Q926 405 964 444L1000 483Q1015 502 990 520L927 541L250 550Q184 544 142 506Q122 486 126 461Z" fill="url(#weave)" opacity=".9"/>
+ <!-- sculpted sole -->
+ <path d="M137 474Q239 507 366 490L596 481Q774 478 913 503L984 492L1001 509Q1008 527 984 541L925 559L248 567Q175 558 137 520Q122 503 137 474Z" fill="url(#sole)" stroke="#030303" stroke-width="8"/>
+ <path d="M159 511Q310 539 469 518Q699 500 888 530L959 522" fill="none" stroke="#fff" stroke-opacity=".86" stroke-width="10" stroke-linecap="round"/>
+ <path d="M224 544L915 543" fill="none" stroke="#e31b2f" stroke-width="7" stroke-linecap="round"/>
+ <!-- heel guard and toe overlay -->
+ <path d="M146 448Q190 441 240 402L285 377L321 430Q267 472 178 482Z" fill="#111" stroke="#555" stroke-width="5"/>
+ <path d="M714 347L862 390Q908 404 944 444L888 465L733 421Z" fill="#0a0a0a" stroke="#555" stroke-width="5"/>
+ <path d="M746 367L856 401Q897 415 919 438L857 441L749 408Z" fill="url(#mesh)" stroke="#242424" stroke-width="4"/>
+ <!-- red speed marks -->
+ <path d="M444 292L535 340L483 425L401 401Z" fill="url(#red)" stroke="#050505" stroke-width="7" stroke-linejoin="round"/>
+ <path d="M505 326L588 365L540 443L462 422Z" fill="url(#red)" stroke="#050505" stroke-width="7" stroke-linejoin="round"/>
+ <path d="M568 352L646 386L603 455L525 440Z" fill="url(#red)" stroke="#050505" stroke-width="7" stroke-linejoin="round"/>
+ <!-- tongue and lace bed -->
+ <path d="M326 365L382 248Q398 223 425 236L504 285L453 392L380 414Z" fill="#090909" stroke="#555" stroke-width="6"/>
+ <path d="M371 264L470 317M356 289L457 340M342 315L443 364M329 341L426 389" stroke="#d8d8d8" stroke-width="8" stroke-linecap="round"/>
+ <path d="M374 262L465 310M359 288L450 337M345 314L436 362" stroke="#e31b2f" stroke-width="3.5" stroke-linecap="round"/>
+ <path d="M359 220Q385 190 420 208L453 228" fill="none" stroke="#666" stroke-width="8" stroke-linecap="round"/>
+ <!-- iconic BF side logo, deliberately large and readable -->
+ <path d="M664 395L664 450L700 450Q719 450 719 435Q719 423 705 421Q717 417 715 407Q713 395 697 395Z" fill="#fff"/>
+ <path d="M676 405L694 405Q702 405 702 411Q702 417 694 417L676 417Z" fill="#090909"/>
+ <path d="M676 427L697 427Q706 427 706 434Q706 440 697 440L676 440Z" fill="#090909"/>
+ <path d="M729 395L729 450L741 450L741 429L770 429L770 418L741 418L741 406L774 406L774 395Z" fill="#fff"/>
+ <path d="M793 394L805 394L805 451L793 451Z" fill="url(#red)"/>
+ <text x="806" y="472" font-family="Arial,sans-serif" font-size="13" font-weight="700" letter-spacing="5" fill="#fff">BF SHOES</text>
+ <!-- subtle technical grooves -->
+ <path d="M184 498L204 502M209 510L230 514M237 521L259 524M889 514L908 510M866 524L887 520" stroke="#777" stroke-width="4" stroke-linecap="round"/>
 </g>
+<!-- understated studio motion lines -->
+<path d="M72 591H232M94 613H191M948 191H1098M1004 213H1130" stroke="#e31b2f" stroke-opacity=".48" stroke-width="2"/>
+<circle cx="1047" cy="176" r="4" fill="#e31b2f"/><circle cx="213" cy="580" r="4" fill="#fff" opacity=".7"/>
 </svg>
