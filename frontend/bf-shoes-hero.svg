@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 650" role="img" aria-labelledby="title desc">
+<title id="title">BF SHOES red, white and black performance sneaker</title><desc id="desc">A clean side profile of a modern athletic sneaker, white upper, black sole and red accent stripes, on a transparent background.</desc>
+<defs>
+ <linearGradient id="upper" x1="0" y1="0" x2=".8" y2="1"><stop offset="0" stop-color="#fff"/><stop offset=".55" stop-color="#f4f4f4"/><stop offset="1" stop-color="#d8d8d8"/></linearGradient>
+ <linearGradient id="sole" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#303030"/><stop offset="1" stop-color="#050505"/></linearGradient>
+ <linearGradient id="red" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff3547"/><stop offset="1" stop-color="#b90d20"/></linearGradient>
+ <filter id="shadow" x="-30%" y="-40%" width="160%" height="190%"><feGaussianBlur stdDeviation="18"/></filter>
+</defs>
+<ellipse cx="515" cy="526" rx="360" ry="35" fill="#000" opacity=".22" filter="url(#shadow)"/>
+<g transform="rotate(-7 500 340)">
+ <path d="M132 386 C177 375 211 346 250 303 L333 190 Q354 164 389 177 L516 250 Q575 281 648 307 L778 352 Q824 367 858 402 L883 435 Q894 451 873 466 L818 486 L226 492 Q169 487 134 454 Q116 438 119 412 Z" fill="url(#upper)" stroke="#111" stroke-width="8" stroke-linejoin="round"/>
+ <path d="M132 415 Q211 433 290 422 L487 412 Q600 409 700 430 L850 428 L880 449 Q890 463 870 475 L817 494 L226 500 Q163 493 129 458 Q116 442 132 415Z" fill="url(#sole)" stroke="#050505" stroke-width="7"/>
+ <path d="M145 452 Q271 474 410 455 Q582 438 731 461 L855 459" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" opacity=".9"/>
+ <path d="M258 321 L328 217 Q346 194 365 204 L450 252 L370 348 Z" fill="#fff" stroke="#111" stroke-width="6"/>
+ <path d="M355 207 L450 258 L398 346 L313 334 Z" fill="#e8e8e8" stroke="#111" stroke-width="5"/>
+ <path d="M472 270 L422 354 L468 375 L526 291 Z" fill="url(#red)" stroke="#111" stroke-width="5"/>
+ <path d="M530 295 L482 379 L523 395 L578 316 Z" fill="url(#red)" stroke="#111" stroke-width="5"/>
+ <path d="M589 319 L543 401 L583 414 L637 340 Z" fill="url(#red)" stroke="#111" stroke-width="5"/>
+ <path d="M250 305 L329 191 Q351 166 389 180 L422 199" fill="none" stroke="#111" stroke-width="8" stroke-linecap="round"/>
+ <path d="M380 211 L472 268 M364 234 L456 289 M348 258 L440 310" fill="none" stroke="#777" stroke-width="7" stroke-linecap="round"/>
+ <path d="M390 196 L466 242" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+ <path d="M644 307 L761 347 Q798 359 826 384 L763 396 L644 363Z" fill="#efefef" stroke="#111" stroke-width="6"/>
+ <path d="M141 400 Q173 399 205 385" fill="none" stroke="url(#red)" stroke-width="12" stroke-linecap="round"/>
+ <path d="M231 490 L817 487" stroke="#e31b2f" stroke-width="7" stroke-linecap="round"/>
+ <path d="M165 439 L202 443 M183 456 L220 459 M205 473 L242 475" stroke="#777" stroke-width="4" stroke-linecap="round"/>
+ <text x="670" y="398" font-family="Arial,sans-serif" font-size="23" font-weight="900" letter-spacing="4" fill="#111" transform="rotate(7 670 398)">BF</text>
+</g>
+</svg>
