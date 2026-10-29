@@ -3,19 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#e31b2f" />
+  <meta name="theme-color" content="#111111" />
   <meta name="description" content="Discover everyday icons and premium sneakers at BF SHOES. Secure checkout with Cash on Delivery." />
   <title>BF SHOES — Move Different</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="stylesheet" href="/styles.css" />
-  <link rel="stylesheet" href="/landing-3d.css?v=5578d1b" />
   <script defer src="/app.js"></script>
 </head>
 <body>
-  <section class="launch-announcement" aria-label="BF SHOES announcement"><span class="launch-live-dot" aria-hidden="true"></span><span>THE NEW DIMENSION OF EVERYDAY FOOTWEAR</span><a href="#shop">DISCOVER THE DROP <span aria-hidden="true">↗</span></a></section>
   <section id="campaign-strip" class="campaign-strip hidden" aria-label="Current BF SHOES offers"></section>
   <style>.campaign-strip{background:#111;color:#fff;padding:10px 5vw;display:flex;justify-content:center;gap:14px;align-items:center;text-align:center}.campaign-strip.hidden{display:none}.campaign-strip a{color:inherit;text-decoration:none;display:flex;gap:14px;align-items:center;justify-content:center}.campaign-strip img{width:56px;height:42px;object-fit:cover;border-radius:2px}.campaign-strip strong{font-size:13px;letter-spacing:.04em}.campaign-strip span{font-size:12px;opacity:.8}@media(max-width:600px){.campaign-strip{padding:8px 12px}.campaign-strip img{width:44px;height:38px}}</style>
   <header class="site-header">
@@ -30,14 +27,12 @@
     <section class="hero hero-reference">
       <div class="hero-photo"></div>
       <div class="hero-copy">
-        <p class="eyebrow"><span class="hero-eyebrow-line"></span> BUILT FOR YOUR NEXT MOVE</p>
-        <h1>BF SHOES<span class="hero-title-period">.</span></h1>
-        <p class="hero-tagline">DESIGN <span>✳</span> COMFORT <span>✳</span> MOVEMENT</p>
-        <p class="hero-description hero-intro">A sharper silhouette. A stronger presence. Your everyday rotation, reimagined.</p>
-        <a class="button button-light" href="#shop">Explore Collection <span aria-hidden="true">↗</span></a>
+        <p class="eyebrow">PREMIUM FOOTWEAR</p>
+        <h1>BF SHOES</h1>
+        <p class="hero-tagline">Style <span>|</span> Comfort <span>|</span> Performance</p>
+        <a class="button button-light" href="#shop">Shop Now <span aria-hidden="true">→</span></a>
       </div>
-      <div class="hero-product" role="img" aria-label="Premium athletic sneaker in a dramatic 3D-inspired presentation"></div>
-      <div class="hero-orbit-label" aria-hidden="true"><span>BF / 001</span><span>DESIGNED IN MOTION</span></div>
+      <div class="hero-product" role="img" aria-label="Premium black and white athletic sneaker"></div>
       <div class="hero-benefits"><div>✧ <span>Premium Quality</span></div><div>♧ <span>Comfort Fit</span></div><div>◇ <span>Trendy Designs</span></div><div>◎ <span>Delivery to PIN 500052</span></div></div>
     </section>
 
@@ -51,7 +46,7 @@
         <details open><summary>Categories</summary><label><input type="checkbox" data-category="men"> Men's Shoes</label><label><input type="checkbox" data-category="women"> Women's Shoes</label><label><input type="checkbox" data-category="kids"> Kids' Shoes</label><label><input type="checkbox" data-category="sports"> Sports Shoes</label><label><input type="checkbox" data-category="casual"> Casual Shoes</label><label><input type="checkbox" data-category="running"> Running Shoes</label><label><input type="checkbox" data-category="formal"> Formal Shoes</label></details>
         <details open><summary>Brand</summary><label><input type="checkbox" checked disabled> BF <span class="filter-count" id="brand-count"></span></label></details>
         <details open><summary>Size</summary><label><input type="checkbox" data-size="6"> UK 6</label><label><input type="checkbox" data-size="7"> UK 7</label><label><input type="checkbox" data-size="8"> UK 8</label><label><input type="checkbox" data-size="9"> UK 9</label><label><input type="checkbox" data-size="10"> UK 10</label><label><input type="checkbox" data-size="11"> UK 11</label><label><input type="checkbox" data-size="12"> UK 12</label></details>
-        <details open><summary>Color</summary><label><input type="checkbox" data-color="Black"><i class="color-dot" style="--dot:#111"></i>Black</label><label><input type="checkbox" data-color="White"><i class="color-dot" style="--dot:#fff"></i>White</label><label><input type="checkbox" data-color="Red"><i class="color-dot" style="--dot:#e31b2f"></i>Red</label></details>
+        <details open><summary>Color</summary><label><input type="checkbox" data-color="Black"><i class="color-dot" style="--dot:#111"></i>Black</label><label><input type="checkbox" data-color="White"><i class="color-dot" style="--dot:#fff"></i>White</label><label><input type="checkbox" data-color="Gray"><i class="color-dot" style="--dot:#8e969e"></i>Gray</label><label><input type="checkbox" data-color="Blue"><i class="color-dot" style="--dot:#337ed6"></i>Blue</label><label><input type="checkbox" data-color="Red"><i class="color-dot" style="--dot:#e92b3d"></i>Red</label><label><input type="checkbox" data-color="Green"><i class="color-dot" style="--dot:#20a55b"></i>Green</label><label><input type="checkbox" data-color="Beige"><i class="color-dot" style="--dot:#c4b19a"></i>Beige</label></details>
         <details open><summary>Price Range</summary><input class="price-range" type="range" min="699" max="4999" value="4999" id="price-range"><div class="price-range-labels"><span>₹699</span><span id="price-range-value">₹4,999</span></div></details>
         <div class="filter-row" role="group" aria-label="Availability filters"><button class="filter active" data-filter="all">All styles</button><button class="filter" data-filter="available">In stock</button><button class="filter" data-filter="saved">Wishlist <span id="wishlist-count">0</span></button></div>
       </aside>
