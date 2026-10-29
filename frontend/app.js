@@ -239,7 +239,7 @@
   catalogLayout?.addEventListener('click', event => {
     if (catalogLayout.classList.contains('filters-open') && event.target === catalogLayout) setMobileFilters(false);
   });
-  $('.catalog-sidebar input').forEach(input => input.addEventListener('change', () => {
+  $$('.catalog-sidebar input').forEach(input => input.addEventListener('change', () => {
     if (window.matchMedia('(max-width: 1024px)').matches && input.type === 'checkbox') setMobileFilters(false);
   }));
   document.addEventListener('keydown', event => { if (event.key === 'Escape') setMobileFilters(false); });
