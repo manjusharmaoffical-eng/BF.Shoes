@@ -3,12 +3,7 @@
 
   const API_BASE = (window.BF_SHOES_CONFIG && window.BF_SHOES_CONFIG.API_BASE_URL) || '/api/v1/store';
 
-  const FALLBACK_IMAGES = [
-    'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=80',
-    'https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?auto=format&fit=crop&w=900&q=80',
-    'https://images.unsplash.com/photo-1495555961986-6d4c1ecb7be3?auto=format&fit=crop&w=900&q=80',
-    'https://images.unsplash.com/photo-1460353581641-37baddab0fa2?auto=format&fit=crop&w=900&q=80'
-  ];
+  const FALLBACK_IMAGES = ['/bf-shoes-hero.svg'];
 
   const state = { products: [], cart: [], selectedSizes: {}, filter: 'all', search: '', categories: [], colors: [], sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null };
 
