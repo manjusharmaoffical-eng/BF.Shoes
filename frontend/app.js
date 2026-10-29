@@ -1,19 +1,19 @@
 (() => {
   'use strict';
-  
+
   const API_BASE = (window.BF_SHOES_CONFIG && window.BF_SHOES_CONFIG.API_BASE_URL) || '/api/v1/store';
-  
+
   const FALLBACK_IMAGES = [
     'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=80',
     'https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?auto=format&fit=crop&w=900&q=80',
     'https://images.unsplash.com/photo-1495555961986-6d4c1ecb7be3?auto=format&fit=crop&w=900&q=80',
     'https://images.unsplash.com/photo-1460353581641-37baddab0fa2?auto=format&fit=crop&w=900&q=80'
   ];
-  
+
   const state = { products: [], cart: [], selectedSizes: {}, filter: 'all', search: '', categories: [], colors: [], sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null };
-  
+
   try { state.wishlist = new Set(JSON.parse(localStorage.getItem('bf-shoes-wishlist') || '[]').map(String)); } catch { state.wishlist = new Set(); }
-  
+
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -26,10 +26,10 @@
     const candidate = typeof product.image_url === 'string' && product.image_url.startsWith('https://') ? product.image_url : '';
     return candidate || FALLBACK_IMAGES[Math.abs(hashCode(product.slug || product.name || 'bf')) % FALLBACK_IMAGES.length];
   };
-  
+
   function hashCode(value) { let hash = 0; for (let i = 0; i < value.length; i++) hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0; return hash; }
   function toast(message) { const el = $('#toast'); if(!el) return; el.textContent = message; el.classList.add('show'); clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.remove('show'), 2600); }
-  
+
   async function request(url, options = {}) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 9000);
@@ -52,7 +52,7 @@
   function renderProducts() {
     const grid = $('#product-grid');
     if (!grid) return;
-    
+
     let products = state.products.filter(product => { 
       const inStock = availableVariants(product).length > 0; 
       const query = state.search.trim().toLowerCase(); 
@@ -63,26 +63,26 @@
       const matchesColor=!state.colors.length || state.colors.some(value=>productColors.some(color=>color.includes(value))); 
       return (state.filter !== 'available' || inStock) && (state.filter !== 'saved' || state.wishlist.has(String(product.id))) && matchesSearch && matchesCategory && matchesColor; 
     });
-    
+
     if (state.sort === 'price-low') products.sort((a,b) => Number(a.price_cents)-Number(b.price_cents)); 
     else if (state.sort === 'price-high') products.sort((a,b) => Number(b.price_cents)-Number(a.price_cents)); 
     else if (state.sort === 'name') products.sort((a,b) => String(a.name).localeCompare(String(b.name)));
-    
+
     const statusEl = $('#catalog-status');
     if(statusEl) statusEl.textContent = state.loading ? 'Finding your next pair…' : state.products.length ? `${products.length} ${products.length === 1 ? 'style' : 'styles'} shown` : 'The catalog is connected, but no active products have been added yet.';
-    
+
     const countLabel = $('#catalog-count'); 
     if (countLabel) countLabel.textContent = state.loading ? 'Loading products…' : `Showing ${products.length} of ${state.products.length} products`;
-    
+
     const wishlistCount = $('#wishlist-count'); 
     if (wishlistCount) wishlistCount.textContent = String(state.wishlist.size);
-    
+
     const emptyState = $('#empty-state');
     if(emptyState) emptyState.classList.toggle('hidden', state.loading || products.length > 0);
-    
+
     if (state.loading) { grid.innerHTML = ''; return; }
     if (!products.length) { grid.innerHTML = ''; return; }
-    
+
     grid.innerHTML = products.map((product, index) => {
       const variants = product.variants || [];
       const available = availableVariants(product);
@@ -90,7 +90,7 @@
       const selectedVariant = variants.find(v => v.sku === selected && Number(v.stock_qty) > 0);
       const sizes = variants.map(v => `<button class="size-option ${v.sku === selected ? 'selected' : ''}" type="button" data-size-product="${escapeHtml(product.id)}" data-sku="${escapeHtml(v.sku)}" aria-pressed="${v.sku === selected}" ${Number(v.stock_qty) <= 0 ? 'disabled title="Out of stock"' : ''}>${escapeHtml(v.size_label)}</button>`).join('');
       const status = !available.length ? 'Sold out' : (available.length <= 2 ? 'Limited run' : 'Everyday essential');
-      
+
       return `<article class="product-card" data-product="${escapeHtml(product.id)}">
         <div class="product-image"><img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(product.name)} sneaker" loading="${index < 3 ? 'eager' : 'lazy'}" onerror="this.onerror=null;this.src='${FALLBACK_IMAGES[index % FALLBACK_IMAGES.length]}'" /><span class="product-tag">${status}</span><button class="wishlist-toggle ${state.wishlist.has(String(product.id)) ? 'saved' : ''}" type="button" data-wishlist="${escapeHtml(product.id)}" aria-label="${state.wishlist.has(String(product.id)) ? 'Remove from wishlist' : 'Save to wishlist'}" aria-pressed="${state.wishlist.has(String(product.id))}">${state.wishlist.has(String(product.id)) ? '♥' : '♡'}</button><button class="quick-add" type="button" data-quick-add="${escapeHtml(product.id)}" aria-label="Quick add ${escapeHtml(product.name)}" ${!available.length ? 'disabled' : ''}>+</button></div>
         <div class="product-info"><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.brand || 'BF SHOES')} · ${escapeHtml(product.short_description || product.description || 'Everyday sneaker').slice(0, 58)}</p></div><strong class="product-price">${money(product.price_cents, product.currency)}</strong></div>
@@ -108,11 +108,11 @@
     if($('#drawer-foot')) $('#drawer-foot').classList.toggle('hidden', count === 0);
     if($('#cart-items')) $('#cart-items').classList.toggle('hidden', count === 0);
     if($('#cart-subtotal')) $('#cart-subtotal').textContent = money(totalCents(), 'INR'); 
-    
+
     const delivery=$('#cart-delivery-fee'); 
     if(delivery) delivery.textContent=money(state.cart.length ? DELIVERY_FEE_PAISE : 0,'INR');
     if($('#checkout-total')) $('#checkout-total').textContent = money(checkoutTotalCents(), 'INR');
-    
+
     if($('#cart-items')) {
       $('#cart-items').innerHTML = state.cart.map(item => `<div class="cart-line"><img src="${escapeHtml(productImage(item.product))}" alt="" /><div><h3>${escapeHtml(item.product.name)}</h3><p>Size ${escapeHtml(item.variant.size_label)} · ${escapeHtml(item.variant.color_name || 'Classic')}</p><div class="qty-control"><button type="button" data-qty="-1" data-sku="${escapeHtml(item.variant.sku)}" aria-label="Decrease quantity">−</button><span>${item.quantity}</span><button type="button" data-qty="1" data-sku="${escapeHtml(item.variant.sku)}" aria-label="Increase quantity" ${item.quantity >= 10 ? 'disabled' : ''}>+</button></div></div><strong class="cart-line-price">${money(Number(item.product.price_cents) * item.quantity, item.product.currency)}</strong></div>`).join('');
     }
@@ -163,8 +163,9 @@
     state.loading = true;
     renderProducts();
     try {
-      const data = await request(API_BASE);
-      state.products = Array.isArray(data) ? data : (data.products || []);
+      const response = await request(API_BASE);
+      // FIX: Handling response.data
+      state.products = Array.isArray(response) ? response : (response.data || response.products || []);
       if (!Array.isArray(state.products)) state.products = [];
     } catch (error) {
       console.error("Error loading products:", error);
@@ -219,7 +220,7 @@
   $('#checkout-backdrop')?.addEventListener('click', event => { if (event.target === $('#checkout-backdrop')) setCheckout(false); });
   $('#finish-order')?.addEventListener('click', () => { setSuccess(false); state.cart = []; renderCart(); renderProducts(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
   $('#success-backdrop')?.addEventListener('click', event => { if (event.target === $('#success-backdrop')) setSuccess(false); });
-  
+
   $$('.filter').forEach(button => button.addEventListener('click', () => { state.filter = button.dataset.filter; $$('.filter').forEach(b => b.classList.toggle('active', b === button)); renderProducts(); }));
   $('#product-search')?.addEventListener('input', event => { state.search = event.target.value; const headerSearch=$('#header-product-search'); if(headerSearch) headerSearch.value=event.target.value; renderProducts(); });
   $('#header-product-search')?.addEventListener('input', event => { if($('#product-search')) $('#product-search').value=event.target.value; state.search=event.target.value; renderProducts(); if(event.target.value) $('#shop')?.scrollIntoView({behavior:'smooth',block:'start'}); });
