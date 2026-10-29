@@ -49,6 +49,50 @@
   function totalCents() { return state.cart.reduce((sum, item) => sum + Number(item.product.price_cents) * item.quantity, 0); }
   function availableVariants(product) { return (product.variants || []).filter(v => Number(v.stock_qty) > 0); }
 
+
+  async function loadAnnouncementBar() {
+    const bar = $('#campaign-strip');
+    if (!bar) return;
+    try {
+      const result = await request('/api/v1/store/campaigns/active');
+      const campaign = (result.data || []).find(item => item && item.headline);
+      if (!campaign) { bar.classList.add('hidden'); bar.replaceChildren(); return; }
+      const safeUrl = value => {
+        try { const url = new URL(value, window.location.origin); return ['https:', 'http:'].includes(url.protocol) ? url.href : '#shop'; }
+        catch { return '#shop'; }
+      };
+      const link = document.createElement('a');
+      link.className = 'announcement-bar__link';
+      link.href = safeUrl(campaign.target_url || '#shop');
+      if (campaign.target_url) link.rel = 'noopener';
+      const copy = document.createElement('span');
+      copy.className = 'announcement-bar__copy';
+      copy.textContent = campaign.headline;
+      link.append(copy);
+      if (campaign.coupon_code) {
+        const code = document.createElement('span');
+        code.className = 'announcement-bar__code';
+        code.textContent = 'CODE: ' + campaign.coupon_code;
+        link.append(code);
+      } else if (Number(campaign.discount_percent) > 0) {
+        const offer = document.createElement('span');
+        offer.className = 'announcement-bar__code';
+        offer.textContent = Number(campaign.discount_percent) + '% OFF';
+        link.append(offer);
+      }
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'announcement-bar__close';
+      close.setAttribute('aria-label', 'Dismiss announcement');
+      close.textContent = '×';
+      close.addEventListener('click', () => { bar.classList.add('hidden'); });
+      bar.replaceChildren(link, close);
+      bar.classList.remove('hidden');
+    } catch {
+      bar.classList.add('hidden');
+    }
+  }
+
   function renderProducts() {
     const grid = $('#product-grid');
     if (!grid) return;
@@ -341,5 +385,6 @@
   });
 
   renderCart();
+  loadAnnouncementBar();
   loadProducts(); 
 })();
