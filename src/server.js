@@ -28,13 +28,21 @@ if (!Number.isInteger(trustProxyHops) || trustProxyHops < 0 || trustProxyHops > 
 }
 app.set("trust proxy", trustProxyHops);
 app.use(helmet());
+
 const configuredOrigins = (process.env.ADMIN_ORIGIN || "").split(",").map(s => s.trim()).filter(Boolean);
+
 // Vercel assigns a unique hostname to each preview deployment. Add only this
-// deployment's exact Vercel and branch hostnames; never allow a broad *.vercel.app wildcard.
-const vercelOrigins = [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL]
+// deployment's exact Vercel, branch, and production hostnames; never allow a broad *.vercel.app wildcard.
+const vercelOrigins = [
+  process.env.VERCEL_URL, 
+  process.env.VERCEL_BRANCH_URL,
+  process.env.VERCEL_PROJECT_PRODUCTION_URL // <--- YEH NAYI LINE ADD KAR DI HAI
+]
   .filter(Boolean)
   .map(value => /^https?:\/\//i.test(value) ? new URL(value).origin : `https://${value}`);
+
 const allowedOrigins = new Set([...configuredOrigins, ...vercelOrigins]);
+
 app.use(cors({
   origin(origin, callback) {
     if (!origin || allowedOrigins.has(origin)) return callback(null, true);
@@ -43,6 +51,7 @@ app.use(cors({
   methods: ["GET", "POST", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-API-Key", "Idempotency-Key"]
 }));
+
 app.use(express.json({ limit: "100kb" }));
 app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: "draft-7", legacyHeaders: false }));
 
@@ -69,9 +78,11 @@ app.use("/api/v1/ai-studio", aiStudioRouter);
 app.use("/api/v1/ultron", ultronRouter);
 app.use("/api/v1/invoices", invoicesRouter);
 app.use("/api/v1", router);
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 app.use(express.static(path.resolve(__dirname, "../frontend"), { index: "index.html", maxAge: process.env.NODE_ENV === "production" ? "1h" : 0 }));
 app.use((_req, res) => res.status(404).json({ error: "Not found" }));
+
 app.use((err, _req, res, _next) => {
   console.error("Request failed:", err.code || err.name || "Error");
   if (err.message === "Origin not allowed by CORS") return res.status(403).json({ error: "Origin not allowed" });
