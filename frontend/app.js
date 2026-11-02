@@ -255,11 +255,11 @@
     } catch { state.checkoutReady = false; }
     const checkoutButton = $('#checkout-button');
     const placeOrder = $('#place-order');
-    if (checkoutButton) { checkoutButton.disabled = !state.checkoutReady; checkoutButton.textContent = state.checkoutReady ? 'Continue to PayU checkout' : 'Checkout temporarily unavailable'; }
+    if (checkoutButton) { checkoutButton.disabled = false; checkoutButton.textContent = 'Review checkout'; }
     if (placeOrder) placeOrder.disabled = !state.checkoutReady;
     if ($('#checkout-readiness-note')) $('#checkout-readiness-note').textContent = state.checkoutReady
-      ? 'Pay securely with PayU. Your stock is reserved while payment is completed.'
-      : 'Checkout opens after verified INR prices, delivery fee, GST profile and PayU merchant credentials are configured.';
+      ? 'Sandbox payment is ready. No live customer charge will be made in preparation mode.'
+      : 'Owner preview: UPI, QR and card methods are visible for review. Payment submission stays protected until sandbox gateway, verified pricing, delivery and tax setup are complete.';
   }
 
   if (countrySelect) {
