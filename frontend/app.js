@@ -254,7 +254,7 @@
     } catch { state.checkoutReady = false; }
     const checkoutButton = $('#checkout-button');
     const placeOrder = $('#place-order');
-    if (checkoutButton) checkoutButton.disabled = !state.checkoutReady;
+    if (checkoutButton) { checkoutButton.disabled = !state.checkoutReady; checkoutButton.textContent = state.checkoutReady ? 'Continue to PayU checkout' : 'Checkout temporarily unavailable'; }
     if (placeOrder) placeOrder.disabled = !state.checkoutReady;
     if ($('#checkout-readiness-note')) $('#checkout-readiness-note').textContent = state.checkoutReady
       ? 'Pay securely with PayU. Your stock is reserved while payment is completed.'
