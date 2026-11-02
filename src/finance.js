@@ -8,7 +8,7 @@ export const financeRouter = express.Router();
 financeRouter.use(authenticate);
 function owner(req,res,next){ if(req.actor.type!=="admin"||req.actor.role!=="admin") return res.status(403).json({error:"Owner permission required for finance data"}); next(); }
 financeRouter.use(owner);
-const dateQuery=z.object({from:z.string().date().optional(),to:z.string().date().optional()}).refine(v=>!v.from||!v.to||v.from<=v.to,{message:"from must be on or before to"});
+const dateQuery=z.object({from:z.string().date().optional(),to:z.string().date().optional(),currency:z.enum(["INR","AED"]).default("INR")}).refine(v=>!v.from||!v.to||v.from<=v.to,{message:"from must be on or before to"});
 const expenseSchema=z.object({category:z.enum(["shipping","marketing","operations","software","packaging","refund","other"]),description:z.string().trim().min(2).max(500),amount_cents:z.number().int().positive().max(1000000000),expense_date:z.string().date(),currency:z.literal("INR").default("INR")}).strict();
 const fundingSchema=z.object({kind:z.enum(["owner_capital","loan","investor"]),source_name:z.string().trim().min(2).max(200),principal_cents:z.number().int().positive().max(100000000000),interest_rate_bps:z.number().int().min(0).max(100000),start_date:z.string().date(),due_date:z.string().date().optional().nullable(),notes:z.string().max(1000).optional().default("")}).strict().refine(v=>!v.due_date||v.due_date>=v.start_date,{message:"due_date cannot be before start_date"});
 const repaymentSchema=z.object({amount_cents:z.number().int().positive().max(100000000000),principal_cents:z.number().int().min(0).max(100000000000),interest_cents:z.number().int().min(0).max(100000000000),paid_date:z.string().date(),notes:z.string().max(500).optional().default("")}).strict().refine(v=>v.principal_cents+v.interest_cents===v.amount_cents,{message:"principal plus interest must equal amount"});
@@ -23,7 +23,7 @@ financeRouter.get("/summary",async(req,res,next)=>{const parsed=dateQuery.safePa
    WHERE o.status='delivered' AND ($1::date IS NULL OR o.updated_at::date >= $1) AND ($2::date IS NULL OR o.updated_at::date <= $2)`,[from,to]),
   pool.query("SELECT COALESCE(sum(amount_cents),0)::bigint AS total_cents FROM finance_expenses WHERE ($1::date IS NULL OR expense_date >= $1) AND ($2::date IS NULL OR expense_date <= $2)",[from,to]),
   pool.query("SELECT category,COALESCE(sum(amount_cents),0)::bigint AS amount_cents FROM finance_expenses WHERE ($1::date IS NULL OR expense_date >= $1) AND ($2::date IS NULL OR expense_date <= $2) GROUP BY category ORDER BY category",[from,to]),
-  pool.query(`SELECT f.id,f.kind,f.source_name,f.principal_cents,f.interest_rate_bps,f.start_date,f.due_date,
+  pool.query(`SELECT f.id,f.kind,f.source_name,f.principal_cents,f.currency,f.interest_rate_bps,f.start_date,f.due_date,
    COALESCE(sum(r.principal_cents),0)::bigint AS principal_repaid_cents,
    COALESCE(sum(r.interest_cents),0)::bigint AS interest_paid_cents,
    (f.principal_cents-COALESCE(sum(r.principal_cents),0))::bigint AS outstanding_principal_cents
