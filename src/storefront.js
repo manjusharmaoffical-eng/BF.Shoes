@@ -95,7 +95,7 @@ storefrontRouter.post("/orders", async (req, res, next) => {
     if (!allowedPins.size) return res.status(503).json({ error: "India delivery is not configured yet. Please contact the store before ordering." });
     if (!allowedPins.has(pin)) return res.status(400).json({ error: "Sorry, BF SHOES does not deliver to this PIN code yet." });
     // Safety gate: catalog prices are currently AED and orders have no separate INR delivery-fee field.
-    return res.status(503).json({ error: "India delivery to this PIN code is planned, but checkout is not enabled yet. INR product pricing and the ₹50 delivery fee must be configured first." });
+    return res.status(503).json({ error: "India delivery to this PIN code is planned, but checkout is not enabled yet. INR product pricing and delivery fee must be configured first." });
   } else if (d.shipping_pincode) {
     return res.status(400).json({ error: "PIN code is only used for India delivery. Select the correct delivery country." });
   }
