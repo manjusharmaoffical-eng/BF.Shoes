@@ -56,3 +56,21 @@ test("storefront never assumes a delivery fee amount", async () => {
   assert.match(storefront, /currency !== "INR"/);
   assert.doesNotMatch(storefront, /,\s*5000\s*,/);
 });
+
+test("storefront exposes separate UAE and India market configuration", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  assert.match(storefront, /storefrontRouter\.get\("\/market-config"/);
+  assert.match(storefront, /currency: "INR"/);
+  assert.match(storefront, /currency: "AED"/);
+  assert.match(storefront, /RAZORPAY_WEBHOOK_SECRET/);
+  assert.match(storefront, /UAE_DELIVERY_FEE_FILS/);
+  assert.match(storefront, /checkoutEnabled: false/);
+});
+
+test("public product catalog selects currency by explicit market", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  assert.match(storefront, /req\.query\.market \|\| "AE"/);
+  assert.match(storefront, /market === "IN" \? "INR" : market === "AE" \? "AED"/);
+  assert.match(storefront, /p\.currency = \$1/);
+  assert.match(storefront, /shipping_country: z\.enum\(\["IN", "AE"\]\)/);
+});
