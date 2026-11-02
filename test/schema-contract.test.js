@@ -48,3 +48,11 @@ test("delivery fee has no implicit default and legacy migrations drop it", () =>
   assert.match(schema, /ALTER COLUMN delivery_fee_cents DROP DEFAULT/);
   assert.doesNotMatch(schema, /delivery_fee_cents INTEGER NOT NULL DEFAULT 5000/);
 });
+
+test("storefront never assumes a delivery fee amount", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  assert.match(storefront, /INDIA_DELIVERY_FEE_PAISE/);
+  assert.match(storefront, /Number\.isSafeInteger\(deliveryFeeCents\)/);
+  assert.match(storefront, /currency !== "INR"/);
+  assert.doesNotMatch(storefront, /,\s*5000\s*,/);
+});
