@@ -74,3 +74,8 @@ test("public product catalog selects currency by explicit market", async () => {
   assert.match(storefront, /p\.currency = \$1/);
   assert.match(storefront, /shipping_country: z\.enum\(\["IN", "AE"\]\)/);
 });
+
+test("new product records default to AED without rewriting existing prices", () => {
+  assert.match(schema, /currency CHAR\(3\) NOT NULL DEFAULT 'AED'/);
+  assert.match(schema, /ALTER TABLE products ALTER COLUMN currency SET DEFAULT 'AED'/);
+});
