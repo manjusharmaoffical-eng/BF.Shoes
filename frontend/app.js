@@ -5,7 +5,7 @@
 
   const FALLBACK_IMAGES = ['/bf-shoes-hero.svg'];
 
-  const state = { products: [], cart: [], selectedSizes: {}, filter: 'all', search: '', categories: [], colors: [], sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null };
+  const state = { checkoutReady: false, products: [], cart: [], selectedSizes: {}, filter: 'all', search: '', categories: [], colors: [], sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null };
 
   try { state.wishlist = new Set(JSON.parse(localStorage.getItem('bf-shoes-wishlist') || '[]').map(String)); } catch { state.wishlist = new Set(); }
 
@@ -245,6 +245,22 @@
   document.addEventListener('keydown', event => { if (event.key === 'Escape') setMobileFilters(false); });
 
   const countrySelect = $('#shipping-country');
+
+  async function loadCheckoutReadiness() {
+    try {
+      const config = await request('/api/v1/store/market-config');
+      const india = (config.data || []).find(market => market.country === 'IN');
+      state.checkoutReady = Boolean(india && india.checkoutEnabled && (!countrySelect || countrySelect.value === 'IN'));
+    } catch { state.checkoutReady = false; }
+    const checkoutButton = $('#checkout-button');
+    const placeOrder = $('#place-order');
+    if (checkoutButton) { checkoutButton.disabled = !state.checkoutReady; checkoutButton.textContent = state.checkoutReady ? 'Continue to PayU checkout' : 'Checkout temporarily unavailable'; }
+    if (placeOrder) placeOrder.disabled = !state.checkoutReady;
+    if ($('#checkout-readiness-note')) $('#checkout-readiness-note').textContent = state.checkoutReady
+      ? 'Pay securely with PayU. Your stock is reserved while payment is completed.'
+      : 'Checkout opens after verified INR prices, delivery fee, GST profile and PayU merchant credentials are configured.';
+  }
+
   if (countrySelect) {
     countrySelect.addEventListener('change', () => {
       $('input[name="customer_phone"]').placeholder = '+971 50 000 0000';
@@ -277,6 +293,7 @@
     if (pin) { pin.required = isIndia; if (!isIndia) pin.value = ''; }
     const phone = $('input[name="customer_phone"]');
     if (phone) phone.placeholder = isIndia ? '+91 98765 43210' : '+971 50 000 0000';
+    loadCheckoutReadiness();
   });
 
   $('#checkout-form')?.addEventListener('submit', async event => {
@@ -310,31 +327,34 @@
     }
 
     try {
-      const result = await request(`${API_BASE}/orders`, {
-        method: 'POST',
-        body: body,
-        headers: {
-          'Idempotency-Key': state.pendingCheckout.key
-        }
+      if (!state.checkoutReady) throw new Error('PayU checkout is not ready yet. Verified pricing, delivery fee, GST profile and merchant credentials are required.');
+      const result = await request(API_BASE + '/orders/payu', {
+        method: 'POST', body: body,
+        headers: { 'Idempotency-Key': state.pendingCheckout.key }
       });
-      
-      setCheckout(false);
-      setSuccess(true, result.order || result);
-      state.cart = [];
-      state.pendingCheckout = null;
-      renderCart();
+      const checkout = result.data && result.data.checkout;
+      if (!checkout || !checkout.action || !checkout.fields) throw new Error('PayU checkout session could not be created.');
+      const payForm = document.createElement('form');
+      payForm.method = 'POST'; payForm.action = checkout.action; payForm.hidden = true;
+      Object.entries(checkout.fields).forEach(([name,value]) => {
+        const field = document.createElement('input');
+        field.type = 'hidden'; field.name = name; field.value = String(value); payForm.appendChild(field);
+      });
+      document.body.appendChild(payForm);
+      payForm.submit();
       
     } catch (error) {
       showCheckoutError(error.message || 'Failed to place order. Please try again.');
     } finally {
       state.busy = false;
       if(submit) {
-        submit.disabled = false;
-        submit.innerHTML = 'Place order'; 
+        submit.disabled = !state.checkoutReady;
+        submit.innerHTML = 'Pay securely with PayU'; 
       }
     }
   });
 
   renderCart();
-  loadProducts(); 
+  loadProducts();
+  loadCheckoutReadiness(); 
 })();
