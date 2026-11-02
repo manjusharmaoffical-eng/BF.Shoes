@@ -117,7 +117,7 @@ storefrontRouter.post("/orders", async (req, res, next) => {
     const allowedPins = new Set((process.env.INDIA_DELIVERY_PINCODES || "500052").split(",").map(value => value.trim()).filter(Boolean));
     if (!allowedPins.size) return res.status(503).json({ error: "India delivery is not configured yet. Please contact the store before ordering." });
     if (!allowedPins.has(pin)) return res.status(400).json({ error: "Sorry, BF SHOES does not deliver to this PIN code yet." });
-    // Safety gate: catalog prices are currently AED and orders have no separate INR delivery-fee field.
+    // Safety gate: India checkout stays disabled until verified market pricing, delivery, tax, and payment configuration is complete.
     return res.status(503).json({ error: "India delivery to this PIN code is planned, but checkout is not enabled yet. INR product pricing and delivery fee must be configured first." });
   } else {
     return res.status(503).json({ error: "UAE checkout is not enabled yet. Verified AED pricing, delivery fee, VAT profile, and payment gateway setup are required first." });
