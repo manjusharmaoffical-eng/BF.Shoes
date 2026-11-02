@@ -208,7 +208,7 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
     const amount=(totalCents/100).toFixed(2);
     const fields={
       key:process.env.PAYU_MERCHANT_KEY,txnid,amount,productinfo:"BF SHOES order #"+order.order_number,
-      firstname:d.customer_name.trim().split(/\\s+/)[0].slice(0,60),
+      firstname:d.customer_name.trim().split(/\s+/)[0].slice(0,60),
       email:d.customer_email.toLowerCase(),phone:d.customer_phone,
       surl:baseUrl+"/api/v1/store/payments/payu/callback",
       furl:baseUrl+"/api/v1/store/payments/payu/callback",
