@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS products (
   brand TEXT NOT NULL DEFAULT 'BF SHOES',
   image_url TEXT,
   price_cents INTEGER NOT NULL CHECK (price_cents >= 0),
-  currency CHAR(3) NOT NULL DEFAULT 'INR',
+  currency CHAR(3) NOT NULL DEFAULT 'AED',
   active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
