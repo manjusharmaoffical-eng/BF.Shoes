@@ -13,8 +13,8 @@
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const money = (cents, currency = 'INR') => `₹${(Number(cents || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const DELIVERY_FEE_PAISE = 5000;
-  const checkoutTotalCents = () => totalCents() + (state.cart.length ? DELIVERY_FEE_PAISE : 0);
+  // Delivery charges are intentionally not guessed; checkout remains disabled until configured.
+  const checkoutTotalCents = () => totalCents();
   const randomKey = () => Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 
   const productImage = product => {
@@ -104,8 +104,8 @@
     if($('#cart-items')) $('#cart-items').classList.toggle('hidden', count === 0);
     if($('#cart-subtotal')) $('#cart-subtotal').textContent = money(totalCents(), 'INR'); 
 
-    const delivery=$('#cart-delivery-fee'); 
-    if(delivery) delivery.textContent=money(state.cart.length ? DELIVERY_FEE_PAISE : 0,'INR');
+    const delivery=$('#cart-delivery-fee');
+    if(delivery) delivery.textContent='Not configured';
     if($('#checkout-total')) $('#checkout-total').textContent = money(checkoutTotalCents(), 'INR');
 
     if($('#cart-items')) {
