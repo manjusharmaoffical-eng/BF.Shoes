@@ -77,7 +77,7 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS request_fingerprint TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_phone TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_address TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT 'cod';
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_fee_cents INTEGER NOT NULL CHECK (delivery_fee_cents >= 0);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_fee_cents INTEGER CHECK (delivery_fee_cents IS NULL OR delivery_fee_cents >= 0);
 -- Never assume a delivery fee: preserve historical values but require explicit values for future orders.
 ALTER TABLE orders ALTER COLUMN delivery_fee_cents DROP DEFAULT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_cents INTEGER NOT NULL DEFAULT 0 CHECK (total_cents >= 0);
