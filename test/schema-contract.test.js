@@ -79,3 +79,16 @@ test("new product records default to AED without rewriting existing prices", () 
   assert.match(schema, /currency CHAR\(3\) NOT NULL DEFAULT 'AED'/);
   assert.match(schema, /ALTER TABLE products ALTER COLUMN currency SET DEFAULT 'AED'/);
 });
+
+
+test("finance expenses and funding support INR and AED without combining currencies", async () => {
+  const finance = await readFile(new URL("../src/finance.js", import.meta.url), "utf8");
+  assert.match(schema, /currency CHAR\(3\) NOT NULL DEFAULT 'INR' CHECK \(currency IN \('INR','AED'\)\)/);
+  assert.match(schema, /finance_expenses_currency_check CHECK \(currency IN \('INR','AED'\)\)/);
+  assert.match(schema, /ALTER TABLE finance_funding ADD COLUMN IF NOT EXISTS currency CHAR\(3\) NOT NULL DEFAULT 'INR'/);
+  assert.match(finance, /currency:z.enum\(\["INR","AED"\]\).default\("INR"\)/);
+  assert.match(finance, /o\.currency=\$3/);
+  assert.match(finance, /finance_expenses WHERE currency=\$3/);
+  assert.match(finance, /f\.currency=\$1/);
+  assert.match(finance, /currency,sales:s/);
+});

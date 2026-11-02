@@ -178,16 +178,19 @@ CREATE TABLE IF NOT EXISTS finance_expenses (
  description TEXT NOT NULL,
  amount_cents BIGINT NOT NULL CHECK (amount_cents > 0),
  expense_date DATE NOT NULL,
- currency CHAR(3) NOT NULL DEFAULT 'INR' CHECK (currency='INR'),
+ currency CHAR(3) NOT NULL DEFAULT 'INR' CHECK (currency IN ('INR','AED')),
  created_by UUID REFERENCES admins(id) ON DELETE SET NULL,
  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS finance_expenses_date_idx ON finance_expenses(expense_date DESC);
+ALTER TABLE finance_expenses DROP CONSTRAINT IF EXISTS finance_expenses_currency_check;
+ALTER TABLE finance_expenses ADD CONSTRAINT finance_expenses_currency_check CHECK (currency IN ('INR','AED'));
+CREATE INDEX IF NOT EXISTS finance_expenses_currency_date_idx ON finance_expenses(currency, expense_date DESC);
 CREATE TABLE IF NOT EXISTS finance_funding (
  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
  kind TEXT NOT NULL CHECK (kind IN ('owner_capital','loan','investor')),
  source_name TEXT NOT NULL,
  principal_cents BIGINT NOT NULL CHECK (principal_cents > 0),
+ currency CHAR(3) NOT NULL DEFAULT 'INR' CHECK (currency IN ('INR','AED')),
  interest_rate_bps INTEGER NOT NULL DEFAULT 0 CHECK (interest_rate_bps BETWEEN 0 AND 100000),
  start_date DATE NOT NULL,
  due_date DATE,
@@ -196,6 +199,8 @@ CREATE TABLE IF NOT EXISTS finance_funding (
  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
  CHECK (due_date IS NULL OR due_date >= start_date)
 );
+ALTER TABLE finance_funding ADD COLUMN IF NOT EXISTS currency CHAR(3) NOT NULL DEFAULT 'INR' CHECK (currency IN ('INR','AED'));
+CREATE INDEX IF NOT EXISTS finance_funding_currency_idx ON finance_funding(currency, start_date DESC);
 CREATE TABLE IF NOT EXISTS finance_repayments (
  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
  funding_id UUID NOT NULL REFERENCES finance_funding(id) ON DELETE RESTRICT,
