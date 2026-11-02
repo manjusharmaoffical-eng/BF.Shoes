@@ -63,6 +63,7 @@ test("storefront exposes separate UAE and India market configuration", async () 
   assert.match(storefront, /currency: "INR"/);
   assert.match(storefront, /currency: "AED"/);
   assert.match(storefront, /PAYU_MERCHANT_KEY/);
+  assert.match(storefront, /INDIA_DELIVERY_FEE_VERIFIED/);
   assert.match(storefront, /paymentProvider: "PayU"/);
   assert.match(storefront, /UAE_DELIVERY_FEE_FILS/);
   assert.match(storefront, /checkoutEnabled: false/);
