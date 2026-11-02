@@ -62,11 +62,12 @@ storefrontRouter.get("/market-config", async (_req, res, next) => {
     const feeConfigured = value => value !== undefined && /^\d+$/.test(value) && Number.isSafeInteger(Number(value));
     const indiaPricingVerified = process.env.INDIA_PRICING_VERIFIED === "true" && row.india_pricing_configured;
     const indiaFeeConfigured = feeConfigured(process.env.INDIA_DELIVERY_FEE_PAISE);
+    const indiaFeeVerified = process.env.INDIA_DELIVERY_FEE_VERIFIED === "true" && indiaFeeConfigured;
     const indiaPayuConfigured = payuConfigured();
-    const indiaCheckoutEnabled = indiaPricingVerified && indiaFeeConfigured && row.india_tax_profile_configured && indiaPayuConfigured;
+    const indiaCheckoutEnabled = indiaPricingVerified && indiaFeeVerified && row.india_tax_profile_configured && indiaPayuConfigured;
     res.set("Cache-Control", "no-store");
     return res.json({ data: [
-      { country: "IN", currency: "INR", pricingConfigured: indiaPricingVerified, deliveryFeeConfigured: indiaFeeConfigured, tax: "GST", taxProfileConfigured: row.india_tax_profile_configured, paymentProvider: "PayU", paymentConfigured: indiaPayuConfigured, checkoutEnabled: indiaCheckoutEnabled },
+      { country: "IN", currency: "INR", pricingConfigured: indiaPricingVerified, deliveryFeeConfigured: indiaFeeVerified, tax: "GST", taxProfileConfigured: row.india_tax_profile_configured, paymentProvider: "PayU", paymentConfigured: indiaPayuConfigured, checkoutEnabled: indiaCheckoutEnabled },
       { country: "AE", currency: "AED", pricingConfigured: row.uae_pricing_configured, deliveryFeeConfigured: feeConfigured(process.env.UAE_DELIVERY_FEE_FILS), tax: "VAT", taxProfileConfigured: row.uae_tax_profile_configured, paymentProvider: process.env.UAE_PAYMENT_PROVIDER || null, paymentConfigured: false, checkoutEnabled: false }
     ] });
   } catch (err) { next(err); }
@@ -126,6 +127,7 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
   if (!allowedPins.has(d.shipping_pincode)) return res.status(400).json({ error: "Sorry, BF SHOES does not deliver to this PIN code yet." });
   if (process.env.INDIA_PRICING_VERIFIED !== "true") return res.status(503).json({ error: "India product pricing has not been verified by the owner. Checkout remains disabled." });
   if (!payuConfigured()) return res.status(503).json({ error: "PayU merchant credentials and HTTPS callback URL are not configured yet." });
+  if (process.env.INDIA_DELIVERY_FEE_VERIFIED !== "true") return res.status(503).json({ error: "The India delivery fee has not been verified by the owner. Checkout remains disabled." });
   const deliveryFeeCents = Number(process.env.INDIA_DELIVERY_FEE_PAISE);
   if (!Number.isSafeInteger(deliveryFeeCents) || deliveryFeeCents < 0) return res.status(503).json({ error: "India delivery fee is not configured. Checkout remains disabled." });
   const baseUrl = publicBaseUrl();
