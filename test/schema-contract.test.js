@@ -62,7 +62,8 @@ test("storefront exposes separate UAE and India market configuration", async () 
   assert.match(storefront, /storefrontRouter\.get\("\/market-config"/);
   assert.match(storefront, /currency: "INR"/);
   assert.match(storefront, /currency: "AED"/);
-  assert.match(storefront, /RAZORPAY_WEBHOOK_SECRET/);
+  assert.match(storefront, /PAYU_MERCHANT_KEY/);
+  assert.match(storefront, /paymentProvider: "PayU"/);
   assert.match(storefront, /UAE_DELIVERY_FEE_FILS/);
   assert.match(storefront, /checkoutEnabled: false/);
 });
