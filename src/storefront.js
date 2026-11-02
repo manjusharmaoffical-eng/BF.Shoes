@@ -5,6 +5,7 @@ import { aggregateStorefrontItems, storefrontRequestFingerprint } from "./storef
 import { deliverEmail } from "./email.js";
 import { randomBytes } from "node:crypto";
 import { payuConfigured, publicBaseUrl, payuPaymentUrl, payuRequestHash, payuResponseHash, safeHashEqual, verifyPayuPayment } from "./payu.js";
+import { calculateIndiaGst } from "./tax-math.js";
 
 export const storefrontRouter = express.Router();
 
@@ -55,18 +56,21 @@ storefrontRouter.get("/market-config", async (_req, res, next) => {
       `SELECT
          EXISTS (SELECT 1 FROM products WHERE active = true AND currency = 'INR') AS india_pricing_configured,
          EXISTS (SELECT 1 FROM products WHERE active = true AND currency = 'AED') AS uae_pricing_configured,
-         EXISTS (SELECT 1 FROM tax_profiles WHERE active = true AND jurisdiction = 'IN_GST') AS india_tax_profile_configured,
+         EXISTS (SELECT 1 FROM tax_profiles WHERE active = true AND jurisdiction = 'IN_GST' AND currency='INR' AND registration_number<>'' AND seller_state<>'') AS india_tax_profile_configured,
          EXISTS (SELECT 1 FROM tax_profiles WHERE active = true AND jurisdiction = 'AE_VAT') AS uae_tax_profile_configured`
     );
     const row = result.rows[0];
     const feeConfigured = value => value !== undefined && /^\d+$/.test(value) && Number.isSafeInteger(Number(value));
     const indiaPricingVerified = process.env.INDIA_PRICING_VERIFIED === "true" && row.india_pricing_configured;
     const indiaFeeConfigured = feeConfigured(process.env.INDIA_DELIVERY_FEE_PAISE);
+    const indiaFeeVerified = process.env.INDIA_DELIVERY_FEE_VERIFIED === "true" && indiaFeeConfigured;
+    const indiaTaxTreatment = process.env.INDIA_GST_TREATMENT || "";
+    const indiaTaxConfigVerified = process.env.INDIA_TAX_VERIFIED === "true" && row.india_tax_profile_configured && ["INTRA_STATE","INTER_STATE","ZERO_RATED","EXEMPT"].includes(indiaTaxTreatment) && ["true","false"].includes(process.env.INDIA_PRICES_TAX_INCLUSIVE) && ["true","false"].includes(process.env.INDIA_DELIVERY_FEE_TAXABLE) && Boolean((process.env.INDIA_GST_PLACE_OF_SUPPLY || "").trim());
     const indiaPayuConfigured = payuConfigured();
-    const indiaCheckoutEnabled = indiaPricingVerified && indiaFeeConfigured && row.india_tax_profile_configured && indiaPayuConfigured;
+    const indiaCheckoutEnabled = indiaPricingVerified && indiaFeeVerified && indiaTaxConfigVerified && indiaPayuConfigured;
     res.set("Cache-Control", "no-store");
     return res.json({ data: [
-      { country: "IN", currency: "INR", pricingConfigured: indiaPricingVerified, deliveryFeeConfigured: indiaFeeConfigured, tax: "GST", taxProfileConfigured: row.india_tax_profile_configured, paymentProvider: "PayU", paymentConfigured: indiaPayuConfigured, checkoutEnabled: indiaCheckoutEnabled },
+      { country: "IN", currency: "INR", pricingConfigured: indiaPricingVerified, deliveryFeeConfigured: indiaFeeVerified, tax: "GST", taxProfileConfigured: row.india_tax_profile_configured, taxConfigurationVerified: indiaTaxConfigVerified, paymentProvider: "PayU", paymentConfigured: indiaPayuConfigured, checkoutEnabled: indiaCheckoutEnabled },
       { country: "AE", currency: "AED", pricingConfigured: row.uae_pricing_configured, deliveryFeeConfigured: feeConfigured(process.env.UAE_DELIVERY_FEE_FILS), tax: "VAT", taxProfileConfigured: row.uae_tax_profile_configured, paymentProvider: process.env.UAE_PAYMENT_PROVIDER || null, paymentConfigured: false, checkoutEnabled: false }
     ] });
   } catch (err) { next(err); }
@@ -126,6 +130,7 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
   if (!allowedPins.has(d.shipping_pincode)) return res.status(400).json({ error: "Sorry, BF SHOES does not deliver to this PIN code yet." });
   if (process.env.INDIA_PRICING_VERIFIED !== "true") return res.status(503).json({ error: "India product pricing has not been verified by the owner. Checkout remains disabled." });
   if (!payuConfigured()) return res.status(503).json({ error: "PayU merchant credentials and HTTPS callback URL are not configured yet." });
+  if (process.env.INDIA_DELIVERY_FEE_VERIFIED !== "true") return res.status(503).json({ error: "The India delivery fee has not been verified by the owner. Checkout remains disabled." });
   const deliveryFeeCents = Number(process.env.INDIA_DELIVERY_FEE_PAISE);
   if (!Number.isSafeInteger(deliveryFeeCents) || deliveryFeeCents < 0) return res.status(503).json({ error: "India delivery fee is not configured. Checkout remains disabled." });
   const baseUrl = publicBaseUrl();
@@ -160,10 +165,21 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
       return res.status(409).json({ error: "A previous payment attempt is no longer pending. Start a fresh checkout session." });
     }
     await client.query("DELETE FROM order_reservations WHERE expires_at<=now()");
-    const tax = await client.query("SELECT EXISTS (SELECT 1 FROM tax_profiles WHERE active=true AND jurisdiction='IN_GST') AS configured");
-    if (!tax.rows[0].configured) {
+    const taxTreatment = process.env.INDIA_GST_TREATMENT || "";
+    const pricesTaxInclusiveValue = process.env.INDIA_PRICES_TAX_INCLUSIVE;
+    const deliveryFeeTaxableValue = process.env.INDIA_DELIVERY_FEE_TAXABLE;
+    const placeOfSupply = (process.env.INDIA_GST_PLACE_OF_SUPPLY || "").trim();
+    if (process.env.INDIA_TAX_VERIFIED !== "true" ||
+        !["INTRA_STATE","INTER_STATE","ZERO_RATED","EXEMPT"].includes(taxTreatment) ||
+        !["true","false"].includes(pricesTaxInclusiveValue) ||
+        !["true","false"].includes(deliveryFeeTaxableValue) || !placeOfSupply) {
       await client.query("ROLLBACK");
-      return res.status(503).json({ error: "An active India GST tax profile is required before checkout." });
+      return res.status(503).json({ error: "India GST treatment, price inclusion and delivery taxability must be verified by the owner before checkout." });
+    }
+    const taxProfile = await client.query("SELECT tax_rate_bps FROM tax_profiles WHERE active=true AND jurisdiction='IN_GST' AND currency='INR' AND registration_number<>'' AND seller_state<>'' ORDER BY updated_at DESC LIMIT 1 FOR SHARE");
+    if (!taxProfile.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(503).json({ error: "A complete active India GST profile is required before checkout." });
     }
     const skus = [...quantities.keys()].sort();
     const found = await client.query(
@@ -185,14 +201,19 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
       if(!Number.isSafeInteger(subtotal)||subtotal>2000000000){await client.query("ROLLBACK");return res.status(400).json({error:"Order total exceeds limit"});}
     }
     if(found.rows.some(v=>v.currency!=="INR")){await client.query("ROLLBACK");return res.status(503).json({error:"PayU India checkout requires INR product prices only."});}
-    const totalCents=subtotal+deliveryFeeCents;
+    const taxRateBps=Number(taxProfile.rows[0].tax_rate_bps);
+    const pricesTaxInclusive=pricesTaxInclusiveValue==="true";
+    const deliveryFeeTaxable=deliveryFeeTaxableValue==="true";
+    const gst=calculateIndiaGst({subtotalCents:subtotal,deliveryFeeCents,taxRateBps,treatment:taxTreatment,pricesTaxInclusive,deliveryFeeTaxable});
+    const totalCents=gst.totalCents;
     if(!Number.isSafeInteger(totalCents)||totalCents<=0||totalCents>2000000000){await client.query("ROLLBACK");return res.status(400).json({error:"Order total is invalid."});}
     const inserted=await client.query(
       `INSERT INTO orders(customer_name,customer_email,customer_phone,shipping_address,payment_method,payment_status,status,
-        currency,subtotal_cents,delivery_fee_cents,total_cents,idempotency_key,request_fingerprint)
-       VALUES($1,$2,$3,$4,'payu','pending','pending_payment','INR',$5,$6,$7,$8,$9)
-       RETURNING id,order_number,status,payment_status,subtotal_cents,delivery_fee_cents,total_cents,currency,created_at`,
-      [d.customer_name,d.customer_email.toLowerCase(),d.customer_phone,d.shipping_address+", India PIN: "+d.shipping_pincode,subtotal,deliveryFeeCents,totalCents,idempotencyKey,requestFingerprint]
+        currency,subtotal_cents,delivery_fee_cents,total_cents,idempotency_key,request_fingerprint,
+        tax_cents,tax_rate_bps,tax_treatment,tax_inclusive,taxable_base_cents,delivery_fee_taxable,place_of_supply)
+       VALUES($1,$2,$3,$4,'payu','pending','pending_payment','INR',$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+       RETURNING id,order_number,status,payment_status,subtotal_cents,delivery_fee_cents,total_cents,tax_cents,currency,created_at`,
+      [d.customer_name,d.customer_email.toLowerCase(),d.customer_phone,d.shipping_address+", India PIN: "+d.shipping_pincode,subtotal,deliveryFeeCents,totalCents,idempotencyKey,requestFingerprint,gst.taxCents,taxRateBps,taxTreatment,pricesTaxInclusive,gst.taxableBaseCents,deliveryFeeTaxable,placeOfSupply]
     );
     const order=inserted.rows[0];
     for(const [sku,qty] of quantities){

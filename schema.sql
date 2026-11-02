@@ -411,3 +411,14 @@ CREATE INDEX IF NOT EXISTS stock_transfers_variant_id_idx ON stock_transfers(var
 CREATE INDEX IF NOT EXISTS warehouse_stock_movements_actor_idx ON warehouse_stock_movements(actor_admin_id);
 CREATE INDEX IF NOT EXISTS warehouse_stock_movements_variant_id_idx ON warehouse_stock_movements(variant_id);
 CREATE INDEX IF NOT EXISTS warehouses_created_by_idx ON warehouses(created_by);
+
+
+-- Snapshot verified India GST calculation on each PayU order.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS tax_cents INTEGER NOT NULL DEFAULT 0 CHECK (tax_cents >= 0);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS tax_rate_bps INTEGER NOT NULL DEFAULT 0 CHECK (tax_rate_bps BETWEEN 0 AND 10000);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS tax_treatment TEXT NOT NULL DEFAULT 'UNCONFIGURED'
+  CHECK (tax_treatment IN ('UNCONFIGURED','INTRA_STATE','INTER_STATE','ZERO_RATED','EXEMPT'));
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS tax_inclusive BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS taxable_base_cents INTEGER NOT NULL DEFAULT 0 CHECK (taxable_base_cents >= 0);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_fee_taxable BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS place_of_supply TEXT NOT NULL DEFAULT '';
