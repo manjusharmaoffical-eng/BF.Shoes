@@ -159,6 +159,7 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
       }
       return res.status(409).json({ error: "A previous payment attempt is no longer pending. Start a fresh checkout session." });
     }
+    await client.query("DELETE FROM order_reservations WHERE expires_at<=now()");
     const tax = await client.query("SELECT EXISTS (SELECT 1 FROM tax_profiles WHERE active=true AND jurisdiction='IN_GST') AS configured");
     if (!tax.rows[0].configured) {
       await client.query("ROLLBACK");
@@ -258,8 +259,11 @@ storefrontRouter.post("/payments/payu/callback", express.urlencoded({extended:fa
           return res.redirect(303,baseUrl+"/payment-result.html?status="+resultStatus+"&order="+encodeURIComponent(attempt.order_number));
         }
         const reservations=await client.query("SELECT variant_id,quantity FROM order_reservations WHERE order_id=$1 ORDER BY variant_id FOR UPDATE",[attempt.order_id]);
+        const itemCount=await client.query("SELECT count(DISTINCT variant_id)::int AS count FROM order_items WHERE order_id=$1",[attempt.order_id]);
         const lockedReservations=[];
+        if(locked.rows[0]?.status==="failed"||order.rows[0]?.payment_status==="failed"||reservations.rowCount!==Number(itemCount.rows[0].count))stockReview=true;
         for(const reservation of reservations.rows){
+          if(stockReview)break;
           const v=await client.query(
             `SELECT stock_qty,COALESCE((SELECT sum(quantity) FROM order_reservations WHERE variant_id=$1 AND order_id<>$2 AND expires_at>now()),0)::int AS other_reserved
              FROM variants WHERE id=$1 FOR UPDATE`,[reservation.variant_id,attempt.order_id]);
@@ -271,6 +275,16 @@ storefrontRouter.post("/payments/payu/callback", express.urlencoded({extended:fa
             await client.query("UPDATE variants SET stock_qty=stock_qty-$1,updated_at=now() WHERE id=$2",[reservation.quantity,reservation.variant_id]);
             await client.query("INSERT INTO inventory_movements(variant_id,delta,reason,reference_order_id) VALUES($1,$2,'storefront_payu_paid',$3)",
               [reservation.variant_id,-Number(reservation.quantity),attempt.order_id]);
+            let unassignedQty=Number(reservation.quantity);
+            const locations=await client.query("SELECT warehouse_id,quantity FROM warehouse_inventory WHERE variant_id=$1 AND quantity>0 ORDER BY updated_at,warehouse_id FOR UPDATE",[reservation.variant_id]);
+            for(const location of locations.rows){
+              if(unassignedQty<=0)break;
+              const taken=Math.min(unassignedQty,Number(location.quantity));
+              await client.query("UPDATE warehouse_inventory SET quantity=quantity-$1,updated_at=now() WHERE warehouse_id=$2 AND variant_id=$3",[taken,location.warehouse_id,reservation.variant_id]);
+              await client.query("INSERT INTO warehouse_stock_movements(warehouse_id,variant_id,delta,reason,reference_type,reference_id) VALUES($1,$2,$3,'storefront_payu_paid','order',$4)",
+                [location.warehouse_id,reservation.variant_id,-taken,attempt.order_id]);
+              unassignedQty-=taken;
+            }
           }
         }
         await client.query("DELETE FROM order_reservations WHERE order_id=$1",[attempt.order_id]);
