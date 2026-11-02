@@ -39,5 +39,20 @@ test("schema.sql contains the required business tables and columns", () => {
 test("checkout schema keeps India COD delivery disabled until prices are configured", async () => {
   const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
   assert.ok(storefront.includes("payment_method") && storefront.includes("'cod'"), "Storefront orders must remain COD-only");
-  assert.match(storefront, /INR product pricing and the ₹50 delivery fee must be configured first/);
+  assert.match(storefront, /INR product pricing and delivery fee must be configured first/);
+});
+
+
+test("delivery fee has no implicit default and legacy migrations drop it", () => {
+  assert.match(schema, /delivery_fee_cents INTEGER NOT NULL CHECK \(delivery_fee_cents >= 0\)/);
+  assert.match(schema, /ALTER COLUMN delivery_fee_cents DROP DEFAULT/);
+  assert.doesNotMatch(schema, /delivery_fee_cents INTEGER NOT NULL DEFAULT 5000/);
+});
+
+test("storefront never assumes a delivery fee amount", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  assert.match(storefront, /INDIA_DELIVERY_FEE_PAISE/);
+  assert.match(storefront, /Number\.isSafeInteger\(deliveryFeeCents\)/);
+  assert.match(storefront, /currency !== "INR"/);
+  assert.doesNotMatch(storefront, /,\s*5000\s*,/);
 });
