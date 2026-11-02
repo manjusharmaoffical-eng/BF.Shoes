@@ -148,7 +148,15 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
       const attempt = await client.query("SELECT txnid,status,checkout_params FROM payment_attempts WHERE order_id=$1 ORDER BY created_at DESC LIMIT 1", [order.id]);
       await client.query("COMMIT");
       if (order.payment_status === "paid") return res.status(409).json({ error: "This order has already been paid.", order_number: order.order_number });
-      if (attempt.rows[0]?.status === "pending") return res.status(200).json({ data: { order_number: order.order_number, checkout: { action: payuPaymentUrl(), method: "POST", fields: attempt.rows[0].checkout_params }, idempotent_replay: true } });
+      if (attempt.rows[0]?.status === "pending") {
+        const reservation = await pool.query("SELECT count(*)::int AS total,count(*) FILTER (WHERE expires_at>now())::int AS active FROM order_reservations WHERE order_id=$1",[order.id]);
+        if (reservation.rows[0].total > 0 && reservation.rows[0].active === reservation.rows[0].total) {
+          return res.status(200).json({ data: { order_number: order.order_number, checkout: { action: payuPaymentUrl(), method: "POST", fields: attempt.rows[0].checkout_params }, idempotent_replay: true } });
+        }
+        await pool.query("UPDATE payment_attempts SET status='review' WHERE txnid=$1 AND status='pending'",[attempt.rows[0].txnid]);
+        await pool.query("UPDATE orders SET payment_status='review',updated_at=now() WHERE id=$1 AND payment_status='pending'",[order.id]);
+        return res.status(409).json({ error: "The previous payment reservation expired. Start a new checkout session." });
+      }
       return res.status(409).json({ error: "A previous payment attempt is no longer pending. Start a fresh checkout session." });
     }
     const tax = await client.query("SELECT EXISTS (SELECT 1 FROM tax_profiles WHERE active=true AND jurisdiction='IN_GST') AS configured");
@@ -244,19 +252,26 @@ storefrontRouter.post("/payments/payu/callback", express.urlencoded({extended:fa
         client=await pool.connect();await client.query("BEGIN");
         const locked=await client.query("SELECT * FROM payment_attempts WHERE id=$1 FOR UPDATE",[attempt.id]);
         const order=await client.query("SELECT * FROM orders WHERE id=$1 FOR UPDATE",[attempt.order_id]);
-        if(locked.rows[0]?.status==="paid"||order.rows[0]?.payment_status==="paid"){
+        if(["paid","paid_stock_review"].includes(locked.rows[0]?.status)||["paid","review"].includes(order.rows[0]?.payment_status)){
           await client.query("COMMIT");
-          return res.redirect(303,baseUrl+"/payment-result.html?status=success&order="+encodeURIComponent(attempt.order_number));
+          const resultStatus = locked.rows[0]?.status === "paid_stock_review" || order.rows[0]?.payment_status === "review" ? "review" : "success";
+          return res.redirect(303,baseUrl+"/payment-result.html?status="+resultStatus+"&order="+encodeURIComponent(attempt.order_number));
         }
         const reservations=await client.query("SELECT variant_id,quantity FROM order_reservations WHERE order_id=$1 ORDER BY variant_id FOR UPDATE",[attempt.order_id]);
+        const lockedReservations=[];
         for(const reservation of reservations.rows){
           const v=await client.query(
             `SELECT stock_qty,COALESCE((SELECT sum(quantity) FROM order_reservations WHERE variant_id=$1 AND order_id<>$2 AND expires_at>now()),0)::int AS other_reserved
              FROM variants WHERE id=$1 FOR UPDATE`,[reservation.variant_id,attempt.order_id]);
           if(!v.rowCount||Number(v.rows[0].stock_qty)-Number(reservation.quantity)<Number(v.rows[0].other_reserved)){stockReview=true;break;}
-          await client.query("UPDATE variants SET stock_qty=stock_qty-$1,updated_at=now() WHERE id=$2",[reservation.quantity,reservation.variant_id]);
-          await client.query("INSERT INTO inventory_movements(variant_id,delta,reason,reference_order_id) VALUES($1,$2,'storefront_payu_paid',$3)",
-            [reservation.variant_id,-Number(reservation.quantity),attempt.order_id]);
+          lockedReservations.push(reservation);
+        }
+        if(!stockReview){
+          for(const reservation of lockedReservations){
+            await client.query("UPDATE variants SET stock_qty=stock_qty-$1,updated_at=now() WHERE id=$2",[reservation.quantity,reservation.variant_id]);
+            await client.query("INSERT INTO inventory_movements(variant_id,delta,reason,reference_order_id) VALUES($1,$2,'storefront_payu_paid',$3)",
+              [reservation.variant_id,-Number(reservation.quantity),attempt.order_id]);
+          }
         }
         await client.query("DELETE FROM order_reservations WHERE order_id=$1",[attempt.order_id]);
         await client.query("UPDATE payment_attempts SET status=$1,provider_payment_id=$2,callback_payload=$3::jsonb,verified_at=now() WHERE id=$4",
