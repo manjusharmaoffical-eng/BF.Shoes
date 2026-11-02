@@ -260,3 +260,20 @@ CREATE TABLE IF NOT EXISTS tax_credit_notes (
  credit_note_number TEXT NOT NULL UNIQUE, reason TEXT NOT NULL, amount_cents BIGINT NOT NULL CHECK (amount_cents > 0),
  tax_cents BIGINT NOT NULL CHECK (tax_cents >= 0), created_by UUID REFERENCES admins(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Cover foreign-key columns used in joins and referential checks.
+CREATE INDEX IF NOT EXISTS api_keys_created_by_idx ON api_keys(created_by);
+CREATE INDEX IF NOT EXISTS campaigns_created_by_idx ON campaigns(created_by);
+CREATE INDEX IF NOT EXISTS finance_expenses_created_by_idx ON finance_expenses(created_by);
+CREATE INDEX IF NOT EXISTS finance_funding_created_by_idx ON finance_funding(created_by);
+CREATE INDEX IF NOT EXISTS finance_repayments_created_by_idx ON finance_repayments(created_by);
+CREATE INDEX IF NOT EXISTS inventory_movements_actor_admin_id_idx ON inventory_movements(actor_admin_id);
+CREATE INDEX IF NOT EXISTS inventory_movements_reference_order_id_idx ON inventory_movements(reference_order_id);
+CREATE INDEX IF NOT EXISTS inventory_movements_variant_id_idx ON inventory_movements(variant_id);
+CREATE INDEX IF NOT EXISTS order_items_variant_id_idx ON order_items(variant_id);
+CREATE INDEX IF NOT EXISTS product_images_created_by_idx ON product_images(created_by);
+CREATE INDEX IF NOT EXISTS tax_credit_notes_created_by_idx ON tax_credit_notes(created_by);
+CREATE INDEX IF NOT EXISTS tax_credit_notes_invoice_id_idx ON tax_credit_notes(invoice_id);
+CREATE INDEX IF NOT EXISTS tax_invoices_created_by_idx ON tax_invoices(created_by);
+CREATE INDEX IF NOT EXISTS tax_invoices_profile_id_idx ON tax_invoices(profile_id);
+CREATE INDEX IF NOT EXISTS tax_profiles_created_by_idx ON tax_profiles(created_by);
