@@ -354,3 +354,30 @@ body{background:#fff;color:#121820;font-size:13px}
 @media(max-width:780px){
   .hero-reference .hero-product{transform:scale(1.02);background-position:center;}
 }
+
+
+/* BF SHOES hero artwork: keep the generated shoe visible and remove red accents. */
+.hero-reference .hero-product {
+  min-width: 0;
+  min-height: 100%;
+  height: 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  filter: grayscale(1) contrast(1.08);
+  mix-blend-mode: normal;
+}
+
+@media (max-width: 640px) {
+  .hero-reference {
+    grid-template-columns: minmax(0, 1fr) minmax(120px, 0.72fr);
+    min-height: 270px;
+    height: auto;
+  }
+
+  .hero-reference .hero-product {
+    min-height: 220px;
+    height: 100%;
+    align-self: stretch;
+  }
+}
