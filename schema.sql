@@ -184,7 +184,7 @@ CREATE TABLE IF NOT EXISTS finance_expenses (
 );
 ALTER TABLE finance_expenses DROP CONSTRAINT IF EXISTS finance_expenses_currency_check;
 ALTER TABLE finance_expenses ADD CONSTRAINT finance_expenses_currency_check CHECK (currency IN ('INR','AED'));
-CREATE INDEX IF NOT EXISTS finance_expenses_date_idx ON finance_expenses(currency, expense_date DESC);
+CREATE INDEX IF NOT EXISTS finance_expenses_currency_date_idx ON finance_expenses(currency, expense_date DESC);
 CREATE TABLE IF NOT EXISTS finance_funding (
  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
  kind TEXT NOT NULL CHECK (kind IN ('owner_capital','loan','investor')),
