@@ -11,7 +11,7 @@ const checkoutSchema = z.object({
   customer_email: z.string().trim().email().max(254),
   customer_phone: z.string().trim().min(7).max(30).regex(/^[+()0-9 .-]+$/),
   shipping_address: z.string().trim().min(10).max(1000),
-  shipping_country: z.literal("IN").default("IN"),
+  shipping_country: z.enum(["IN", "AE"]).default("AE"),
   shipping_pincode: z.string().trim().optional().default(""),
   items: z.array(z.object({ sku: z.string().trim().min(2).max(80), quantity: z.number().int().min(1).max(10) })).min(1).max(20)
 }).strict();
@@ -41,7 +41,30 @@ storefrontRouter.get("/campaigns/active", async (_req, res, next) => {
   }
 });
 
-storefrontRouter.get("/products", async (_req, res, next) => {
+storefrontRouter.get("/market-config", async (_req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+         EXISTS (SELECT 1 FROM products WHERE active = true AND currency = 'INR') AS india_pricing_configured,
+         EXISTS (SELECT 1 FROM products WHERE active = true AND currency = 'AED') AS uae_pricing_configured,
+         EXISTS (SELECT 1 FROM tax_profiles WHERE active = true AND jurisdiction = 'IN_GST') AS india_tax_profile_configured,
+         EXISTS (SELECT 1 FROM tax_profiles WHERE active = true AND jurisdiction = 'AE_VAT') AS uae_tax_profile_configured`
+    );
+    const row = result.rows[0];
+    const feeConfigured = value => value !== undefined && /^\\d+$/.test(value) && Number.isSafeInteger(Number(value));
+    const razorpayConfigured = ["RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "RAZORPAY_WEBHOOK_SECRET"].every(key => Boolean(process.env[key]));
+    res.set("Cache-Control", "no-store");
+    return res.json({ data: [
+      { country: "IN", currency: "INR", pricingConfigured: row.india_pricing_configured, deliveryFeeConfigured: feeConfigured(process.env.INDIA_DELIVERY_FEE_PAISE), tax: "GST", taxProfileConfigured: row.india_tax_profile_configured, paymentProvider: "Razorpay", paymentConfigured: razorpayConfigured, checkoutEnabled: false },
+      { country: "AE", currency: "AED", pricingConfigured: row.uae_pricing_configured, deliveryFeeConfigured: feeConfigured(process.env.UAE_DELIVERY_FEE_FILS), tax: "VAT", taxProfileConfigured: row.uae_tax_profile_configured, paymentProvider: process.env.UAE_PAYMENT_PROVIDER || null, paymentConfigured: false, checkoutEnabled: false }
+    ] });
+  } catch (err) { next(err); }
+});
+
+storefrontRouter.get("/products", async (req, res, next) => {
+  const market = String(req.query.market || "AE").toUpperCase();
+  const currency = market === "IN" ? "INR" : market === "AE" ? "AED" : null;
+  if (!currency) return res.status(400).json({ error: "market must be IN or AE" });
   try {
     const result = await pool.query(
       `SELECT p.id, p.name, p.slug, p.description, p.brand, p.price_cents, p.currency, p.image_url,
@@ -49,10 +72,11 @@ storefrontRouter.get("/products", async (_req, res, next) => {
           'color_name', v.color_name, 'stock_qty', v.stock_qty)
           ORDER BY v.size_label) FILTER (WHERE v.id IS NOT NULL AND v.active = true), '[]') AS variants
        FROM products p LEFT JOIN variants v ON v.product_id = p.id
-       WHERE p.active = true AND p.currency = 'INR' GROUP BY p.id ORDER BY p.created_at DESC LIMIT 100`
+       WHERE p.active = true AND p.currency = $1 GROUP BY p.id ORDER BY p.created_at DESC LIMIT 100`,
+      [currency]
     );
     res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
-    res.json({ data: result.rows });
+    res.json({ data: result.rows, market, currency });
   } catch (err) { next(err); }
 });
 
@@ -86,9 +110,8 @@ storefrontRouter.post("/orders", async (req, res, next) => {
     return res.status(400).json({ error: "A valid Idempotency-Key is required" });
   }
   const d = parsed.data;
-  if (d.shipping_country !== "IN") return res.status(400).json({ error: "BF SHOES currently delivers in India only." });
-  if (d.shipping_pincode !== "500052") return res.status(400).json({ error: "BF SHOES currently delivers only to PIN code 500052." });
   if (d.shipping_country === "IN") {
+    if (d.shipping_pincode !== "500052") return res.status(400).json({ error: "BF SHOES currently delivers only to PIN code 500052." });
     const pin = d.shipping_pincode;
     if (!/^[1-9][0-9]{5}$/.test(pin)) return res.status(400).json({ error: "Enter a valid six-digit Indian PIN code" });
     const allowedPins = new Set((process.env.INDIA_DELIVERY_PINCODES || "500052").split(",").map(value => value.trim()).filter(Boolean));
@@ -96,8 +119,8 @@ storefrontRouter.post("/orders", async (req, res, next) => {
     if (!allowedPins.has(pin)) return res.status(400).json({ error: "Sorry, BF SHOES does not deliver to this PIN code yet." });
     // Safety gate: catalog prices are currently AED and orders have no separate INR delivery-fee field.
     return res.status(503).json({ error: "India delivery to this PIN code is planned, but checkout is not enabled yet. INR product pricing and delivery fee must be configured first." });
-  } else if (d.shipping_pincode) {
-    return res.status(400).json({ error: "PIN code is only used for India delivery. Select the correct delivery country." });
+  } else {
+    return res.status(503).json({ error: "UAE checkout is not enabled yet. Verified AED pricing, delivery fee, VAT profile, and payment gateway setup are required first." });
   }
   const idempotencyKey = `store:${suppliedKey}`;
   const requestFingerprint = storefrontRequestFingerprint(d);
