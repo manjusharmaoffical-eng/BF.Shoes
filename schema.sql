@@ -53,6 +53,8 @@ CREATE TABLE IF NOT EXISTS variants (
   UNIQUE(product_id, size_label, color_name)
 );
 ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url TEXT;
+-- New products default to the primary UAE storefront; existing product currencies and prices are unchanged.
+ALTER TABLE products ALTER COLUMN currency SET DEFAULT 'AED';
 -- Costs remain NULL until the owner records actual purchase cost; reports must not invent profit.
 ALTER TABLE products ADD COLUMN IF NOT EXISTS unit_cost_cents INTEGER CHECK (unit_cost_cents IS NULL OR unit_cost_cents >= 0);
 CREATE INDEX IF NOT EXISTS variants_product_idx ON variants(product_id);
