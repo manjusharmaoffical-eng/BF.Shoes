@@ -13,6 +13,7 @@ import { financeRouter } from "./finance.js";
 import { aiStudioRouter } from "./ai-studio.js";
 import { ultronRouter } from "./ultron.js";
 import { invoicesRouter } from "./invoices.js";
+import { warehouseRouter } from "./warehouse.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -77,6 +78,7 @@ app.use("/api/v1/ai", aiStudioRouter);
 app.use("/api/v1/ai-studio", aiStudioRouter);
 app.use("/api/v1/ultron", ultronRouter);
 app.use("/api/v1/invoices", invoicesRouter);
+app.use("/api/v1/warehouse", warehouseRouter);
 app.use("/api/v1", router);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
