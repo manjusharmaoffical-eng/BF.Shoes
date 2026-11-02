@@ -30,7 +30,7 @@ export function payuRequestHash(fields, salt) {
   const values = [
     fields.key, fields.txnid, fields.amount, fields.productinfo, fields.firstname,
     fields.email, fields.udf1 || "", fields.udf2 || "", fields.udf3 || "",
-    fields.udf4 || "", fields.udf5 || "", "", "", "", "", "", "", salt
+    fields.udf4 || "", fields.udf5 || "", "", "", "", "", "", salt
   ];
   return payuSha512(values.join("|"));
 }
