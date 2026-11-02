@@ -399,3 +399,15 @@ CREATE INDEX IF NOT EXISTS payment_attempts_provider_status_idx ON payment_attem
 
 ALTER TABLE payment_attempts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_reservations ENABLE ROW LEVEL SECURITY;
+
+
+-- Covering indexes for warehouse and production foreign keys.
+CREATE INDEX IF NOT EXISTS production_batches_created_by_idx ON production_batches(created_by);
+CREATE INDEX IF NOT EXISTS production_batches_product_id_idx ON production_batches(product_id);
+CREATE INDEX IF NOT EXISTS stock_transfers_created_by_idx ON stock_transfers(created_by);
+CREATE INDEX IF NOT EXISTS stock_transfers_from_warehouse_idx ON stock_transfers(from_warehouse_id);
+CREATE INDEX IF NOT EXISTS stock_transfers_to_warehouse_idx ON stock_transfers(to_warehouse_id);
+CREATE INDEX IF NOT EXISTS stock_transfers_variant_id_idx ON stock_transfers(variant_id);
+CREATE INDEX IF NOT EXISTS warehouse_stock_movements_actor_idx ON warehouse_stock_movements(actor_admin_id);
+CREATE INDEX IF NOT EXISTS warehouse_stock_movements_variant_id_idx ON warehouse_stock_movements(variant_id);
+CREATE INDEX IF NOT EXISTS warehouses_created_by_idx ON warehouses(created_by);
