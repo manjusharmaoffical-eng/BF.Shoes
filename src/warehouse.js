@@ -15,32 +15,32 @@ const warehouseSchema = z.object({
 warehouseRouter.get("/summary", requireScope("inventory:read"), async (_req, res, next) => {
   try {
     const [warehouses, legacy, production, movements, lowStock] = await Promise.all([
-      pool.query(\`SELECT w.id,w.name,w.code,w.address,w.active,
+      pool.query(`SELECT w.id,w.name,w.code,w.address,w.active,
         COALESCE(sum(wi.quantity),0)::bigint AS units_in_stock,
         count(wi.variant_id) FILTER (WHERE wi.quantity > 0)::int AS stocked_variants
         FROM warehouses w LEFT JOIN warehouse_inventory wi ON wi.warehouse_id=w.id
-        GROUP BY w.id ORDER BY w.name\`),
-      pool.query(\`SELECT COALESCE(sum(GREATEST(v.stock_qty-COALESCE(a.allocated,0),0)),0)::bigint AS unassigned_legacy_units
+        GROUP BY w.id ORDER BY w.name`),
+      pool.query(`SELECT COALESCE(sum(GREATEST(v.stock_qty-COALESCE(a.allocated,0),0)),0)::bigint AS unassigned_legacy_units
         FROM variants v LEFT JOIN (
           SELECT variant_id,sum(quantity)::bigint AS allocated FROM warehouse_inventory GROUP BY variant_id
-        ) a ON a.variant_id=v.id WHERE v.active=true\`),
-      pool.query(\`SELECT date_trunc('day',completed_at)::date AS day,
+        ) a ON a.variant_id=v.id WHERE v.active=true`),
+      pool.query(`SELECT date_trunc('day',completed_at)::date AS day,
         sum(good_qty)::int AS good_units,sum(rejected_qty)::int AS rejected_units,
         count(*)::int AS completed_batches
         FROM production_batches WHERE status='completed' AND completed_at >= now()-interval '30 days'
-        GROUP BY 1 ORDER BY 1\`),
-      pool.query(\`SELECT date_trunc('day',created_at)::date AS day,
+        GROUP BY 1 ORDER BY 1`),
+      pool.query(`SELECT date_trunc('day',created_at)::date AS day,
         sum(delta) FILTER (WHERE delta > 0)::int AS stock_in,
         abs(sum(delta) FILTER (WHERE delta < 0))::int AS stock_out
         FROM warehouse_stock_movements WHERE created_at >= now()-interval '30 days'
-        GROUP BY 1 ORDER BY 1\`),
-      pool.query(\`SELECT p.name AS product_name,v.sku,v.size_label,v.color_name,
+        GROUP BY 1 ORDER BY 1`),
+      pool.query(`SELECT p.name AS product_name,v.sku,v.size_label,v.color_name,
         COALESCE(sum(wi.quantity),0)::int AS warehouse_units
         FROM variants v JOIN products p ON p.id=v.product_id
         LEFT JOIN warehouse_inventory wi ON wi.variant_id=v.id
         WHERE v.active=true GROUP BY p.name,v.sku,v.size_label,v.color_name
         HAVING COALESCE(sum(wi.quantity),0) <= 5
-        ORDER BY warehouse_units,v.sku LIMIT 20\`)
+        ORDER BY warehouse_units,v.sku LIMIT 20`)
     ]);
     res.set("Cache-Control","no-store");
     res.json({data:{
@@ -56,10 +56,10 @@ warehouseRouter.get("/summary", requireScope("inventory:read"), async (_req, res
 
 warehouseRouter.get("/warehouses", requireScope("inventory:read"), async (_req,res,next)=>{
   try{
-    const result=await pool.query(\`SELECT w.id,w.name,w.code,w.address,w.active,
+    const result=await pool.query(`SELECT w.id,w.name,w.code,w.address,w.active,
       COALESCE(sum(wi.quantity),0)::bigint AS units_in_stock
       FROM warehouses w LEFT JOIN warehouse_inventory wi ON wi.warehouse_id=w.id
-      GROUP BY w.id ORDER BY w.name\`);
+      GROUP BY w.id ORDER BY w.name`);
     res.json({data:result.rows});
   }catch(err){next(err);}
 });
@@ -97,9 +97,9 @@ warehouseRouter.post("/warehouses/:id/stock",requireScope("inventory:write"),asy
     if(next<0){await client.query("ROLLBACK");return res.status(409).json({error:"Warehouse stock cannot be negative",available:before});}
     const aggregate=Number(v.rows[0].stock_qty)+parsed.data.delta;
     if(aggregate<0){await client.query("ROLLBACK");return res.status(409).json({error:"Aggregate SKU stock cannot be negative",available:Number(v.rows[0].stock_qty)});}
-    await client.query(\`INSERT INTO warehouse_inventory(warehouse_id,variant_id,quantity,updated_at)
+    await client.query(`INSERT INTO warehouse_inventory(warehouse_id,variant_id,quantity,updated_at)
       VALUES($1,$2,$3,now()) ON CONFLICT(warehouse_id,variant_id)
-      DO UPDATE SET quantity=EXCLUDED.quantity,updated_at=now()\`,[req.params.id,v.rows[0].id,next]);
+      DO UPDATE SET quantity=EXCLUDED.quantity,updated_at=now()`,[req.params.id,v.rows[0].id,next]);
     await client.query("UPDATE variants SET stock_qty=$1,updated_at=now() WHERE id=$2",[aggregate,v.rows[0].id]);
     await client.query("INSERT INTO inventory_movements(variant_id,delta,reason,actor_admin_id) VALUES($1,$2,$3,$4)",
       [v.rows[0].id,parsed.data.delta,"warehouse:"+parsed.data.reason,req.actor.type==="admin"?req.actor.id:null]);
@@ -122,9 +122,9 @@ warehouseRouter.post("/production/batches",requireScope("inventory:write"),async
   const parsed=batchSchema.safeParse(req.body);
   if(!parsed.success)return res.status(400).json({error:"Invalid production batch",details:parsed.error.flatten()});
   try{
-    const r=await pool.query(\`INSERT INTO production_batches(product_id,variant_id,planned_qty,planned_for,notes,created_by)
+    const r=await pool.query(`INSERT INTO production_batches(product_id,variant_id,planned_qty,planned_for,notes,created_by)
       SELECT p.id,v.id,$2,$3,$4,$5 FROM variants v JOIN products p ON p.id=v.product_id
-      WHERE v.sku=$1 AND v.active=true AND p.active=true RETURNING *\`,
+      WHERE v.sku=$1 AND v.active=true AND p.active=true RETURNING *`,
       [parsed.data.sku,parsed.data.planned_qty,parsed.data.planned_for||null,parsed.data.notes,req.actor.type==="admin"?req.actor.id:null]);
     if(!r.rowCount)return res.status(404).json({error:"Active SKU not found"});
     await pool.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES($1,$2,'production.batch.create','production_batch',$3)",
@@ -135,17 +135,17 @@ warehouseRouter.post("/production/batches",requireScope("inventory:write"),async
 
 warehouseRouter.get("/production/batches",requireScope("inventory:read"),async(_req,res,next)=>{
   try{
-    const r=await pool.query(\`SELECT b.*,p.name AS product_name,v.sku,v.size_label,v.color_name
+    const r=await pool.query(`SELECT b.*,p.name AS product_name,v.sku,v.size_label,v.color_name
       FROM production_batches b JOIN products p ON p.id=b.product_id JOIN variants v ON v.id=b.variant_id
-      ORDER BY b.created_at DESC LIMIT 200\`);
+      ORDER BY b.created_at DESC LIMIT 200`);
     res.json({data:r.rows});
   }catch(err){next(err);}
 });
 
 warehouseRouter.patch("/production/batches/:id/start",requireScope("inventory:write"),async(req,res,next)=>{
   try{
-    const r=await pool.query(\`UPDATE production_batches SET status='in_progress',started_at=COALESCE(started_at,now()),updated_at=now()
-      WHERE id=$1 AND status='planned' RETURNING *\`,[req.params.id]);
+    const r=await pool.query(`UPDATE production_batches SET status='in_progress',started_at=COALESCE(started_at,now()),updated_at=now()
+      WHERE id=$1 AND status='planned' RETURNING *`,[req.params.id]);
     if(!r.rowCount)return res.status(409).json({error:"Batch not found or not in planned state"});
     await pool.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES($1,$2,'production.batch.start','production_batch',$3)",
       [req.actor.type,req.actor.id,r.rows[0].id]);
@@ -179,18 +179,18 @@ warehouseRouter.post("/production/batches/:id/complete",requireScope("inventory:
     if(parsed.data.good_qty>0){
       const current=await client.query("SELECT quantity FROM warehouse_inventory WHERE warehouse_id=$1 AND variant_id=$2 FOR UPDATE",[parsed.data.warehouse_id,batch.variant_id]);
       const next=Number(current.rows[0]?.quantity||0)+parsed.data.good_qty;
-      await client.query(\`INSERT INTO warehouse_inventory(warehouse_id,variant_id,quantity,updated_at)
+      await client.query(`INSERT INTO warehouse_inventory(warehouse_id,variant_id,quantity,updated_at)
         VALUES($1,$2,$3,now()) ON CONFLICT(warehouse_id,variant_id)
-        DO UPDATE SET quantity=EXCLUDED.quantity,updated_at=now()\`,[parsed.data.warehouse_id,batch.variant_id,next]);
+        DO UPDATE SET quantity=EXCLUDED.quantity,updated_at=now()`,[parsed.data.warehouse_id,batch.variant_id,next]);
       await client.query("UPDATE variants SET stock_qty=$1,updated_at=now() WHERE id=$2",[aggregate,batch.variant_id]);
       await client.query("INSERT INTO inventory_movements(variant_id,delta,reason,actor_admin_id) VALUES($1,$2,'production_completed',$3)",
         [batch.variant_id,parsed.data.good_qty,req.actor.type==="admin"?req.actor.id:null]);
       await client.query("INSERT INTO warehouse_stock_movements(warehouse_id,variant_id,delta,reason,reference_type,reference_id,actor_admin_id) VALUES($1,$2,$3,'production_completed','production_batch',$4,$5)",
         [parsed.data.warehouse_id,batch.variant_id,parsed.data.good_qty,batch.id,req.actor.type==="admin"?req.actor.id:null]);
     }
-    const updated=await client.query(\`UPDATE production_batches SET good_qty=$1,rejected_qty=$2,status='completed',
+    const updated=await client.query(`UPDATE production_batches SET good_qty=$1,rejected_qty=$2,status='completed',
       completed_at=now(),notes=CASE WHEN $3='' THEN notes ELSE notes||E'\\n'||$3 END,updated_at=now()
-      WHERE id=$4 RETURNING *\`,[parsed.data.good_qty,parsed.data.rejected_qty,parsed.data.notes,batch.id]);
+      WHERE id=$4 RETURNING *`,[parsed.data.good_qty,parsed.data.rejected_qty,parsed.data.notes,batch.id]);
     await client.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES($1,$2,'production.batch.complete','production_batch',$3)",
       [req.actor.type,req.actor.id,batch.id]);
     await client.query("COMMIT");
@@ -223,9 +223,9 @@ warehouseRouter.post("/transfers",requireScope("inventory:write"),async(req,res,
     const destination=await client.query("SELECT quantity FROM warehouse_inventory WHERE warehouse_id=$1 AND variant_id=$2 FOR UPDATE",[parsed.data.to_warehouse_id,v.rows[0].id]);
     const destinationQty=Number(destination.rows[0]?.quantity||0)+parsed.data.quantity;
     await client.query("UPDATE warehouse_inventory SET quantity=$1,updated_at=now() WHERE warehouse_id=$2 AND variant_id=$3",[sourceQty-parsed.data.quantity,parsed.data.from_warehouse_id,v.rows[0].id]);
-    await client.query(\`INSERT INTO warehouse_inventory(warehouse_id,variant_id,quantity,updated_at)
+    await client.query(`INSERT INTO warehouse_inventory(warehouse_id,variant_id,quantity,updated_at)
       VALUES($1,$2,$3,now()) ON CONFLICT(warehouse_id,variant_id)
-      DO UPDATE SET quantity=EXCLUDED.quantity,updated_at=now()\`,[parsed.data.to_warehouse_id,v.rows[0].id,destinationQty]);
+      DO UPDATE SET quantity=EXCLUDED.quantity,updated_at=now()`,[parsed.data.to_warehouse_id,v.rows[0].id,destinationQty]);
     const transfer=await client.query("INSERT INTO stock_transfers(from_warehouse_id,to_warehouse_id,variant_id,quantity,created_by) VALUES($1,$2,$3,$4,$5) RETURNING *",
       [parsed.data.from_warehouse_id,parsed.data.to_warehouse_id,v.rows[0].id,parsed.data.quantity,req.actor.type==="admin"?req.actor.id:null]);
     await client.query("INSERT INTO warehouse_stock_movements(warehouse_id,variant_id,delta,reason,reference_type,reference_id,actor_admin_id) VALUES($1,$2,$3,'stock_transfer_out','stock_transfer',$4,$5),($6,$2,$7,'stock_transfer_in','stock_transfer',$4,$5)",
@@ -240,10 +240,10 @@ warehouseRouter.post("/transfers",requireScope("inventory:write"),async(req,res,
 
 warehouseRouter.get("/transfers",requireScope("inventory:read"),async(_req,res,next)=>{
   try{
-    const r=await pool.query(\`SELECT t.*,f.name AS from_warehouse,to_wh.name AS to_warehouse,
+    const r=await pool.query(`SELECT t.*,f.name AS from_warehouse,to_wh.name AS to_warehouse,
       v.sku,v.size_label,v.color_name FROM stock_transfers t
       JOIN warehouses f ON f.id=t.from_warehouse_id JOIN warehouses to_wh ON to_wh.id=t.to_warehouse_id
-      JOIN variants v ON v.id=t.variant_id ORDER BY t.created_at DESC LIMIT 100\`);
+      JOIN variants v ON v.id=t.variant_id ORDER BY t.created_at DESC LIMIT 100`);
     res.json({data:r.rows});
   }catch(err){next(err);}
 });
