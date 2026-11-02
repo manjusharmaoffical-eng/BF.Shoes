@@ -137,12 +137,18 @@ storefrontRouter.post("/orders", async (req, res, next) => {
     }
     const currency = found.rows[0].currency;
     if (found.rows.some(v => v.currency !== currency)) { await client.query("ROLLBACK"); return res.status(400).json({ error: "Mixed currencies are not supported" }); }
+    if (currency !== "INR") { await client.query("ROLLBACK"); return res.status(503).json({ error: "India checkout requires verified INR product prices." }); }
+    const deliveryFeeCents = Number(process.env.INDIA_DELIVERY_FEE_PAISE);
+    if (!Number.isSafeInteger(deliveryFeeCents) || deliveryFeeCents < 0) {
+      await client.query("ROLLBACK");
+      return res.status(503).json({ error: "India delivery fee is not configured. Checkout remains disabled." });
+    }
 
     const inserted = await client.query(
       `INSERT INTO orders(customer_name, customer_email, customer_phone, shipping_address, payment_method,
          currency, subtotal_cents, delivery_fee_cents, total_cents, idempotency_key, request_fingerprint)
-       VALUES($1,$2,$3,$4,'cod',$5,$6,5000,$6+5000,$7,$8) RETURNING order_number, status, subtotal_cents, delivery_fee_cents, total_cents, currency, created_at`,
-      [d.customer_name, d.customer_email.toLowerCase(), d.customer_phone, `${d.shipping_address}${d.shipping_country === "IN" ? `, India PIN: ${d.shipping_pincode}` : ""}`, currency, subtotal, idempotencyKey, requestFingerprint]
+       VALUES($1,$2,$3,$4,'cod',$5,$6,$7,$6+$7,$8,$9) RETURNING order_number, status, subtotal_cents, delivery_fee_cents, total_cents, currency, created_at`,
+      [d.customer_name, d.customer_email.toLowerCase(), d.customer_phone, `${d.shipping_address}${d.shipping_country === "IN" ? `, India PIN: ${d.shipping_pincode}` : ""}`, currency, subtotal, deliveryFeeCents, idempotencyKey, requestFingerprint]
     );
     const order = inserted.rows[0];
     const orderIdResult = await client.query("SELECT id FROM orders WHERE order_number=$1", [order.order_number]);
