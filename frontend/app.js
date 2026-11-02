@@ -158,7 +158,8 @@
     state.loading = true;
     renderProducts();
     try {
-      const response = await request(`${API_BASE}/products`);
+      // BF SHOES storefront currently serves the India catalog; the API defaults to AE when market is omitted.
+      const response = await request(`${API_BASE}/products?market=IN`);
       state.products = Array.isArray(response) ? response : (response.data || response.products || []);
       if (!Array.isArray(state.products)) state.products = [];
     } catch (error) {
