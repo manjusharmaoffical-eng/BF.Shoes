@@ -3,13 +3,16 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "engines": { "node": "24.x" },
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "migrate": "node src/migrate.js",
     "bootstrap-admin": "node src/bootstrap-admin.js",
-    "test": "node --test"
+    "test": "node --test",
+    "vercel-build": "find src frontend test -type f -name '*.js' -print0 | xargs -0 -n1 node --check && npm test"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
