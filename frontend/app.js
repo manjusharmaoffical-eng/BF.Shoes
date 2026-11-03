@@ -252,8 +252,8 @@
   async function loadCheckoutReadiness() {
     try {
       const config = await request('/api/v1/store/market-config');
-      const india = (config.data || []).find(market => market.country === 'IN');
-      state.checkoutReady = Boolean(india && india.checkoutEnabled && (!countrySelect || countrySelect.value === 'IN'));
+      const selected = (config.data || []).find(market => market.country === state.market);
+      state.checkoutReady = Boolean(state.market === 'IN' && selected && selected.checkoutEnabled && (!countrySelect || countrySelect.value === 'IN'));
     } catch { state.checkoutReady = false; }
     const checkoutButton = $('#checkout-button');
     const placeOrder = $('#place-order');
@@ -261,7 +261,7 @@
     if (placeOrder) placeOrder.disabled = !state.checkoutReady;
     if ($('#checkout-readiness-note')) $('#checkout-readiness-note').textContent = state.checkoutReady
       ? 'Pay securely with PayU. Your stock is reserved while payment is completed.'
-      : 'Checkout opens after verified INR prices, delivery fee, GST profile and PayU merchant credentials are configured.';
+      : state.market === 'AE' ? 'UAE shopping is available. UAE delivery, VAT and payment setup must be completed before checkout opens.' : 'Checkout opens after verified INR prices, delivery fee, GST profile and PayU merchant credentials are configured.';
   }
 
   if (countrySelect) {
