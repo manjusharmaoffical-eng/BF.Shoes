@@ -5,14 +5,14 @@
 
   const FALLBACK_IMAGES = ['/bf-shoes-hero.svg'];
 
-  const state = { checkoutReady: false, products: [], cart: [], selectedSizes: {}, filter: 'all', search: '', categories: [], colors: [], sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null };
+  let savedMarket = 'IN'; try { savedMarket = localStorage.getItem('bf-market') === 'AE' ? 'AE' : 'IN'; } catch {}\n  const state = { market: savedMarket, checkoutReady: false, products: [], cart: [], cartByMarket: { IN: [], AE: [] }, selectedSizes: {}, filter: 'all', search: '', categories: [], colors: [], sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null };\n  state.cart = state.cartByMarket[state.market];
 
   try { state.wishlist = new Set(JSON.parse(localStorage.getItem('bf-shoes-wishlist') || '[]').map(String)); } catch { state.wishlist = new Set(); }
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  const money = (cents, currency = 'INR') => `₹${(Number(cents || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const money = (cents, currency = 'INR') => { const locale = currency === 'AED' ? 'en-AE' : 'en-IN'; const amount = (Number(cents || 0) / 100).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return currency === 'AED' ? `AED ${amount}` : `₹${amount}`; };
   // Delivery charges are intentionally not guessed; checkout remains disabled until configured.
   const checkoutTotalCents = () => totalCents();
   const randomKey = () => Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
@@ -102,11 +102,11 @@
     if($('#cart-empty')) $('#cart-empty').classList.toggle('hidden', count > 0);
     if($('#drawer-foot')) $('#drawer-foot').classList.toggle('hidden', count === 0);
     if($('#cart-items')) $('#cart-items').classList.toggle('hidden', count === 0);
-    if($('#cart-subtotal')) $('#cart-subtotal').textContent = money(totalCents(), 'INR'); 
+    const activeCurrency = state.market === 'AE' ? 'AED' : 'INR';\n    if($('#cart-subtotal')) $('#cart-subtotal').textContent = money(totalCents(), activeCurrency); 
 
     const delivery=$('#cart-delivery-fee');
     if(delivery) delivery.textContent='Not configured';
-    if($('#checkout-total')) $('#checkout-total').textContent = money(checkoutTotalCents(), 'INR');
+    if($('#checkout-total')) $('#checkout-total').textContent = money(checkoutTotalCents(), activeCurrency);
 
     if($('#cart-items')) {
       $('#cart-items').innerHTML = state.cart.map(item => `<div class="cart-line"><img src="${escapeHtml(productImage(item.product))}" alt="" /><div><h3>${escapeHtml(item.product.name)}</h3><p>Size ${escapeHtml(item.variant.size_label)} · ${escapeHtml(item.variant.color_name || 'Classic')}</p><div class="qty-control"><button type="button" data-qty="-1" data-sku="${escapeHtml(item.variant.sku)}" aria-label="Decrease quantity">−</button><span>${item.quantity}</span><button type="button" data-qty="1" data-sku="${escapeHtml(item.variant.sku)}" aria-label="Increase quantity" ${item.quantity >= 10 ? 'disabled' : ''}>+</button></div></div><strong class="cart-line-price">${money(Number(item.product.price_cents) * item.quantity, item.product.currency)}</strong></div>`).join('');
@@ -158,7 +158,7 @@
     state.loading = true;
     renderProducts();
     try {
-      const response = await request(`${API_BASE}/products`);
+      const response = await request(`${API_BASE}/products?market=${encodeURIComponent(state.market)}`);
       state.products = Array.isArray(response) ? response : (response.data || response.products || []);
       if (!Array.isArray(state.products)) state.products = [];
     } catch (error) {
@@ -354,7 +354,42 @@
     }
   });
 
-  $('#account-link')?.addEventListener('click', () => { window.location.href = '/account.html'; });
+  $('#account-link')?.addEventListener('click', () => { window.location.href = '/account.html'; });\n\n  $('#market-selector')?.addEventListener('change', event => {
+    const nextMarket = event.target.value === 'AE' ? 'AE' : 'IN';
+    if (nextMarket === state.market) return;
+    state.cartByMarket[state.market] = state.cart;
+    state.market = nextMarket;
+    state.cart = state.cartByMarket[state.market] || [];
+    state.pendingCheckout = null;
+    state.selectedSizes = {};
+    try { localStorage.setItem('bf-market', state.market); } catch {}
+    const deliveryNote = $('#market-delivery-note');
+    if (deliveryNote) deliveryNote.textContent = state.market === 'IN' ? 'Delivery to PIN 500052' : 'UAE delivery setup pending';
+    const range = $('#price-range');
+    const rangeValue = $('#price-range-value');
+    if (range && rangeValue) {
+      range.min = state.market === 'IN' ? '699' : '10';
+      range.max = state.market === 'IN' ? '4999' : '500';
+      range.value = range.max;
+      rangeValue.textContent = money(Number(range.value) * 100, state.market === 'IN' ? 'INR' : 'AED');
+    }
+    const selectedCountry = $('#shipping-country');
+    if (selectedCountry) selectedCountry.value = state.market;
+    loadProducts();
+    loadCheckoutReadiness();
+    renderCart();
+    toast(state.market === 'IN' ? 'India market selected.' : 'UAE market selected. Checkout is not available yet.');
+  });
+  if ($('#market-selector')) $('#market-selector').value = state.market;
+  const initialDeliveryNote = $('#market-delivery-note');
+  if (initialDeliveryNote) initialDeliveryNote.textContent = state.market === 'IN' ? 'Delivery to PIN 500052' : 'UAE delivery setup pending';
+  const initialRange = $('#price-range'), initialRangeValue = $('#price-range-value');
+  if (initialRange && initialRangeValue) {
+    initialRange.min = state.market === 'IN' ? '699' : '10';
+    initialRange.max = state.market === 'IN' ? '4999' : '500';
+    initialRange.value = initialRange.max;
+    initialRangeValue.textContent = money(Number(initialRange.value) * 100, state.market === 'IN' ? 'INR' : 'AED');
+  }
 
   renderCart();
   loadProducts();
