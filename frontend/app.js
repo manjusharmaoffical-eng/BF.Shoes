@@ -5,7 +5,9 @@
 
   const FALLBACK_IMAGES = ['/bf-shoes-hero.svg'];
 
-  let savedMarket = 'IN'; try { savedMarket = localStorage.getItem('bf-market') === 'AE' ? 'AE' : 'IN'; } catch {}\n  const state = { market: savedMarket, checkoutReady: false, products: [], cart: [], cartByMarket: { IN: [], AE: [] }, selectedSizes: {}, filter: 'all', search: '', categories: [], colors: [], sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null };\n  state.cart = state.cartByMarket[state.market];
+  let savedMarket = 'IN'; try { savedMarket = localStorage.getItem('bf-market') === 'AE' ? 'AE' : 'IN'; } catch {}
+  const state = { market: savedMarket, checkoutReady: false, products: [], cart: [], cartByMarket: { IN: [], AE: [] }, selectedSizes: {}, filter: 'all', search: '', categories: [], colors: [], sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null };
+  state.cart = state.cartByMarket[state.market];
 
   try { state.wishlist = new Set(JSON.parse(localStorage.getItem('bf-shoes-wishlist') || '[]').map(String)); } catch { state.wishlist = new Set(); }
 
@@ -102,7 +104,8 @@
     if($('#cart-empty')) $('#cart-empty').classList.toggle('hidden', count > 0);
     if($('#drawer-foot')) $('#drawer-foot').classList.toggle('hidden', count === 0);
     if($('#cart-items')) $('#cart-items').classList.toggle('hidden', count === 0);
-    const activeCurrency = state.market === 'AE' ? 'AED' : 'INR';\n    if($('#cart-subtotal')) $('#cart-subtotal').textContent = money(totalCents(), activeCurrency); 
+    const activeCurrency = state.market === 'AE' ? 'AED' : 'INR';
+    if($('#cart-subtotal')) $('#cart-subtotal').textContent = money(totalCents(), activeCurrency); 
 
     const delivery=$('#cart-delivery-fee');
     if(delivery) delivery.textContent='Not configured';
@@ -354,7 +357,9 @@
     }
   });
 
-  $('#account-link')?.addEventListener('click', () => { window.location.href = '/account.html'; });\n\n  $('#market-selector')?.addEventListener('change', event => {
+  $('#account-link')?.addEventListener('click', () => { window.location.href = '/account.html'; });
+
+  $('#market-selector')?.addEventListener('change', event => {
     const nextMarket = event.target.value === 'AE' ? 'AE' : 'IN';
     if (nextMarket === state.market) return;
     state.cartByMarket[state.market] = state.cart;
