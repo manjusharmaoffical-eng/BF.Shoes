@@ -359,10 +359,10 @@ storefrontRouter.post("/orders/paytabs", async (req, res, next) => {
     if (!tax.rows[0].configured) { await client.query("ROLLBACK"); return res.status(503).json({ error: "An active UAE VAT tax profile is required before checkout." }); }
     const skus = [...quantities.keys()].sort();
     const found = await client.query(
-      \`SELECT v.id AS variant_id,v.sku,v.size_label,v.color_name,v.stock_qty,
+      `SELECT v.id AS variant_id,v.sku,v.size_label,v.color_name,v.stock_qty,
        COALESCE((SELECT sum(r.quantity) FROM order_reservations r WHERE r.variant_id=v.id AND r.expires_at>now()),0)::int AS reserved_qty,
        v.active AS variant_active,p.name AS product_name,p.price_cents,p.unit_cost_cents,p.currency,p.active AS product_active
-       FROM variants v JOIN products p ON p.id=v.product_id WHERE v.sku=ANY($1::text[]) ORDER BY v.sku FOR UPDATE OF v\`, [skus]);
+       FROM variants v JOIN products p ON p.id=v.product_id WHERE v.sku=ANY($1::text[]) ORDER BY v.sku FOR UPDATE OF v`, [skus]);
     if (found.rowCount !== skus.length || found.rows.some(v => !v.variant_active || !v.product_active || v.currency !== "AED")) {
       await client.query("ROLLBACK"); return res.status(409).json({ error: "Selected UAE products or sizes are unavailable." });
     }
@@ -375,9 +375,9 @@ storefrontRouter.post("/orders/paytabs", async (req, res, next) => {
     const total=subtotal+deliveryFeeCents;
     if (!Number.isSafeInteger(total)||total<=0||total>2000000000) { await client.query("ROLLBACK"); return res.status(400).json({error:"Order total is invalid."}); }
     const inserted=await client.query(
-      \`INSERT INTO orders(customer_name,customer_email,customer_phone,shipping_address,payment_method,payment_status,status,currency,subtotal_cents,delivery_fee_cents,total_cents,idempotency_key,request_fingerprint)
+      `INSERT INTO orders(customer_name,customer_email,customer_phone,shipping_address,payment_method,payment_status,status,currency,subtotal_cents,delivery_fee_cents,total_cents,idempotency_key,request_fingerprint)
        VALUES($1,$2,$3,$4,'paytabs','pending','pending_payment','AED',$5,$6,$7,$8,$9)
-       RETURNING id,order_number\`,
+       RETURNING id,order_number`,
       [d.customer_name,d.customer_email.toLowerCase(),d.customer_phone,d.shipping_address+", UAE",subtotal,deliveryFeeCents,total,idempotencyKey,fingerprint]);
     order=inserted.rows[0];
     for (const [sku,qty] of quantities) {
@@ -422,9 +422,9 @@ storefrontRouter.post("/payments/paytabs/callback", async (req,res,next) => {
     const cartId=String(payload.cart_id || "");
     if (!tranRef || !/^BF-\d+$/.test(cartId)) return res.status(400).send("Invalid payment reference.");
     const found=await pool.query(
-      \`SELECT pa.*,o.id AS order_id,o.order_number,o.total_cents,o.currency,o.customer_email
+      `SELECT pa.*,o.id AS order_id,o.order_number,o.total_cents,o.currency,o.customer_email
        FROM payment_attempts pa JOIN orders o ON o.id=pa.order_id
-       WHERE pa.provider='paytabs' AND pa.provider_payment_id=$1 AND pa.txnid=$2\`,[tranRef,cartId]);
+       WHERE pa.provider='paytabs' AND pa.provider_payment_id=$1 AND pa.txnid=$2`,[tranRef,cartId]);
     if (!found.rowCount) return res.status(404).send("Payment attempt not found.");
     const attempt=found.rows[0];
     const verified=await verifyPaytabsPayment(tranRef,cartId,Number(attempt.amount_cents),"AED");
