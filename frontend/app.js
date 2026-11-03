@@ -57,7 +57,8 @@
       const category=String(product.category || product.category_name || '').toLowerCase(); 
       const matchesCategory=!state.categories.length || state.categories.some(value=>category.includes(value)); 
       const productColors=(product.variants||[]).map(v=>String(v.color_name||'').toLowerCase()); 
-      const matchesColor=!state.colors.length || state.colors.some(value=>productColors.some(color=>color.includes(value)));\n      const matchesPrice = Number(product.price_cents) <= state.maxPriceCents; 
+      const matchesColor=!state.colors.length || state.colors.some(value=>productColors.some(color=>color.includes(value)));
+      const matchesPrice = Number(product.price_cents) <= state.maxPriceCents; 
       return (state.filter !== 'available' || inStock) && (state.filter !== 'saved' || state.wishlist.has(String(product.id))) && matchesSearch && matchesCategory && matchesColor && matchesPrice; 
     });
 
@@ -376,7 +377,9 @@
       range.min = state.market === 'IN' ? '699' : '10';
       range.max = state.market === 'IN' ? '4999' : '500';
       range.value = range.max;
-      state.maxPriceCents = Number(range.value) * 100;\n      rangeValue.textContent = money(state.maxPriceCents, state.market === 'IN' ? 'INR' : 'AED');\n      const minValue = $('#price-range-min-value'); if (minValue) minValue.textContent = money(Number(range.min) * 100, state.market === 'IN' ? 'INR' : 'AED');
+      state.maxPriceCents = Number(range.value) * 100;
+      rangeValue.textContent = money(state.maxPriceCents, state.market === 'IN' ? 'INR' : 'AED');
+      const minValue = $('#price-range-min-value'); if (minValue) minValue.textContent = money(Number(range.min) * 100, state.market === 'IN' ? 'INR' : 'AED');
     }
     const selectedCountry = $('#shipping-country');
     if (selectedCountry) selectedCountry.value = state.market;
@@ -393,7 +396,9 @@
     initialRange.min = state.market === 'IN' ? '699' : '10';
     initialRange.max = state.market === 'IN' ? '4999' : '500';
     initialRange.value = initialRange.max;
-    state.maxPriceCents = Number(initialRange.value) * 100;\n    initialRangeValue.textContent = money(state.maxPriceCents, state.market === 'IN' ? 'INR' : 'AED');\n    const minValue = $('#price-range-min-value'); if (minValue) minValue.textContent = money(Number(initialRange.min) * 100, state.market === 'IN' ? 'INR' : 'AED');
+    state.maxPriceCents = Number(initialRange.value) * 100;
+    initialRangeValue.textContent = money(state.maxPriceCents, state.market === 'IN' ? 'INR' : 'AED');
+    const minValue = $('#price-range-min-value'); if (minValue) minValue.textContent = money(Number(initialRange.min) * 100, state.market === 'IN' ? 'INR' : 'AED');
   }
 
   renderCart();
