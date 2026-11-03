@@ -38,4 +38,6 @@ test("storefront separates India and UAE catalog, currency and carts", async () 
   assert.match(app, /currency === 'AED'/);
   assert.match(app, /cartByMarket: \{ IN: \[\], AE: \[\] \}/);
   assert.match(app, /state\.market === 'IN' && selected && selected\.checkoutEnabled/);
+  assert.match(app, /matchesPrice/);
+  assert.match(app, /maxPriceCents/);
 });
