@@ -6,7 +6,7 @@
   const FALLBACK_IMAGES = ['/bf-shoes-hero.svg'];
 
   let savedMarket = 'IN'; try { savedMarket = localStorage.getItem('bf-market') === 'AE' ? 'AE' : 'IN'; } catch {}
-  const state = { market: savedMarket, checkoutReady: false, products: [], cart: [], cartByMarket: { IN: [], AE: [] }, selectedSizes: {}, filter: 'all', search: '', categories: [], colors: [], sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null };
+  const state = { market: savedMarket, maxPriceCents: savedMarket === 'AE' ? 50000 : 499900, checkoutReady: false, products: [], cart: [], cartByMarket: { IN: [], AE: [] }, selectedSizes: {}, filter: 'all', search: '', categories: [], colors: [], sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null };
   state.cart = state.cartByMarket[state.market];
 
   try { state.wishlist = new Set(JSON.parse(localStorage.getItem('bf-shoes-wishlist') || '[]').map(String)); } catch { state.wishlist = new Set(); }
@@ -57,8 +57,8 @@
       const category=String(product.category || product.category_name || '').toLowerCase(); 
       const matchesCategory=!state.categories.length || state.categories.some(value=>category.includes(value)); 
       const productColors=(product.variants||[]).map(v=>String(v.color_name||'').toLowerCase()); 
-      const matchesColor=!state.colors.length || state.colors.some(value=>productColors.some(color=>color.includes(value))); 
-      return (state.filter !== 'available' || inStock) && (state.filter !== 'saved' || state.wishlist.has(String(product.id))) && matchesSearch && matchesCategory && matchesColor; 
+      const matchesColor=!state.colors.length || state.colors.some(value=>productColors.some(color=>color.includes(value)));\n      const matchesPrice = Number(product.price_cents) <= state.maxPriceCents; 
+      return (state.filter !== 'available' || inStock) && (state.filter !== 'saved' || state.wishlist.has(String(product.id))) && matchesSearch && matchesCategory && matchesColor && matchesPrice; 
     });
 
     if (state.sort === 'price-low') products.sort((a,b) => Number(a.price_cents)-Number(b.price_cents)); 
@@ -222,7 +222,7 @@
   $('#product-search')?.addEventListener('input', event => { state.search = event.target.value; const headerSearch=$('#header-product-search'); if(headerSearch) headerSearch.value=event.target.value; renderProducts(); });
   $('#header-product-search')?.addEventListener('input', event => { if($('#product-search')) $('#product-search').value=event.target.value; state.search=event.target.value; renderProducts(); if(event.target.value) $('#shop')?.scrollIntoView({behavior:'smooth',block:'start'}); });
   $('#header-wishlist')?.addEventListener('click', () => { state.filter='saved'; $$('.filter').forEach(b=>b.classList.toggle('active',b.dataset.filter==='saved')); renderProducts(); $('#shop')?.scrollIntoView({behavior:'smooth',block:'start'}); });
-  $('#price-range')?.addEventListener('input', event => { if($('#price-range-value')) $('#price-range-value').textContent=money(Number(event.target.value)*100,state.market === 'AE' ? 'AED' : 'INR'); });
+  $('#price-range')?.addEventListener('input', event => { state.maxPriceCents = Number(event.target.value) * 100; if($('#price-range-value')) $('#price-range-value').textContent=money(state.maxPriceCents,state.market === 'AE' ? 'AED' : 'INR'); renderProducts(); });
   $$('.catalog-sidebar [data-category]').forEach(input => input.addEventListener('change', () => { state.categories=$$('.catalog-sidebar [data-category]:checked').map(x=>x.dataset.category.toLowerCase()); renderProducts(); }));
   $$('.catalog-sidebar [data-color]').forEach(input => input.addEventListener('change', () => { state.colors=$$('.catalog-sidebar [data-color]:checked').map(x=>x.dataset.color.toLowerCase()); renderProducts(); }));
   $$('.view-mode').forEach(button=>button.addEventListener('click',()=>{$$('.view-mode').forEach(b=>b.classList.toggle('active',b===button));$('#product-grid')?.classList.toggle('list-view',button.textContent.trim()==='☷');}));
@@ -376,7 +376,7 @@
       range.min = state.market === 'IN' ? '699' : '10';
       range.max = state.market === 'IN' ? '4999' : '500';
       range.value = range.max;
-      rangeValue.textContent = money(Number(range.value) * 100, state.market === 'IN' ? 'INR' : 'AED');
+      state.maxPriceCents = Number(range.value) * 100;\n      rangeValue.textContent = money(state.maxPriceCents, state.market === 'IN' ? 'INR' : 'AED');\n      const minValue = $('#price-range-min-value'); if (minValue) minValue.textContent = money(Number(range.min) * 100, state.market === 'IN' ? 'INR' : 'AED');
     }
     const selectedCountry = $('#shipping-country');
     if (selectedCountry) selectedCountry.value = state.market;
@@ -393,7 +393,7 @@
     initialRange.min = state.market === 'IN' ? '699' : '10';
     initialRange.max = state.market === 'IN' ? '4999' : '500';
     initialRange.value = initialRange.max;
-    initialRangeValue.textContent = money(Number(initialRange.value) * 100, state.market === 'IN' ? 'INR' : 'AED');
+    state.maxPriceCents = Number(initialRange.value) * 100;\n    initialRangeValue.textContent = money(state.maxPriceCents, state.market === 'IN' ? 'INR' : 'AED');\n    const minValue = $('#price-range-min-value'); if (minValue) minValue.textContent = money(Number(initialRange.min) * 100, state.market === 'IN' ? 'INR' : 'AED');
   }
 
   renderCart();
