@@ -27,3 +27,15 @@ test("customer order history is tied to the verified customer account id", async
   assert.match(auth, /WHERE c\.id=\$1 AND c\.active=true/);
   assert.match(auth, /LIMIT 50/);
 });
+
+test("storefront separates India and UAE catalog, currency and carts", async () => {
+  const app = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8");
+  const html = await readFile(new URL("../frontend/index.html", import.meta.url), "utf8");
+  assert.match(html, /id="market-selector"/);
+  assert.match(html, /value="IN">India · INR/);
+  assert.match(html, /value="AE">UAE · AED/);
+  assert.match(app, /products\\?market=/);
+  assert.match(app, /currency === 'AED'/);
+  assert.match(app, /cartByMarket: \\{ IN: \\[\\], AE: \\[\\] \\}/);
+  assert.match(app, /state\\.market === 'IN' && selected && selected\\.checkoutEnabled/);
+});
