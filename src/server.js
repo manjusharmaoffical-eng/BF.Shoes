@@ -59,7 +59,7 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization", "X-API-Key", "Idempotency-Key"]
 }));
 
-app.use(express.json({ limit: "100kb" }));
+app.use(express.json({ limit: "100kb", verify(req, _res, buffer) { req.rawBody = Buffer.from(buffer); } }));
 app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: "draft-7", legacyHeaders: false }));
 
 app.get("/health", async (_req, res) => {
