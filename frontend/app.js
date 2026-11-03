@@ -354,6 +354,8 @@
     }
   });
 
+  $('#account-link')?.addEventListener('click', () => { window.location.href = '/account.html'; });
+
   renderCart();
   loadProducts();
   loadCheckoutReadiness(); 
