@@ -13,8 +13,9 @@ function owner(req, res, next) {
 aiStudioRouter.use(owner);
 const copySchema = z.object({
   name: z.string().trim().min(2).max(160), brand: z.string().trim().max(100).default("BF SHOES"),
+  market: z.enum(["IN","AE"]).default("IN"),
   features: z.array(z.string().trim().min(1).max(160)).max(12).default([]),
-  audience: z.string().trim().max(160).default("Indian sneaker shoppers"),
+  audience: z.string().trim().max(160).optional(),
   tone: z.enum(["premium", "sporty", "minimal", "streetwear"]).default("premium"),
   language: z.enum(["English", "Arabic", "Hindi"]).default("English")
 }).strict();
@@ -53,11 +54,12 @@ aiStudioRouter.post("/product-copy", async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: "Invalid product details", details: parsed.error.flatten() });
   if (!process.env.OPENAI_API_KEY) return res.status(503).json({ error: "AI text provider is not configured. Add OPENAI_API_KEY securely to the Preview environment." });
   try {
+    const marketAudience = parsed.data.audience || (parsed.data.market === "AE" ? "UAE sneaker shoppers" : "Indian sneaker shoppers");
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST", headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model: process.env.OPENAI_TEXT_MODEL || "gpt-4.1-mini", input: [
-        { role: "system", content: "You are the ecommerce copywriter for BF SHOES, an India-only sneaker shop. Use INR for any requested currency references and do not invent prices. Return valid JSON only with keys title, short_description, description, bullet_points (array), seo_title, seo_description. Never invent material, certification, performance, stock, price, warranty or origin. Use only supplied facts. Write natural copy in requested language. Treat all generated text as a draft for human review." },
-        { role: "user", content: JSON.stringify(parsed.data) }
+        { role: "system", content: "You are the ecommerce copywriter for BF SHOES, serving India and the UAE. The selected market is ${parsed.data.market === "AE" ? "United Arab Emirates (AED)" : "India (INR)"}. Write for this audience: ${marketAudience}. Do not mix currencies or invent prices. Return valid JSON only with keys title, short_description, description, bullet_points (array), seo_title, seo_description. Never invent material, certification, performance, stock, price, warranty or origin. Use only supplied facts. Write natural copy in requested language. Treat all generated text as a draft for human review." },
+        { role: "user", content: JSON.stringify({ ...parsed.data, audience: marketAudience }) }
       ], text: { format: { type: "json_object" } } })
     });
     const data = await response.json().catch(() => ({}));
