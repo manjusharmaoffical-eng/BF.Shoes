@@ -73,7 +73,7 @@ storefrontRouter.get("/market-config", async (_req, res, next) => {
 });
 
 storefrontRouter.get("/products", async (req, res, next) => {
-  const market = String(req.query.market || "AE").toUpperCase();
+  const market = String(req.query.market || "IN").toUpperCase();
   const currency = market === "IN" ? "INR" : market === "AE" ? "AED" : null;
   if (!currency) return res.status(400).json({ error: "market must be IN or AE" });
   try {
