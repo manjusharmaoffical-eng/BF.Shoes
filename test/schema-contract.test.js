@@ -65,7 +65,8 @@ test("storefront exposes separate UAE and India market configuration", async () 
   assert.match(storefront, /PAYU_MERCHANT_KEY/);
   assert.match(storefront, /paymentProvider: "PayU"/);
   assert.match(storefront, /UAE_DELIVERY_FEE_FILS/);
-  assert.match(storefront, /checkoutEnabled: false/);
+  assert.match(storefront, /const indiaCheckoutEnabled = indiaPricingVerified && indiaFeeConfigured && row\.india_tax_profile_configured && indiaPayuConfigured/);
+  assert.match(storefront, /const uaeCheckoutEnabled = uaePricingVerified && uaeFeeVerified && row\.uae_tax_profile_configured && uaePaytabsConfigured/);
 });
 
 test("public product catalog selects currency by explicit market", async () => {
