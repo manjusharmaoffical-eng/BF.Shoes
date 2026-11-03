@@ -28,7 +28,13 @@ if (!Number.isInteger(trustProxyHops) || trustProxyHops < 0 || trustProxyHops > 
   throw new Error("TRUST_PROXY_HOPS must be an integer between 0 and 10");
 }
 app.set("trust proxy", trustProxyHops);
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      imgSrc: ["'self'", "data:", "https://images.unsplash.com"]
+    }
+  }
+}));
 
 const configuredOrigins = (process.env.ADMIN_ORIGIN || "").split(",").map(s => s.trim()).filter(Boolean);
 
