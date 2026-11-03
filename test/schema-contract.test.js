@@ -70,10 +70,10 @@ test("storefront exposes separate UAE and India market configuration", async () 
 
 test("public product catalog selects currency by explicit market", async () => {
   const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
-  assert.match(storefront, /req\.query\.market \|\| "AE"/);
+  assert.match(storefront, /req\.query\.market \|\| "IN"/);
   assert.match(storefront, /market === "IN" \? "INR" : market === "AE" \? "AED"/);
   assert.match(storefront, /p\.currency = \$1/);
-  assert.match(storefront, /shipping_country: z\.enum\(\["IN", "AE"\]\)/);
+  assert.match(storefront, /shipping_country: z\.enum\(\["IN", "AE"\]\)\.default\("IN"\)/);
 });
 
 test("new product records default to AED without rewriting existing prices", () => {
