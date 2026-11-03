@@ -158,7 +158,8 @@
     state.loading = true;
     renderProducts();
     try {
-      const response = await request(`${API_BASE}/products`);
+      // BF SHOES storefront currently serves the India catalog; the API defaults to AE when market is omitted.
+      const response = await request(`${API_BASE}/products?market=IN`);
       state.products = Array.isArray(response) ? response : (response.data || response.products || []);
       if (!Array.isArray(state.products)) state.products = [];
     } catch (error) {
@@ -216,8 +217,7 @@
   $('#success-backdrop')?.addEventListener('click', event => { if (event.target === $('#success-backdrop')) setSuccess(false); });
 
   $$('.filter').forEach(button => button.addEventListener('click', () => { state.filter = button.dataset.filter; $$('.filter').forEach(b => b.classList.toggle('active', b === button)); renderProducts(); }));
-  $('#product-search')?.addEventListener('input', event => { state.search = event.target.value; const headerSearch=$('#header-product-search'); if(headerSearch) headerSearch.value=event.target.value; renderProducts(); });
-  $('#header-product-search')?.addEventListener('input', event => { if($('#product-search')) $('#product-search').value=event.target.value; state.search=event.target.value; renderProducts(); if(event.target.value) $('#shop')?.scrollIntoView({behavior:'smooth',block:'start'}); });
+  $('#header-product-search')?.addEventListener('input', event => { state.search=event.target.value; renderProducts(); if(event.target.value) $('#shop')?.scrollIntoView({behavior:'smooth',block:'start'}); });
   $('#header-wishlist')?.addEventListener('click', () => { state.filter='saved'; $$('.filter').forEach(b=>b.classList.toggle('active',b.dataset.filter==='saved')); renderProducts(); $('#shop')?.scrollIntoView({behavior:'smooth',block:'start'}); });
   $('#price-range')?.addEventListener('input', event => { if($('#price-range-value')) $('#price-range-value').textContent=`₹${Number(event.target.value).toLocaleString('en-IN')}`; });
   $$('.catalog-sidebar [data-category]').forEach(input => input.addEventListener('change', () => { state.categories=$$('.catalog-sidebar [data-category]:checked').map(x=>x.dataset.category.toLowerCase()); renderProducts(); }));
@@ -254,11 +254,11 @@
     } catch { state.checkoutReady = false; }
     const checkoutButton = $('#checkout-button');
     const placeOrder = $('#place-order');
-    if (checkoutButton) { checkoutButton.disabled = !state.checkoutReady; checkoutButton.textContent = state.checkoutReady ? 'Continue to PayU checkout' : 'Checkout temporarily unavailable'; }
+    if (checkoutButton) { checkoutButton.disabled = false; checkoutButton.textContent = 'Review checkout'; }
     if (placeOrder) placeOrder.disabled = !state.checkoutReady;
     if ($('#checkout-readiness-note')) $('#checkout-readiness-note').textContent = state.checkoutReady
-      ? 'Pay securely with PayU. Your stock is reserved while payment is completed.'
-      : 'Checkout opens after verified INR prices, delivery fee, GST profile and PayU merchant credentials are configured.';
+      ? 'Sandbox payment is ready. No live customer charge will be made in preparation mode.'
+      : 'Owner preview: UPI, QR and card methods are visible for review. Payment submission stays protected until sandbox gateway, verified pricing, delivery and tax setup are complete.';
   }
 
   if (countrySelect) {
