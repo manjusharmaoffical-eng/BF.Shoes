@@ -67,10 +67,13 @@ storefrontRouter.get("/market-config", async (_req, res, next) => {
     const indiaCheckoutEnabled = indiaPricingVerified && indiaFeeConfigured && row.india_tax_profile_configured && indiaPayuConfigured;
     const uaeFeeConfigured = feeConfigured(process.env.UAE_DELIVERY_FEE_FILS);
     const uaePaytabsConfigured = paytabsConfigured();
+    const uaePricingVerified = process.env.UAE_PRICING_VERIFIED === "true" && row.uae_pricing_configured;
+    const uaeFeeVerified = process.env.UAE_DELIVERY_FEE_VERIFIED === "true" && uaeFeeConfigured;
+    const uaeCheckoutEnabled = uaePricingVerified && uaeFeeVerified && row.uae_tax_profile_configured && uaePaytabsConfigured;
     res.set("Cache-Control", "no-store");
     return res.json({ data: [
       { country: "IN", currency: "INR", pricingConfigured: indiaPricingVerified, deliveryFeeConfigured: indiaFeeConfigured, tax: "GST", taxProfileConfigured: row.india_tax_profile_configured, paymentProvider: "PayU", paymentConfigured: indiaPayuConfigured, checkoutEnabled: indiaCheckoutEnabled },
-      { country: "AE", currency: "AED", pricingConfigured: row.uae_pricing_configured, deliveryFeeConfigured: uaeFeeConfigured, tax: "VAT", taxProfileConfigured: row.uae_tax_profile_configured, paymentProvider: "PayTabs", paymentConfigured: uaePaytabsConfigured, checkoutEnabled: false }
+      { country: "AE", currency: "AED", pricingConfigured: uaePricingVerified, deliveryFeeConfigured: uaeFeeVerified, tax: "VAT", taxProfileConfigured: row.uae_tax_profile_configured, paymentProvider: "PayTabs", paymentConfigured: uaePaytabsConfigured, checkoutEnabled: uaeCheckoutEnabled }
     ] });
   } catch (err) { next(err); }
 });
