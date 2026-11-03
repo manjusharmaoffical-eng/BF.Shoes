@@ -5,6 +5,7 @@ import { aggregateStorefrontItems, storefrontRequestFingerprint } from "./storef
 import { deliverEmail } from "./email.js";
 import { randomBytes } from "node:crypto";
 import { payuConfigured, publicBaseUrl, payuPaymentUrl, payuRequestHash, payuResponseHash, safeHashEqual, verifyPayuPayment } from "./payu.js";
+import { paytabsConfigured, createPaytabsPayment, paytabsSignatureValid, verifyPaytabsPayment } from "./paytabs.js";
 
 export const storefrontRouter = express.Router();
 
@@ -64,10 +65,12 @@ storefrontRouter.get("/market-config", async (_req, res, next) => {
     const indiaFeeConfigured = process.env.INDIA_DELIVERY_FEE_VERIFIED === "true" && feeConfigured(process.env.INDIA_DELIVERY_FEE_PAISE);
     const indiaPayuConfigured = payuConfigured();
     const indiaCheckoutEnabled = indiaPricingVerified && indiaFeeConfigured && row.india_tax_profile_configured && indiaPayuConfigured;
+    const uaeFeeConfigured = feeConfigured(process.env.UAE_DELIVERY_FEE_FILS);
+    const uaePaytabsConfigured = paytabsConfigured();
     res.set("Cache-Control", "no-store");
     return res.json({ data: [
       { country: "IN", currency: "INR", pricingConfigured: indiaPricingVerified, deliveryFeeConfigured: indiaFeeConfigured, tax: "GST", taxProfileConfigured: row.india_tax_profile_configured, paymentProvider: "PayU", paymentConfigured: indiaPayuConfigured, checkoutEnabled: indiaCheckoutEnabled },
-      { country: "AE", currency: "AED", pricingConfigured: row.uae_pricing_configured, deliveryFeeConfigured: feeConfigured(process.env.UAE_DELIVERY_FEE_FILS), tax: "VAT", taxProfileConfigured: row.uae_tax_profile_configured, paymentProvider: process.env.UAE_PAYMENT_PROVIDER || null, paymentConfigured: false, checkoutEnabled: false }
+      { country: "AE", currency: "AED", pricingConfigured: row.uae_pricing_configured, deliveryFeeConfigured: uaeFeeConfigured, tax: "VAT", taxProfileConfigured: row.uae_tax_profile_configured, paymentProvider: "PayTabs", paymentConfigured: uaePaytabsConfigured, checkoutEnabled: false }
     ] });
   } catch (err) { next(err); }
 });
@@ -316,6 +319,147 @@ storefrontRouter.post("/payments/payu/callback", express.urlencoded({extended:fa
     return res.redirect(303,baseUrl+"/payment-result.html?status=pending&order="+encodeURIComponent(attempt.order_number));
   }catch(err){next(err);}
 });
+
+
+
+// UAE PayTabs hosted checkout. Checkout remains gated by verified owner settings,
+// an active UAE VAT profile, AED catalogue prices, and a configured PayTabs account.
+storefrontRouter.post("/orders/paytabs", async (req, res, next) => {
+  const parsed = checkoutSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Please check your checkout details", details: parsed.error.flatten() });
+  const suppliedKey = req.get("idempotency-key");
+  if (!suppliedKey || suppliedKey.length < 16 || suppliedKey.length > 120 || !/^[a-zA-Z0-9._:-]+$/.test(suppliedKey)) return res.status(400).json({ error: "A valid Idempotency-Key is required" });
+  const d = parsed.data;
+  if (d.shipping_country !== "AE") return res.status(400).json({ error: "PayTabs checkout is only for the UAE market." });
+  if (process.env.UAE_PRICING_VERIFIED !== "true") return res.status(503).json({ error: "UAE product pricing has not been owner-verified." });
+  if (process.env.UAE_DELIVERY_FEE_VERIFIED !== "true") return res.status(503).json({ error: "UAE delivery fee has not been owner-verified." });
+  if (!paytabsConfigured()) return res.status(503).json({ error: "PayTabs merchant credentials and HTTPS callback URL are not configured." });
+  const deliveryFeeCents = Number(process.env.UAE_DELIVERY_FEE_FILS);
+  if (!Number.isSafeInteger(deliveryFeeCents) || deliveryFeeCents < 0) return res.status(503).json({ error: "UAE delivery fee is not configured." });
+  const baseUrl = publicBaseUrl();
+  const idempotencyKey = "store:" + suppliedKey;
+  const fingerprint = storefrontRequestFingerprint({ ...d, shipping_country: "AE" });
+  const quantities = aggregateStorefrontItems(d.items);
+  if ([...quantities.values()].some(q => q > 10)) return res.status(400).json({ error: "Maximum quantity per size is 10" });
+  let client;
+  let order;
+  try {
+    client = await pool.connect();
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1), hashtext('bf-shoes-order-idempotency'))", [idempotencyKey]);
+    const existing = await client.query("SELECT * FROM orders WHERE idempotency_key=$1 FOR UPDATE", [idempotencyKey]);
+    if (existing.rowCount) {
+      await client.query("COMMIT");
+      return res.status(409).json({ error: "This checkout key was already used. Start a fresh checkout session." });
+    }
+    const tax = await client.query("SELECT EXISTS (SELECT 1 FROM tax_profiles WHERE active=true AND jurisdiction='AE_VAT') AS configured");
+    if (!tax.rows[0].configured) { await client.query("ROLLBACK"); return res.status(503).json({ error: "An active UAE VAT tax profile is required before checkout." }); }
+    const skus = [...quantities.keys()].sort();
+    const found = await client.query(
+      \`SELECT v.id AS variant_id,v.sku,v.size_label,v.color_name,v.stock_qty,
+       COALESCE((SELECT sum(r.quantity) FROM order_reservations r WHERE r.variant_id=v.id AND r.expires_at>now()),0)::int AS reserved_qty,
+       v.active AS variant_active,p.name AS product_name,p.price_cents,p.unit_cost_cents,p.currency,p.active AS product_active
+       FROM variants v JOIN products p ON p.id=v.product_id WHERE v.sku=ANY($1::text[]) ORDER BY v.sku FOR UPDATE OF v\`, [skus]);
+    if (found.rowCount !== skus.length || found.rows.some(v => !v.variant_active || !v.product_active || v.currency !== "AED")) {
+      await client.query("ROLLBACK"); return res.status(409).json({ error: "Selected UAE products or sizes are unavailable." });
+    }
+    let subtotal=0;
+    for (const [sku,qty] of quantities) {
+      const v=found.rows.find(row=>row.sku===sku);
+      if (Number(v.stock_qty)-Number(v.reserved_qty)<qty) { await client.query("ROLLBACK"); return res.status(409).json({error:"Insufficient available stock for "+v.product_name+" size "+v.size_label}); }
+      subtotal += Number(v.price_cents)*qty;
+    }
+    const total=subtotal+deliveryFeeCents;
+    if (!Number.isSafeInteger(total)||total<=0||total>2000000000) { await client.query("ROLLBACK"); return res.status(400).json({error:"Order total is invalid."}); }
+    const inserted=await client.query(
+      \`INSERT INTO orders(customer_name,customer_email,customer_phone,shipping_address,payment_method,payment_status,status,currency,subtotal_cents,delivery_fee_cents,total_cents,idempotency_key,request_fingerprint)
+       VALUES($1,$2,$3,$4,'paytabs','pending','pending_payment','AED',$5,$6,$7,$8,$9)
+       RETURNING id,order_number\`,
+      [d.customer_name,d.customer_email.toLowerCase(),d.customer_phone,d.shipping_address+", UAE",subtotal,deliveryFeeCents,total,idempotencyKey,fingerprint]);
+    order=inserted.rows[0];
+    for (const [sku,qty] of quantities) {
+      const v=found.rows.find(row=>row.sku===sku);
+      await client.query("INSERT INTO order_items(order_id,variant_id,sku,product_name,size_label,color_name,unit_price_cents,quantity,line_total_cents,unit_cost_cents) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
+        [order.id,v.variant_id,sku,v.product_name,v.size_label,v.color_name,v.price_cents,qty,Number(v.price_cents)*qty,v.unit_cost_cents??null]);
+      await client.query("INSERT INTO order_reservations(order_id,variant_id,quantity,expires_at) VALUES($1,$2,$3,now()+interval '20 minutes')",[order.id,v.variant_id,qty]);
+    }
+    await client.query("COMMIT");
+  } catch(err) { if(client) await client.query("ROLLBACK").catch(()=>{}); return next(err); }
+  finally { client?.release(); }
+
+  try {
+    const cartId = "BF-" + String(order.order_number);
+    const payment = await createPaytabsPayment({
+      tran_type: "sale", tran_class: "ecom", cart_id: cartId,
+      cart_currency: "AED", cart_amount: Number((Number(deliveryFeeCents) + Number((await pool.query("SELECT subtotal_cents FROM orders WHERE id=$1",[order.id])).rows[0].subtotal_cents))/100).toFixed(2),
+      cart_description: "BF SHOES order #" + order.order_number,
+      return: baseUrl + "/payment-result.html?provider=paytabs",
+      callback: baseUrl + "/api/v1/store/payments/paytabs/callback",
+      customer_details: { name:d.customer_name, email:d.customer_email.toLowerCase(), phone:d.customer_phone, street1:d.shipping_address, city:"UAE", state:"UAE", country:"AE" },
+      shipping_details: { name:d.customer_name, email:d.customer_email.toLowerCase(), phone:d.customer_phone, street1:d.shipping_address, city:"UAE", state:"UAE", country:"AE" }
+    });
+    await pool.query("INSERT INTO payment_attempts(order_id,provider,txnid,provider_payment_id,amount_cents,currency,status,checkout_params) VALUES($1,'paytabs',$2,$3,$4,'AED','pending',$5::jsonb)",
+      [order.id,cartId,payment.tran_ref,deliveryFeeCents + Number((await pool.query("SELECT subtotal_cents FROM orders WHERE id=$1",[order.id])).rows[0].subtotal_cents),JSON.stringify({redirect_url:payment.redirect_url,tran_ref:payment.tran_ref})]);
+    return res.status(201).json({data:{order_number:order.order_number,checkout:{redirect_url:payment.redirect_url}}});
+  } catch(err) {
+    await pool.query("UPDATE payment_attempts SET status='failed' WHERE order_id=$1 AND provider='paytabs' AND status='pending'",[order.id]).catch(()=>{});
+    await pool.query("UPDATE orders SET payment_status='failed',status='cancelled',updated_at=now() WHERE id=$1 AND payment_status='pending'",[order.id]).catch(()=>{});
+    await pool.query("DELETE FROM order_reservations WHERE order_id=$1",[order.id]).catch(()=>{});
+    return res.status(502).json({error:"PayTabs could not create the payment session. No payment was taken."});
+  }
+});
+
+storefrontRouter.post("/payments/paytabs/callback", async (req,res,next) => {
+  try {
+    const rawBody=req.rawBody;
+    const signature=req.get("signature") || "";
+    if (!rawBody || !paytabsSignatureValid(rawBody,signature)) return res.status(400).send("Invalid payment callback signature.");
+    const payload=req.body || {};
+    const tranRef=String(payload.tran_ref || "");
+    const cartId=String(payload.cart_id || "");
+    if (!tranRef || !/^BF-\d+$/.test(cartId)) return res.status(400).send("Invalid payment reference.");
+    const found=await pool.query(
+      \`SELECT pa.*,o.id AS order_id,o.order_number,o.total_cents,o.currency,o.customer_email
+       FROM payment_attempts pa JOIN orders o ON o.id=pa.order_id
+       WHERE pa.provider='paytabs' AND pa.provider_payment_id=$1 AND pa.txnid=$2\`,[tranRef,cartId]);
+    if (!found.rowCount) return res.status(404).send("Payment attempt not found.");
+    const attempt=found.rows[0];
+    const verified=await verifyPaytabsPayment(tranRef,cartId,Number(attempt.amount_cents),"AED");
+    if (!verified.verified) {
+      await pool.query("UPDATE payment_attempts SET status='review',callback_payload=$1::jsonb WHERE id=$2 AND status='pending'",[JSON.stringify(payload),attempt.id]);
+      await pool.query("UPDATE orders SET payment_status='review',updated_at=now() WHERE id=$1 AND payment_status='pending'",[attempt.order_id]);
+      return res.status(200).send("Payment requires review.");
+    }
+    const client=await pool.connect();
+    let review=false;
+    try {
+      await client.query("BEGIN");
+      const locked=await client.query("SELECT * FROM payment_attempts WHERE id=$1 FOR UPDATE",[attempt.id]);
+      const order=await client.query("SELECT * FROM orders WHERE id=$1 FOR UPDATE",[attempt.order_id]);
+      if (locked.rows[0]?.status==="paid" || order.rows[0]?.payment_status==="paid") { await client.query("COMMIT"); return res.status(200).send("Already processed."); }
+      const reservations=await client.query("SELECT variant_id,quantity FROM order_reservations WHERE order_id=$1 ORDER BY variant_id FOR UPDATE",[attempt.order_id]);
+      const items=await client.query("SELECT count(DISTINCT variant_id)::int AS count FROM order_items WHERE order_id=$1",[attempt.order_id]);
+      if (!reservations.rowCount || reservations.rowCount!==Number(items.rows[0].count)) review=true;
+      for(const r of reservations.rows) {
+        if(review) break;
+        const v=await client.query("SELECT stock_qty,COALESCE((SELECT sum(quantity) FROM order_reservations WHERE variant_id=$1 AND order_id<>$2 AND expires_at>now()),0)::int AS reserved FROM variants WHERE id=$1 FOR UPDATE",[r.variant_id,attempt.order_id]);
+        if(!v.rowCount || Number(v.rows[0].stock_qty)-Number(r.quantity)<Number(v.rows[0].reserved)) review=true;
+      }
+      if(!review) for(const r of reservations.rows) {
+        await client.query("UPDATE variants SET stock_qty=stock_qty-$1,updated_at=now() WHERE id=$2",[r.quantity,r.variant_id]);
+        await client.query("INSERT INTO inventory_movements(variant_id,delta,reason,reference_order_id) VALUES($1,$2,'storefront_paytabs_paid',$3)",[r.variant_id,-Number(r.quantity),attempt.order_id]);
+      }
+      await client.query("DELETE FROM order_reservations WHERE order_id=$1",[attempt.order_id]);
+      await client.query("UPDATE payment_attempts SET status=$1,callback_payload=$2::jsonb,verified_at=now() WHERE id=$3",[review?"paid_stock_review":"paid",JSON.stringify(payload),attempt.id]);
+      await client.query("UPDATE orders SET payment_status=$1,status=$2,updated_at=now() WHERE id=$3",[review?"review":"paid",review?"confirmed":"processing",attempt.order_id]);
+      await client.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES('system',NULL,$1,'order',$2)",[review?"payment.paid.stock_review":"payment.paid",String(attempt.order_id)]);
+      await client.query("COMMIT");
+    } catch(err) { await client.query("ROLLBACK").catch(()=>{}); throw err; }
+    finally { client.release(); }
+    return res.status(200).send(review?"Payment received; stock review required.":"Payment verified.");
+  } catch(err) { next(err); }
+});
+
 
 storefrontRouter.post("/orders", async (req, res, next) => {
   const parsed = checkoutSchema.safeParse(req.body);
