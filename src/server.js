@@ -28,16 +28,25 @@ if (!Number.isInteger(trustProxyHops) || trustProxyHops < 0 || trustProxyHops > 
   throw new Error("TRUST_PROXY_HOPS must be an integer between 0 and 10");
 }
 app.set("trust proxy", trustProxyHops);
-app.use(helmet());
+
+// The storefront uses approved Unsplash-hosted hero artwork; allow only that
+// image origin while keeping scripts, styles, fonts, and connections self-scoped.
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      imgSrc: ["'self'", "data:", "https://images.unsplash.com"]
+    }
+  }
+}));
 
 const configuredOrigins = (process.env.ADMIN_ORIGIN || "").split(",").map(s => s.trim()).filter(Boolean);
 
 // Vercel assigns a unique hostname to each preview deployment. Add only this
 // deployment's exact Vercel, branch, and production hostnames; never allow a broad *.vercel.app wildcard.
 const vercelOrigins = [
-  process.env.VERCEL_URL, 
+  process.env.VERCEL_URL,
   process.env.VERCEL_BRANCH_URL,
-  process.env.VERCEL_PROJECT_PRODUCTION_URL // <--- YEH NAYI LINE ADD KAR DI HAI
+  process.env.VERCEL_PROJECT_PRODUCTION_URL
 ]
   .filter(Boolean)
   .map(value => /^https?:\/\//i.test(value) ? new URL(value).origin : `https://${value}`);
@@ -66,7 +75,6 @@ app.get("/health", async (_req, res) => {
 });
 
 app.use("/api/v1/auth/login", rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false }));
-// Public storefront endpoints are deliberately separated from admin/integration routes.
 app.use("/api/v1/store/orders", rateLimit({ windowMs: 15 * 60_000, limit: 8, standardHeaders: "draft-7", legacyHeaders: false }));
 app.use("/api/v1/store/orders/track", rateLimit({ windowMs: 15 * 60_000, limit: 8, standardHeaders: "draft-7", legacyHeaders: false }));
 app.use("/api/v1/store", storefrontRouter);
