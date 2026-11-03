@@ -87,3 +87,35 @@ customerAuthRouter.get("/me", async (req, res, next) => {
     next(err);
   }
 });
+
+
+customerAuthRouter.get("/orders", async (req, res, next) => {
+  const auth = req.get("authorization") || "";
+  if (!auth.startsWith("Bearer ")) return res.status(401).json({ error: "Sign in to view your orders." });
+  try {
+    const claims = jwt.verify(auth.slice(7), process.env.JWT_SECRET, {
+      issuer: "bf-shoes-api", audience: "bf-shoes-customer"
+    });
+    if (claims.typ !== "customer" || !claims.sub) return res.status(401).json({ error: "Invalid customer session." });
+    const result = await pool.query(
+      `SELECT o.order_number,o.status,o.payment_status,o.currency,o.subtotal_cents,
+        o.delivery_fee_cents,o.vat_cents,o.total_cents,o.created_at,
+        COALESCE(json_agg(json_build_object(
+          'product_name',oi.product_name,'sku',oi.sku,'size',oi.size_label,
+          'color',oi.color_name,'quantity',oi.quantity,'line_total_cents',oi.line_total_cents
+        )) FILTER (WHERE oi.id IS NOT NULL),'[]'::json) AS items
+       FROM orders o
+       JOIN customer_accounts c ON lower(c.email)=lower(o.customer_email)
+       LEFT JOIN order_items oi ON oi.order_id=o.id
+       WHERE c.id=$1 AND c.active=true
+       GROUP BY o.id
+       ORDER BY o.created_at DESC
+       LIMIT 50`,
+      [claims.sub]
+    );
+    return res.json({ data: result.rows });
+  } catch (err) {
+    if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") return res.status(401).json({ error: "Your session expired. Please sign in again." });
+    next(err);
+  }
+});
