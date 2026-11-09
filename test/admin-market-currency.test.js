@@ -22,3 +22,8 @@ test("admin saves and formats each product using its selected currency", () => {
   assert.match(adminJs, /currency:String\(f\.get\('currency'\)\|\|'INR'\)/);
   assert.match(adminJs, /money\(p\.price_cents,p\.currency\)/);
 });
+
+test("policy page uses the existing SVG favicon instead of requesting a missing ICO", () => {
+  const policies = readFileSync(new URL("../frontend/policies.html", import.meta.url), "utf8");
+  assert.match(policies, /rel="icon"[^>]+href="\/favicon\.svg"/);
+});
