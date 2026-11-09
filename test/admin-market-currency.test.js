@@ -8,7 +8,7 @@ const adminJs = readFileSync(new URL("../frontend/admin.js", import.meta.url), "
 
 test("storefront market selector markup contains no escaped newline text", () => {
   assert.match(storefront, /id="market-selector"/);
-  assert.doesNotMatch(storefront, /\\\\n\s*<label class="market-select-wrap">/);
+  assert.doesNotMatch(storefront, /\\n\s*<label class="market-select-wrap">/);
 });
 
 test("admin product form exposes INR and AED currency choices", () => {
