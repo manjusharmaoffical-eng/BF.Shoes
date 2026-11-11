@@ -109,6 +109,8 @@
     if($('#cart-subtotal')) $('#cart-subtotal').textContent = money(totalCents(), activeCurrency); 
 
     const delivery=$('#cart-delivery-fee');
+    const guidance=$('#cart-market-guidance');
+    if(guidance) guidance.textContent = state.market === 'IN' ? 'India delivery is currently limited to PIN 500052. Checkout remains closed until verified INR pricing, delivery fee, GST and PayU setup are complete.' : 'UAE delivery fee, VAT and PayTabs setup are not yet verified. Checkout remains closed; India PIN and payment instructions do not apply.';
     if(delivery) delivery.textContent='Not configured';
     if($('#checkout-total')) $('#checkout-total').textContent = money(checkoutTotalCents(), activeCurrency);
 
@@ -128,7 +130,7 @@
 
   function setDrawer(open) {
     if($('#cart-drawer')) $('#cart-drawer').classList.toggle('open', open); 
-    if($('#cart-drawer')) $('#cart-drawer').setAttribute('aria-hidden', String(!open)); 
+    if($('#cart-drawer')) { $('#cart-drawer').setAttribute('aria-hidden', String(!open)); $('#cart-drawer').toggleAttribute('inert', !open); } 
     if($('#scrim')) $('#scrim').classList.toggle('visible', open); 
     document.body.classList.toggle('locked', open || $('#checkout-backdrop')?.classList.contains('visible') || $('#success-backdrop')?.classList.contains('visible'));
   }
@@ -139,7 +141,7 @@
     document.body.classList.toggle('locked', open || $('#cart-drawer')?.classList.contains('open') || $('#success-backdrop')?.classList.contains('visible'));
     if (open) { 
       if($('#checkout-error')) $('#checkout-error').classList.add('hidden'); 
-      if($('#checkout-total')) $('#checkout-total').textContent = money(checkoutTotalCents(), 'INR'); 
+      if($('#checkout-total')) $('#checkout-total').textContent = money(checkoutTotalCents(), state.market === 'AE' ? 'AED' : 'INR'); 
       setTimeout(() => $('input[name="customer_name"]')?.focus(), 80); 
     }
   }
