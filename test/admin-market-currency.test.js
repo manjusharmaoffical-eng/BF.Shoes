@@ -60,4 +60,5 @@ test('Content Security Policy permits Cloudinary gallery image display and direc
   const server = readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
   assert.ok(server.includes('"https://res.cloudinary.com"'));
   assert.ok(server.includes('"https://api.cloudinary.com"'));
+  assert.match(server, /methods: \["GET", "POST", "PATCH", "DELETE", "OPTIONS"\]/);
 });
