@@ -31,7 +31,8 @@ app.set("trust proxy", trustProxyHops);
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
-      imgSrc: ["'self'", "data:", "https://images.unsplash.com"]
+      imgSrc: ["'self'", "data:", "https://images.unsplash.com", "https://res.cloudinary.com"],
+      connectSrc: ["'self'", "https://api.cloudinary.com"]
     }
   }
 }));
