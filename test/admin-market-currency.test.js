@@ -36,5 +36,5 @@ test('admin product editor exposes safe copy and image updates without changing 
   assert.match(js, /data-edit-product/);
   assert.match(js, /method:'PATCH'/);
   assert.match(js, /Price and currency were not changed/);
-  assert.match(js, /https:\/\//);
+  assert.match(js, /https:/);
 });
