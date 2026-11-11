@@ -29,8 +29,8 @@ test("policy page uses the existing SVG favicon instead of requesting a missing 
 });
 
 test('admin product editor exposes safe copy and image updates without changing prices', async () => {
-  const html = await readFile(new URL('../frontend/admin.html', import.meta.url), 'utf8');
-  const js = await readFile(new URL('../frontend/admin.js', import.meta.url), 'utf8');
+  const html = readFileSync(new URL('../frontend/admin.html', import.meta.url), 'utf8');
+  const js = readFileSync(new URL('../frontend/admin.js', import.meta.url), 'utf8');
   assert.match(html, /id="product-edit-form"/);
   assert.match(html, /id="edit-product-image"/);
   assert.match(js, /data-edit-product/);
