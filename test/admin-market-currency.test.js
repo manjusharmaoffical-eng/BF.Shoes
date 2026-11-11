@@ -54,3 +54,10 @@ test('product image gallery uses authenticated signed Cloudinary uploads and per
   assert.match(js, /Make primary/);
   assert.match(js, /product-gallery/);
 });
+
+
+test('Content Security Policy permits Cloudinary gallery image display and direct upload', () => {
+  const server = readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
+  assert.match(server, /imgSrc: \[[^\]]*https:\/\/res\\.cloudinary\\.com/);
+  assert.match(server, /connectSrc: \[[^\]]*https:\/\/api\\.cloudinary\\.com/);
+});
