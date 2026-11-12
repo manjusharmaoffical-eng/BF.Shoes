@@ -61,6 +61,7 @@ app.use(cors({
 }));
 
 app.use(express.json({ limit: "100kb", verify(req, _res, buffer) { req.rawBody = Buffer.from(buffer); } }));
+app.use(express.urlencoded({ extended: false, limit: "10kb" }));
 app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: "draft-7", legacyHeaders: false }));
 
 async function healthCheck(_req, res) {
