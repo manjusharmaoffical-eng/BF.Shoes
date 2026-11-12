@@ -6,6 +6,7 @@ import { deliverEmail } from "./email.js";
 import { randomBytes } from "node:crypto";
 import { payuConfigured, publicBaseUrl, payuPaymentUrl, payuRequestHash, payuResponseHash, safeHashEqual, verifyPayuPayment } from "./payu.js";
 import { paytabsConfigured, createPaytabsPayment, paytabsSignatureValid, verifyPaytabsPayment } from "./paytabs.js";
+import { allocateOrderWarehouseStock } from "./warehouse-stock.js";
 
 export const storefrontRouter = express.Router();
 
@@ -282,16 +283,7 @@ storefrontRouter.post("/payments/payu/callback", express.urlencoded({extended:fa
             await client.query("UPDATE variants SET stock_qty=stock_qty-$1,updated_at=now() WHERE id=$2",[reservation.quantity,reservation.variant_id]);
             await client.query("INSERT INTO inventory_movements(variant_id,delta,reason,reference_order_id) VALUES($1,$2,'storefront_payu_paid',$3)",
               [reservation.variant_id,-Number(reservation.quantity),attempt.order_id]);
-            let unassignedQty=Number(reservation.quantity);
-            const locations=await client.query("SELECT warehouse_id,quantity FROM warehouse_inventory WHERE variant_id=$1 AND quantity>0 ORDER BY updated_at,warehouse_id FOR UPDATE",[reservation.variant_id]);
-            for(const location of locations.rows){
-              if(unassignedQty<=0)break;
-              const taken=Math.min(unassignedQty,Number(location.quantity));
-              await client.query("UPDATE warehouse_inventory SET quantity=quantity-$1,updated_at=now() WHERE warehouse_id=$2 AND variant_id=$3",[taken,location.warehouse_id,reservation.variant_id]);
-              await client.query("INSERT INTO warehouse_stock_movements(warehouse_id,variant_id,delta,reason,reference_type,reference_id) VALUES($1,$2,$3,'storefront_payu_paid','order',$4)",
-                [location.warehouse_id,reservation.variant_id,-taken,attempt.order_id]);
-              unassignedQty-=taken;
-            }
+            await allocateOrderWarehouseStock(client, { orderId: attempt.order_id, variantId: reservation.variant_id, quantity: Number(reservation.quantity), reason: "storefront_payu_paid" });
           }
         }
         await client.query("DELETE FROM order_reservations WHERE order_id=$1",[attempt.order_id]);
@@ -451,6 +443,7 @@ storefrontRouter.post("/payments/paytabs/callback", async (req,res,next) => {
       if(!review) for(const r of reservations.rows) {
         await client.query("UPDATE variants SET stock_qty=stock_qty-$1,updated_at=now() WHERE id=$2",[r.quantity,r.variant_id]);
         await client.query("INSERT INTO inventory_movements(variant_id,delta,reason,reference_order_id) VALUES($1,$2,'storefront_paytabs_paid',$3)",[r.variant_id,-Number(r.quantity),attempt.order_id]);
+        await allocateOrderWarehouseStock(client, { orderId: attempt.order_id, variantId: r.variant_id, quantity: Number(r.quantity), reason: "storefront_paytabs_paid" });
       }
       await client.query("DELETE FROM order_reservations WHERE order_id=$1",[attempt.order_id]);
       await client.query("UPDATE payment_attempts SET status=$1,callback_payload=$2::jsonb,verified_at=now() WHERE id=$3",[review?"paid_stock_review":"paid",JSON.stringify(payload),attempt.id]);
@@ -547,6 +540,7 @@ storefrontRouter.post("/orders", async (req, res, next) => {
         [orderId, v.variant_id, sku, v.product_name, v.size_label, v.color_name, v.price_cents, qty, Number(v.price_cents) * qty, v.unit_cost_cents ?? null]
       );
       await client.query("INSERT INTO inventory_movements(variant_id, delta, reason, reference_order_id) VALUES($1,$2,$3,$4)", [v.variant_id, -qty, "storefront_cod_order", orderId]);
+      await allocateOrderWarehouseStock(client, { orderId, variantId: v.variant_id, quantity: qty, reason: "storefront_cod_order" });
     }
     await client.query("INSERT INTO audit_events(actor_type, actor_id, action, resource_type, resource_id) VALUES('system', NULL, 'storefront.order.create', 'order', $1)", [String(orderId)]);
     await client.query("COMMIT");
