@@ -177,7 +177,7 @@ aiStudioRouter.post("/product-image", async (req, res) => {
   if (!process.env.OPENAI_API_KEY) return res.status(503).json({ error: "AI image provider is not configured. Add OPENAI_API_KEY securely to the Preview environment." });
   try {
     const input = parsed.data;
-    const prompt = `Create a high-quality ecommerce sneaker product image concept for BF SHOES. Product: ${input.product_name}. Style: ${input.visual_style}. Background: ${input.background}. Aspect ratio: ${input.aspect_ratio}. Direction: ${input.notes}. Premium black-and-white identity, commercial studio lighting, no unsupplied logos or text, no watermark. Do not add product claims or brand marks.`;
+    const prompt = `Create a high-quality ecommerce sneaker product image concept for BF SHOES. Product: ${input.product_name}. Style: ${input.visual_style}. Background: ${input.background}. Aspect ratio: ${input.aspect_ratio}. Direction: ${input.notes}. BF SHOES brand palette: clean white, bold red, and deep black; avoid green and unrelated brand colors. Commercial studio lighting, no unsupplied logos or text, no watermark. Do not add product claims or brand marks.`;
     const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST", headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model: process.env.OPENAI_IMAGE_MODEL || "gpt-image-1", prompt, size: input.aspect_ratio === "16:9" ? "1536x1024" : input.aspect_ratio === "4:5" ? "1024x1536" : "1024x1024", quality: "medium", n: 1 })
