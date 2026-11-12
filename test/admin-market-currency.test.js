@@ -62,3 +62,10 @@ test('Content Security Policy permits Cloudinary gallery image display and direc
   assert.ok(server.includes('"https://api.cloudinary.com"'));
   assert.match(server, /methods: \["GET", "POST", "PATCH", "DELETE", "OPTIONS"\]/);
 });
+
+test('AI product image prompts use the BF SHOES white, red and black palette', () => {
+  const ai = readFileSync(new URL('../src/ai-studio.js', import.meta.url), 'utf8');
+  assert.match(ai, /clean white, bold red, and deep black/);
+  assert.match(ai, /avoid green/);
+  assert.match(ai, /no unsupplied logos or text/);
+});
