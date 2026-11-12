@@ -122,7 +122,7 @@ customerAuthRouter.get("/orders", async (req, res, next) => {
 
 
 const returnRequestSchema = z.object({
-  order_number: z.string().trim().regex(/^\\d+$/).max(30),
+  order_number: z.string().trim().regex(/^\d+$/).max(30),
   request_type: z.enum(["return","exchange"]),
   reason: z.string().trim().min(2).max(120),
   details: z.string().trim().max(1000).optional().default("")
