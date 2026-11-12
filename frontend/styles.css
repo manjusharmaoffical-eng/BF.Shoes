@@ -456,3 +456,11 @@ body{background:#fff;color:#121820;font-size:13px}
   .site-header .main-nav{column-gap:2px}
   .site-header .main-nav a{font-size:9px;letter-spacing:-.01em}
 }
+
+@media(max-width:600px){
+  .site-header .market-select{
+    background:#fff;color:#111;border-color:#e31b2f;
+    color-scheme:light;
+  }
+  .site-header .market-select option{background:#fff;color:#111}
+}
