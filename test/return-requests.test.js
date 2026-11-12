@@ -45,7 +45,7 @@ test("customer account and admin screens expose request submission and review co
   assert.match(account, /api\('\/returns'\)/);
   assert.match(account, /data-return-order/);
   assert.match(account, /Submit request for review/);
-  assert.match(accountHtml, /class="return-form"/);
+  assert.match(account, /class="return-form"/);
   assert.match(admin, /data-tab="returns"/);
   assert.match(admin, /id="returns-panel"/);
   assert.match(adminJs, /req\('\/business\/returns'\)/);
