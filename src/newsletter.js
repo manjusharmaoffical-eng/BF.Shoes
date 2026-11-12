@@ -10,7 +10,7 @@ function unsubscribeUrl(email) {
   const token = createNewsletterUnsubscribeToken(email);
   const configuredHost = process.env.PUBLIC_SITE_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL;
   const base = configuredHost
-    ? (/^https:\\/\\//i.test(configuredHost) ? configuredHost : "https://" + configuredHost)
+    ? (configuredHost.startsWith("https://") || configuredHost.startsWith("http://") ? configuredHost : "https://" + configuredHost)
     : "https://bf-shoes.vercel.app";
   return new URL("/api/v1/newsletter/unsubscribe", base).toString() + "?token=" + encodeURIComponent(token);
 }
