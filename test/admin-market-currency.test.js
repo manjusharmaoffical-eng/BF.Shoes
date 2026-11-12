@@ -63,6 +63,13 @@ test('Content Security Policy permits Cloudinary gallery image display and direc
   assert.match(server, /methods: \["GET", "POST", "PATCH", "DELETE", "OPTIONS"\]/);
 });
 
+test('AI product copy exposes, edits and saves generated key feature bullets', () => {
+  assert.match(adminHtml, /id="ai-bullets"/);
+  assert.match(adminJs, /aiDraft\.bullet_points\|\|\[\]/);
+  assert.match(adminJs, /Key features:/);
+  assert.match(adminJs, /Description plus key features must be 5,000 characters or fewer/);
+});
+
 test('AI product image prompts use the BF SHOES white, red and black palette', () => {
   const ai = readFileSync(new URL('../src/ai-studio.js', import.meta.url), 'utf8');
   assert.match(ai, /clean white, bold red, and deep black/);
