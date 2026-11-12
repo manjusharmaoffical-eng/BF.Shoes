@@ -31,3 +31,9 @@ test("homepage welcomes visitors with the local BF signature sneaker hero and re
   assert.match(css, /perspective\(1100px\) rotateY\(-13deg\)/);
   assert.match(css, /@media\(prefers-reduced-motion:reduce\)[\s\S]*?\.hero-reference \.hero-product\{animation:none/);
 });
+
+test("mobile header lays out all primary navigation links in a visible grid", () => {
+  assert.match(css, /@media\(max-width:600px\)[\s\S]*?\.site-header \.main-nav\{[\s\S]*?display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+  assert.match(css, /\.site-header \.main-nav a\{[\s\S]*?justify-content:center/);
+  assert.match(html, /href="#shop">Sale<\/a><a href="#story">About<\/a>/);
+});
