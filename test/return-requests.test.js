@@ -32,8 +32,8 @@ test("return requests record a review trail without automatic refund, fee or sto
 
 test("return request schema and migration are additive and customer scoped", () => {
   for (const source of [schema,migration]) {
-    assert.match(source, /CREATE TABLE IF NOT EXISTS[^;]*return_requests/);
-    assert.match(source, /CREATE TABLE IF NOT EXISTS[^;]*return_request_events/);
+    assert.match(source, /CREATE TABLE IF NOT EXISTS (?:public\\.)?return_requests/);
+    assert.match(source, /CREATE TABLE IF NOT EXISTS (?:public\\.)?return_request_events/);
     assert.match(source, /REFERENCES (?:public\.)?customer_accounts\(id\)/);
     assert.match(source, /REFERENCES (?:public\.)?orders\(id\)/);
     assert.match(source, /ENABLE ROW LEVEL SECURITY/);
