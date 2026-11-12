@@ -235,3 +235,76 @@ businessRouter.post("/notifications/:id/retry", ownerOnly, async (req, res, next
     res.json({ data: { id: req.params.id, status: "sent", attempts: result.attempts } });
   } catch (err) { next(err); }
 });
+
+
+const returnStatusTransitions = {
+  requested: ["under_review","approved","rejected"],
+  under_review: ["approved","rejected"],
+  approved: ["received","closed"],
+  rejected: ["closed"],
+  received: ["closed"],
+  closed: []
+};
+
+// Staff can read requests; only managers/owners with orders:write can review them.
+businessRouter.get("/returns", requireScope("orders:read"), async (_req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT r.id,o.order_number,o.currency,o.total_cents,c.name AS customer_name,c.email AS customer_email,
+        r.request_type,r.reason,r.details,r.status,r.review_note,r.created_at,r.updated_at,
+        COALESCE(json_agg(json_build_object(
+          'status',e.status,'note',e.note,'actor_type',e.actor_type,'created_at',e.created_at
+        ) ORDER BY e.created_at) FILTER (WHERE e.id IS NOT NULL),'[]'::json) AS events
+       FROM return_requests r
+       JOIN orders o ON o.id=r.order_id
+       JOIN customer_accounts c ON c.id=r.customer_id
+       LEFT JOIN return_request_events e ON e.return_request_id=r.id
+       GROUP BY r.id,o.order_number,o.currency,o.total_cents,c.name,c.email
+       ORDER BY r.created_at DESC
+       LIMIT 200`
+    );
+    res.set("Cache-Control", "no-store");
+    res.json({ data: result.rows });
+  } catch (err) { next(err); }
+});
+
+businessRouter.patch("/returns/:id", requireScope("orders:write"), async (req, res, next) => {
+  const parsed = z.object({
+    status: z.enum(["under_review","approved","rejected","received","closed"]),
+    note: z.string().trim().max(1000).optional().default("")
+  }).strict().safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Provide a valid review status and optional note." });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const current = await client.query(
+      "SELECT id,status FROM return_requests WHERE id=$1 FOR UPDATE",
+      [req.params.id]
+    );
+    if (!current.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Return request not found" });
+    }
+    if (!(returnStatusTransitions[current.rows[0].status] || []).includes(parsed.data.status)) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "This return request status transition is not allowed." });
+    }
+    const updated = await client.query(
+      "UPDATE return_requests SET status=$1,review_note=$2,updated_at=now() WHERE id=$3 RETURNING id,status,review_note,updated_at",
+      [parsed.data.status, parsed.data.note, req.params.id]
+    );
+    await client.query(
+      "INSERT INTO return_request_events(return_request_id,actor_type,actor_id,status,note) VALUES($1,'admin',$2,$3,$4)",
+      [req.params.id, req.actor.id, parsed.data.status, parsed.data.note]
+    );
+    await client.query(
+      "INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES('admin',$1,'return.request.review','return_request',$2)",
+      [req.actor.id, req.params.id]
+    );
+    await client.query("COMMIT");
+    res.json({ data: updated.rows[0], message: "Request status updated. No refund or fee was processed." });
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(err);
+  } finally { client.release(); }
+});
