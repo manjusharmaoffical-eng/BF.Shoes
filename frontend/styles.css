@@ -464,3 +464,14 @@ body{background:#fff;color:#121820;font-size:13px}
   }
   .site-header .market-select option{background:#fff;color:#111}
 }
+
+
+/* Accessible campaign banner content and dismiss control. */
+.campaign-strip .campaign-inner{width:100%;display:flex;align-items:center;justify-content:center;gap:14px}
+.campaign-strip .campaign-content{min-width:0;display:flex;align-items:center;justify-content:center;gap:14px;color:inherit;text-decoration:none}
+.campaign-strip .campaign-content div{display:grid;gap:3px}
+.campaign-strip .campaign-content img{width:56px;height:42px;object-fit:cover;border-radius:2px}
+.campaign-strip .campaign-content strong{font-size:13px;letter-spacing:.04em}
+.campaign-strip .campaign-content span{font-size:12px;opacity:.8}
+.campaign-strip .campaign-dismiss{border:1px solid currentColor;background:transparent;color:inherit;width:30px;height:30px;min-width:30px;border-radius:50%;font-size:20px;line-height:1;cursor:pointer}
+@media(max-width:600px){.campaign-strip .campaign-inner{gap:8px}.campaign-strip .campaign-content{gap:8px}.campaign-strip .campaign-content img{width:44px;height:38px}}

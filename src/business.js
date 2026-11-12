@@ -4,6 +4,7 @@ import { z } from "zod";
 import { pool } from "./db.js";
 import { authenticate, requireScope } from "./auth.js";
 import { parseAnalyticsCurrency } from "./analytics.js";
+import { retryQueuedEmail } from "./email.js";
 
 export const businessRouter = express.Router();
 businessRouter.use(authenticate);
@@ -202,5 +203,35 @@ businessRouter.get("/performance", ownerOnly, async (_req, res, next) => {
     );
     res.set("Cache-Control", "no-store");
     res.json({ data: result.rows, note: "Performance reflects recorded audit actions only; it is not a measure of employee quality or customer satisfaction." });
+  } catch (err) { next(err); }
+});
+
+
+// Owner-only visibility and bounded retry controls for queued customer email.
+businessRouter.get("/notifications", ownerOnly, async (_req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT id,kind,recipient,subject,status,attempts,last_error,created_at,sent_at
+       FROM notification_outbox ORDER BY created_at DESC LIMIT 100`
+    );
+    res.set("Cache-Control", "no-store");
+    res.json({ data: result.rows });
+  } catch (err) { next(err); }
+});
+
+businessRouter.post("/notifications/:id/retry", ownerOnly, async (req, res, next) => {
+  try {
+    const result = await retryQueuedEmail(req.params.id);
+    if (!result.found) return res.status(404).json({ error: "Notification not found" });
+    if (result.alreadySent) return res.status(409).json({ error: "This notification has already been sent" });
+    if (result.inProgress) return res.status(409).json({ error: "This notification is already being processed" });
+    if (result.limitReached) return res.status(429).json({ error: "Retry limit reached for this notification" });
+    if (!result.configured) return res.status(503).json({ error: "Email provider is not configured" });
+    await pool.query(
+      "INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES('admin',$1,'notification.email.retry','notification_outbox',$2)",
+      [req.actor.id, req.params.id]
+    );
+    if (!result.sent) return res.status(502).json({ error: "Email provider could not deliver this notification", attempts: result.attempts });
+    res.json({ data: { id: req.params.id, status: "sent", attempts: result.attempts } });
   } catch (err) { next(err); }
 });

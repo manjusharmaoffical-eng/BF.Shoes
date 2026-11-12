@@ -54,6 +54,63 @@
     return data;
   }
 
+  async function loadActiveCampaign() {
+    const strip = $('#campaign-strip');
+    if (!strip) return;
+    try {
+      const result = await request(`${API_BASE}/campaigns/active`);
+      const campaign = (result.data || [])[0];
+      if (!campaign) { strip.classList.add('hidden'); return; }
+      try {
+        if (localStorage.getItem('bf-campaign-dismissed:' + campaign.id) === '1') {
+          strip.classList.add('hidden');
+          return;
+        }
+      } catch {}
+
+      const inner = document.createElement('div');
+      inner.className = 'campaign-inner';
+      const content = document.createElement(campaign.target_url && campaign.target_url.startsWith('https://') ? 'a' : 'div');
+      content.className = 'campaign-content';
+      if (content.tagName === 'A') content.href = campaign.target_url;
+      if (campaign.image_url && campaign.image_url.startsWith('https://')) {
+        const image = document.createElement('img');
+        image.src = campaign.image_url;
+        image.alt = campaign.headline || campaign.name || 'BF SHOES campaign';
+        image.loading = 'lazy';
+        content.append(image);
+      }
+      const copy = document.createElement('div');
+      const headline = document.createElement('strong');
+      headline.textContent = campaign.headline || campaign.name || 'BF SHOES';
+      copy.append(headline);
+      const details = [];
+      if (Number(campaign.discount_percent) > 0) details.push(String(campaign.discount_percent) + '% OFF');
+      if (campaign.coupon_code) details.push('Code: ' + campaign.coupon_code);
+      if (details.length) {
+        const detail = document.createElement('span');
+        detail.textContent = details.join(' · ');
+        copy.append(detail);
+      }
+      content.append(copy);
+      inner.append(content);
+      const dismiss = document.createElement('button');
+      dismiss.type = 'button';
+      dismiss.className = 'campaign-dismiss';
+      dismiss.setAttribute('aria-label', 'Dismiss campaign banner');
+      dismiss.textContent = '×';
+      dismiss.addEventListener('click', () => {
+        try { localStorage.setItem('bf-campaign-dismissed:' + campaign.id, '1'); } catch {}
+        strip.classList.add('hidden');
+      });
+      inner.append(dismiss);
+      strip.replaceChildren(inner);
+      strip.classList.remove('hidden');
+    } catch {
+      strip.classList.add('hidden');
+    }
+  }
+
   function totalItems() { return state.cart.reduce((sum, item) => sum + item.quantity, 0); }
   function totalCents() { return state.cart.reduce((sum, item) => sum + Number(item.product.price_cents) * item.quantity, 0); }
   function availableVariants(product) { return (product.variants || []).filter(v => Number(v.stock_qty) > 0); }
@@ -417,5 +474,6 @@
 
   renderCart();
   loadProducts();
-  loadCheckoutReadiness(); 
+  loadCheckoutReadiness();
+  loadActiveCampaign(); 
 })();
