@@ -17,6 +17,13 @@ body{background:#f4f3ef;color:#111;font-family:Arial,sans-serif}.admin{max-width
 <div class="grid"><div><label>SEO title</label><input name="seo_title" id="edit-product-seo-title" maxlength="200"></div><div><label>SEO description</label><input name="seo_description" id="edit-product-seo-description" maxlength="320"></div><div><label>Visibility</label><select name="active" id="edit-product-active"><option value="true">Active / visible</option><option value="false">Inactive / hidden</option></select></div></div>
 <button type="submit">Save product changes</button><button type="button" class="secondary" id="cancel-product-edit">Cancel</button>
 </form>
+<h3>Record actual unit cost</h3>
+<p class="muted">Enter the real purchase cost in the product's own currency. This changes cost records only, never the selling price. Existing order cost snapshots are not rewritten.</p>
+<form id="product-cost-form">
+<label>Choose product</label><select id="product-cost-id" name="product_id" required><option value="">Select a product</option></select>
+<div class="grid"><div><label id="product-cost-currency">Actual unit cost</label><input id="product-cost-value" name="unit_cost" type="number" min="0" step=".01" required placeholder="Enter verified purchase cost"></div><div><p id="product-cost-current" class="muted">Choose a product to view its recorded cost.</p></div></div>
+<button type="submit">Save actual unit cost</button>
+</form>
 <h3>Product photo gallery</h3>
 <p class="muted">Upload real product photos (JPG, PNG or WebP, up to 8 MB each) to the connected Cloudinary media account. You can keep multiple angles and choose the main photo. Images are not published until you add them to a product.</p>
 <form id="product-gallery-form">
