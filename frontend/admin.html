@@ -17,6 +17,14 @@ body{background:#f4f3ef;color:#111;font-family:Arial,sans-serif}.admin{max-width
 <div class="grid"><div><label>SEO title</label><input name="seo_title" id="edit-product-seo-title" maxlength="200"></div><div><label>SEO description</label><input name="seo_description" id="edit-product-seo-description" maxlength="320"></div><div><label>Visibility</label><select name="active" id="edit-product-active"><option value="true">Active / visible</option><option value="false">Inactive / hidden</option></select></div></div>
 <button type="submit">Save product changes</button><button type="button" class="secondary" id="cancel-product-edit">Cancel</button>
 </form>
+<h3>Product photo gallery</h3>
+<p class="muted">Upload real product photos (JPG, PNG or WebP, up to 8 MB each) to the connected Cloudinary media account. You can keep multiple angles and choose the main photo. Images are not published until you add them to a product.</p>
+<form id="product-gallery-form">
+<label>Choose product</label><select id="gallery-product-id" name="product_id" required><option value="">Select a product</option></select>
+<div class="grid"><div><label>Product photos</label><input id="gallery-files" name="images" type="file" accept="image/jpeg,image/png,image/webp" multiple required></div><div><label>Image description / alt text</label><input id="gallery-alt" name="alt_text" maxlength="240" placeholder="e.g. Side view, black running shoe"></div><div><label>Primary image</label><select id="gallery-primary" name="make_primary"><option value="first">First uploaded image</option><option value="none">Keep current primary image</option></select></div></div>
+<button type="submit">Upload product photos</button>
+</form>
+<div id="product-gallery" class="grid" aria-live="polite"><p class="muted">Choose a product to view its photo gallery.</p></div>
 <h3>Add size variant</h3><form id="variant-form"><label>Product</label><select name="product_id" id="variant-product" required><option value="">Select a product</option></select><div class="grid"><div><label>SKU</label><input name="sku" required></div><div><label>Size</label><input name="size_label" required></div><div><label>Color</label><input name="color_name" required></div><div><label>Starting stock</label><input name="stock_qty" type="number" min="0" step="1" required></div></div><button>Add variant</button></form>
 <h3>Bulk add size variants</h3><p class="muted">One variant per line: SKU, size, color, starting stock. Example: BF-001-42, 42, Black, 8. All rows save together or none do.</p>
 <form id="bulk-variant-form"><label>Product</label><select name="product_id" id="bulk-variant-product" required><option value="">Select a product</option></select><label>Variants (one per line)</label><textarea name="variants" rows="7" required placeholder="BF-001-40, 40, Black, 5&#10;BF-001-41, 41, Black, 8"></textarea><button>Add all variants</button></form></section>
