@@ -30,10 +30,6 @@ export async function deliverEmail({ kind, recipient, subject, textBody }) {
 // is eligible (provider was not configured); failed rows are eligible up to five attempts.
 // The row is claimed before the network request to prevent duplicate concurrent retries.
 export async function retryQueuedEmail(id) {
-  if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
-    return { found: true, configured: false, sent: false };
-  }
-
   const client = await pool.connect();
   let row;
   try {
@@ -46,6 +42,10 @@ export async function retryQueuedEmail(id) {
     if (!row) {
       await client.query("ROLLBACK");
       return { found: false };
+    }
+    if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
+      await client.query("ROLLBACK");
+      return { found: true, configured: false, sent: false };
     }
     if (row.status === "sent") {
       await client.query("ROLLBACK");
