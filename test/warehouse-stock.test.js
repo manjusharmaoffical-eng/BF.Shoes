@@ -46,6 +46,7 @@ test("all order creation and cancellation flows use the warehouse allocation led
   ]);
   assert.match(routes, /allocateOrderWarehouseStock/);
   assert.match(routes, /restoreOrderWarehouseStock/);
+  assert.match(routes, /Adjustment exceeds unassigned stock/);
   assert.match(storefront, /allocateOrderWarehouseStock/);
   assert.match(storefront, /storefront_payu_paid/);
   assert.match(storefront, /storefront_paytabs_paid/);
