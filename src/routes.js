@@ -5,6 +5,7 @@ import { pool } from "./db.js";
 import { authenticate, requireScope, checkPassword } from "./auth.js";
 import { ALL_SCOPES, createAccessToken, hashSecret, newApiKey } from "./security.js";
 import { canTransitionOrder, orderRequestFingerprint } from "./policies.js";
+import { allocateOrderWarehouseStock, restoreOrderWarehouseStock } from "./warehouse-stock.js";
 
 export const router = express.Router();
 
@@ -202,6 +203,9 @@ router.patch("/inventory/:sku", authenticate, requireScope("inventory:write"), a
     await client.query("BEGIN");
     const result = await client.query("SELECT id, stock_qty FROM variants WHERE sku=$1 FOR UPDATE", [req.params.sku]);
     if (!result.rowCount) { await client.query("ROLLBACK"); return res.status(404).json({ error: "SKU not found" }); }
+    const allocated = await client.query("SELECT COALESCE(sum(quantity),0)::int AS quantity FROM warehouse_inventory WHERE variant_id=$1", [result.rows[0].id]);
+    const unassigned = Number(result.rows[0].stock_qty) - Number(allocated.rows[0].quantity);
+    if (parsed.data.delta < 0 && unassigned < Math.abs(parsed.data.delta)) { await client.query("ROLLBACK"); return res.status(409).json({ error: "Adjustment exceeds unassigned stock. Use the warehouse stock adjustment for location-assigned units.", available_unassigned: Math.max(0, unassigned) }); }
     const nextQty = result.rows[0].stock_qty + parsed.data.delta;
     if (nextQty < 0) { await client.query("ROLLBACK"); return res.status(409).json({ error: "Stock cannot be negative" }); }
     const updated = await client.query(
@@ -304,6 +308,7 @@ router.post("/orders", authenticate, requireScope("orders:write"), async (req, r
         "INSERT INTO inventory_movements(variant_id, delta, reason, reference_order_id) VALUES($1,$2,$3,$4)",
         [v.variant_id, -qty, "order_created", order.id]
       );
+      await allocateOrderWarehouseStock(client, { orderId: order.id, variantId: v.variant_id, quantity: qty, reason: "order_created", actorAdminId: req.actor.type === "admin" ? req.actor.id : null });
       items.push(item.rows[0]);
     }
     await client.query(
@@ -374,6 +379,7 @@ router.patch("/orders/:id/status", authenticate, requireScope("orders:write"), a
           [item.variant_id, item.quantity, "order_cancelled", old.id, req.actor.id]
         );
       }
+      await restoreOrderWarehouseStock(client, old.id, req.actor.id);
     }
     const updated = await client.query(
       "UPDATE orders SET status=$1, updated_at=now() WHERE id=$2 RETURNING *",
