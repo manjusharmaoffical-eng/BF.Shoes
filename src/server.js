@@ -63,14 +63,17 @@ app.use(cors({
 app.use(express.json({ limit: "100kb", verify(req, _res, buffer) { req.rawBody = Buffer.from(buffer); } }));
 app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: "draft-7", legacyHeaders: false }));
 
-app.get("/health", async (_req, res) => {
+async function healthCheck(_req, res) {
   try {
     await pool.query("SELECT 1");
     res.json({ status: "ok", service: "bf-shoes-api" });
   } catch {
     res.status(503).json({ status: "unavailable" });
   }
-});
+}
+app.get("/health", healthCheck);
+// Keep the versioned API health URL consistent with the deployed service root.
+app.get("/api/v1/health", healthCheck);
 
 app.use("/api/v1/auth/login", rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false }));
 // Public storefront endpoints are deliberately separated from admin/integration routes.
