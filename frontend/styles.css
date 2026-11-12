@@ -433,3 +433,26 @@ body{background:#fff;color:#121820;font-size:13px}
   .hero-reference .hero-product{animation:none;transform:none}
   .hero-reference .button-light{transition:none}
 }
+
+
+/* Keep every primary navigation link visible on narrow phones. */
+@media(max-width:600px){
+  .site-header{
+    height:auto;min-height:63px;flex-wrap:wrap;
+    padding-top:9px;padding-bottom:8px;row-gap:7px;
+  }
+  .site-header .main-nav{
+    order:20;flex:1 0 100%;min-width:0;margin:0;
+    display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:2px 6px;overflow:visible;
+  }
+  .site-header .main-nav a{
+    min-width:0;min-height:34px;justify-content:center;
+    padding:6px 1px;font-size:10px;white-space:nowrap;
+  }
+  .site-header .market-select-wrap{margin-left:auto}
+}
+@media(max-width:360px){
+  .site-header .main-nav{column-gap:2px}
+  .site-header .main-nav a{font-size:9px;letter-spacing:-.01em}
+}
