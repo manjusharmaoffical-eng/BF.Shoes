@@ -335,3 +335,19 @@ body{background:#fff;color:#121820;font-size:13px}
 
 /* Market selector: compact and responsive in the storefront header. */
 .market-select-wrap{display:flex;align-items:center;flex:0 0 auto}.market-select{min-height:38px;max-width:132px;padding:0 9px;border:1px solid var(--line);background:transparent;color:var(--ink);font:600 11px var(--sans);letter-spacing:.02em;cursor:pointer}.market-select:focus{outline:2px solid #111;outline-offset:2px}@media(max-width:900px){.site-header{gap:10px}.main-nav{gap:14px;margin-left:12px}.market-select{max-width:112px;padding:0 6px}}@media(max-width:600px){.site-header{padding:0 12px;gap:7px}.header-search{display:none}.market-select{max-width:100px;font-size:10px}.market-select-wrap{margin-left:auto}}
+
+
+/* Homepage mobile touch-target and navigation legibility fixes. */
+@media(max-width:780px){
+  .site-header .main-nav a{font-size:12px;min-height:36px;display:inline-flex;align-items:center}
+  .site-header .market-select{min-height:40px;font-size:12px}
+  .catalog-results-bar .mobile-filter-trigger{min-height:40px;font-size:12px;padding:0 14px}
+  .product-sizes .size-option{min-width:36px;min-height:36px;padding:0 9px;font-size:12px;border-radius:4px}
+  .product-card .quick-add{width:40px;height:40px}
+  .product-card .add-row .button{min-height:42px;font-size:12px}
+}
+@media(max-width:430px){
+  .site-header .main-nav{gap:14px}
+  .site-header .main-nav a{font-size:12px}
+  .product-sizes{gap:7px}
+}
