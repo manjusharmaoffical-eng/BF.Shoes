@@ -63,9 +63,11 @@ test("storefront exposes separate UAE and India market configuration", async () 
   assert.match(storefront, /currency: "INR"/);
   assert.match(storefront, /currency: "AED"/);
   assert.match(storefront, /PAYU_MERCHANT_KEY/);
-  assert.match(storefront, /paymentProvider: "PayU"/);
+  assert.match(storefront, /indiaPaymentProvider = "Razorpay"/);
+  assert.match(storefront, /paymentProvider: indiaPaymentProvider/);
+  assert.match(storefront, /const indiaCheckoutEnabled = false/);
   assert.match(storefront, /UAE_DELIVERY_FEE_FILS/);
-  assert.match(storefront, /const indiaCheckoutEnabled = indiaPricingVerified && indiaFeeConfigured && row\.india_tax_profile_configured && indiaPayuConfigured/);
+  assert.match(storefront, /INDIA_PAYMENT_PROVIDER !== "payu"/);
   assert.match(storefront, /const uaeCheckoutEnabled = uaePricingVerified && uaeFeeVerified && row\.uae_tax_profile_configured && uaePaytabsConfigured/);
 });
 
