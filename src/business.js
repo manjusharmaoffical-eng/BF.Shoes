@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { pool } from "./db.js";
 import { authenticate, requireScope } from "./auth.js";
+import { parseAnalyticsCurrency } from "./analytics.js";
 
 export const businessRouter = express.Router();
 businessRouter.use(authenticate);
@@ -112,7 +113,10 @@ businessRouter.patch("/campaigns/:id", requireScope("campaigns:write"), async (r
 });
 
 // High-level reporting. Revenue here is order value, not profit; COGS/ad spend are not yet connected.
-businessRouter.get("/analytics", requireScope("analytics:read"), async (_req, res, next) => {
+businessRouter.get("/analytics", requireScope("analytics:read"), async (req, res, next) => {
+  const parsedCurrency = parseAnalyticsCurrency(req.query.currency);
+  if (!parsedCurrency.success) return res.status(400).json({ error: "currency must be INR or AED" });
+  const currency = parsedCurrency.data;
   try {
     const [summary, daily, top, inventory] = await Promise.all([
       pool.query(`SELECT count(*)::int AS orders,
@@ -120,19 +124,19 @@ businessRouter.get("/analytics", requireScope("analytics:read"), async (_req, re
         count(*) FILTER (WHERE status='cancelled')::int AS cancelled_orders,
         COALESCE(sum(subtotal_cents) FILTER (WHERE status <> 'cancelled'),0)::bigint AS gross_order_value_cents,
         COALESCE(sum(subtotal_cents) FILTER (WHERE status='delivered'),0)::bigint AS delivered_value_cents
-        FROM orders`),
+        FROM orders WHERE currency=$1`, [currency]),
       pool.query(`SELECT date_trunc('day',created_at)::date AS day,count(*)::int AS orders,
         COALESCE(sum(subtotal_cents),0)::bigint AS order_value_cents FROM orders
-        WHERE created_at >= now()-interval '30 days' AND status <> 'cancelled'
-        GROUP BY 1 ORDER BY 1`),
+        WHERE currency=$1 AND created_at >= now()-interval '30 days' AND status <> 'cancelled'
+        GROUP BY 1 ORDER BY 1`, [currency]),
       pool.query(`SELECT oi.product_name,sum(oi.quantity)::int AS units_sold,
         sum(oi.line_total_cents)::bigint AS order_value_cents FROM order_items oi
-        JOIN orders o ON o.id=oi.order_id WHERE o.status <> 'cancelled'
-        GROUP BY oi.product_name ORDER BY units_sold DESC LIMIT 10`),
-      pool.query("SELECT count(*)::int AS variants, COALESCE(sum(stock_qty),0)::bigint AS units_in_stock FROM variants WHERE active=true")
+        JOIN orders o ON o.id=oi.order_id WHERE o.currency=$1 AND o.status <> 'cancelled'
+        GROUP BY oi.product_name ORDER BY units_sold DESC LIMIT 10`, [currency]),
+      pool.query("SELECT count(*)::int AS variants, COALESCE(sum(v.stock_qty),0)::bigint AS units_in_stock FROM variants v JOIN products p ON p.id=v.product_id WHERE v.active=true AND p.currency=$1", [currency])
     ]);
     res.set("Cache-Control", "no-store");
-    res.json({ data: { summary: summary.rows[0], daily: daily.rows, top_products: top.rows, inventory: inventory.rows[0], note: "Order value is not profit. Product costs, advertising spend, taxes, refunds and delivery fees are not yet included." } });
+    res.json({ data: { currency, summary: summary.rows[0], daily: daily.rows, top_products: top.rows, inventory: inventory.rows[0], note: "Figures are limited to the selected currency/market. Order value is not profit; product costs, advertising spend, taxes, refunds and delivery fees are not yet included." } });
   } catch (err) { next(err); }
 });
 
