@@ -37,3 +37,7 @@ test("mobile header lays out all primary navigation links in a visible grid", ()
   assert.match(css, /\.site-header \.main-nav a\{[\s\S]*?justify-content:center/);
   assert.match(html, /href="#shop">Sale<\/a><a href="#story">About<\/a>/);
 });
+
+test("mobile market selector has readable foreground and background contrast", () => {
+  assert.match(css, /\.site-header \.market-select\{[\s\S]*?background:#fff;color:#111;border-color:#e31b2f/);
+});
