@@ -10,7 +10,7 @@ test("admin exposes a separate actual unit cost editor in the product currency",
   assert.match(html, /id="product-cost-value"/);
   assert.match(html, /product's own currency/);
   assert.match(js, /data-currency=/);
-  assert.match(js, /Actual unit cost \(' \+ currency \+ '\)/);
+  assert.match(js, /Actual unit cost \\('\+currency\+'\\)/);
 });
 
 test("saving actual unit cost sends only unit_cost_cents and preserves selling price", async () => {
