@@ -1,5 +1,20 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+-- Customer accounts are created by the dedicated migration and included here for fresh installs.
+CREATE TABLE IF NOT EXISTS customer_accounts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL CHECK (char_length(name) BETWEEN 2 AND 160),
+  email TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT customer_accounts_email_lowercase CHECK (email = lower(email)),
+  CONSTRAINT customer_accounts_email_unique UNIQUE (email)
+);
+CREATE INDEX IF NOT EXISTS customer_accounts_created_idx ON customer_accounts(created_at DESC);
+
+
 CREATE TABLE IF NOT EXISTS admins (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT NOT NULL UNIQUE,
@@ -432,3 +447,33 @@ CREATE INDEX IF NOT EXISTS stock_transfers_variant_id_idx ON stock_transfers(var
 CREATE INDEX IF NOT EXISTS warehouse_stock_movements_actor_idx ON warehouse_stock_movements(actor_admin_id);
 CREATE INDEX IF NOT EXISTS warehouse_stock_movements_variant_id_idx ON warehouse_stock_movements(variant_id);
 CREATE INDEX IF NOT EXISTS warehouses_created_by_idx ON warehouses(created_by);
+
+
+-- Customer return/exchange requests: request and review only; no refund or fee is processed here.
+CREATE TABLE IF NOT EXISTS return_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE RESTRICT,
+  customer_id UUID NOT NULL REFERENCES customer_accounts(id) ON DELETE RESTRICT,
+  request_type TEXT NOT NULL CHECK (request_type IN ('return','exchange')),
+  reason TEXT NOT NULL CHECK (char_length(reason) BETWEEN 2 AND 120),
+  details TEXT NOT NULL DEFAULT '' CHECK (char_length(details) <= 1000),
+  status TEXT NOT NULL DEFAULT 'requested'
+    CHECK (status IN ('requested','under_review','approved','rejected','received','closed')),
+  review_note TEXT NOT NULL DEFAULT '' CHECK (char_length(review_note) <= 1000),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS return_requests_customer_created_idx ON return_requests(customer_id,created_at DESC);
+CREATE INDEX IF NOT EXISTS return_requests_order_status_idx ON return_requests(order_id,status,created_at DESC);
+CREATE TABLE IF NOT EXISTS return_request_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  return_request_id UUID NOT NULL REFERENCES return_requests(id) ON DELETE RESTRICT,
+  actor_type TEXT NOT NULL CHECK (actor_type IN ('customer','admin','system')),
+  actor_id UUID,
+  status TEXT NOT NULL CHECK (status IN ('requested','under_review','approved','rejected','received','closed')),
+  note TEXT NOT NULL DEFAULT '' CHECK (char_length(note) <= 1000),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS return_request_events_request_created_idx ON return_request_events(return_request_id,created_at);
+ALTER TABLE return_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE return_request_events ENABLE ROW LEVEL SECURITY;
