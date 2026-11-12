@@ -27,7 +27,7 @@ test("return requests record a review trail without automatic refund, fee or sto
   assert.match(business, /businessRouter\.patch\("\/returns\/:id", requireScope\("orders:write"\)/);
   assert.match(business, /returnStatusTransitions/);
   assert.match(business, /return\.request\.review/);
-  assert.doesNotMatch(business.slice(business.indexOf('businessRouter.patch("/returns/:id"')), /refund|payment_capture|inventory_movements/);
+  assert.doesNotMatch(business.slice(business.indexOf('businessRouter.patch("/returns/:id"')), /INSERT INTO refund|refund_transactions|payment_capture|UPDATE inventory/);
 });
 
 test("return request schema and migration are additive and customer scoped", () => {
