@@ -93,6 +93,9 @@ app.use("/api/v1/warehouse", warehouseRouter);
 app.use("/api/v1", router);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Browsers and older clients may request the conventional ICO path; serve the existing SVG brand mark.
+app.get("/favicon.ico", (_req, res) => res.redirect(302, "/favicon.svg"));
+
 app.use(express.static(path.resolve(__dirname, "../frontend"), { index: "index.html", maxAge: process.env.NODE_ENV === "production" ? "1h" : 0 }));
 app.use((_req, res) => res.status(404).json({ error: "Not found" }));
 
