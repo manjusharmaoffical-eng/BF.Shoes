@@ -110,7 +110,7 @@
 
     const delivery=$('#cart-delivery-fee');
     const guidance=$('#cart-market-guidance');
-    if(guidance) guidance.textContent = state.market === 'IN' ? 'India delivery is currently limited to PIN 500052. Checkout remains closed until verified INR pricing, delivery fee, GST and PayU setup are complete.' : 'UAE delivery fee, VAT and PayTabs setup are not yet verified. Checkout remains closed; India PIN and payment instructions do not apply.';
+    if(guidance) guidance.textContent = state.market === 'IN' ? 'India delivery is currently limited to PIN 500052. Checkout remains closed until verified INR pricing, delivery fee, GST and Razorpay setup are complete.' : 'UAE delivery fee, VAT and PayTabs setup are not yet verified. Checkout remains closed; India PIN and payment instructions do not apply.';
     if(delivery) delivery.textContent='Not configured';
     if($('#checkout-total')) $('#checkout-total').textContent = money(checkoutTotalCents(), activeCurrency);
 
@@ -339,7 +339,7 @@
         headers: { 'Idempotency-Key': state.pendingCheckout.key }
       });
       const checkout = result.data && result.data.checkout;
-      if (!checkout || !checkout.action || !checkout.fields) throw new Error('PayU checkout session could not be created.');
+      if (!checkout || !checkout.action || !checkout.fields) throw new Error('Razorpay checkout session could not be created.');
       const payForm = document.createElement('form');
       payForm.method = 'POST'; payForm.action = checkout.action; payForm.hidden = true;
       Object.entries(checkout.fields).forEach(([name,value]) => {
