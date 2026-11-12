@@ -119,3 +119,121 @@ customerAuthRouter.get("/orders", async (req, res, next) => {
     next(err);
   }
 });
+
+
+const returnRequestSchema = z.object({
+  order_number: z.string().trim().regex(/^\d+$/).max(30),
+  request_type: z.enum(["return","exchange"]),
+  reason: z.string().trim().min(2).max(120),
+  details: z.string().trim().max(1000).optional().default("")
+}).strict();
+
+function readCustomerClaims(req, res) {
+  const auth = req.get("authorization") || "";
+  if (!auth.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Sign in to manage return or exchange requests." });
+    return null;
+  }
+  try {
+    const claims = jwt.verify(auth.slice(7), process.env.JWT_SECRET, {
+      issuer: "bf-shoes-api", audience: "bf-shoes-customer"
+    });
+    if (claims.typ !== "customer" || !claims.sub) {
+      res.status(401).json({ error: "Invalid customer session." });
+      return null;
+    }
+    return claims;
+  } catch (err) {
+    if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") {
+      res.status(401).json({ error: "Your session expired. Please sign in again." });
+      return null;
+    }
+    throw err;
+  }
+}
+
+// Customer-owned India return/exchange request. This records a request only:
+// no refund, replacement shipment, fee or stock movement is performed.
+customerAuthRouter.post("/returns", async (req, res, next) => {
+  const parsed = returnRequestSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Provide a valid order number, request type and reason." });
+  let claims;
+  try { claims = readCustomerClaims(req, res); } catch (err) { return next(err); }
+  if (!claims) return;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const order = await client.query(
+      `SELECT o.id,o.order_number,o.status,o.currency
+       FROM orders o
+       JOIN customer_accounts c ON lower(c.email)=lower(o.customer_email)
+       WHERE o.order_number=$1 AND c.id=$2 AND c.active=true
+       FOR UPDATE OF o`,
+      [parsed.data.order_number, claims.sub]
+    );
+    if (!order.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Order not found for this customer account." });
+    }
+    const row = order.rows[0];
+    if (row.currency !== "INR") {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ error: "Return and exchange requests are currently available for India orders only." });
+    }
+    if (row.status !== "delivered") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "A return or exchange request can be submitted after the order is delivered." });
+    }
+    const active = await client.query(
+      "SELECT id FROM return_requests WHERE order_id=$1 AND status NOT IN ('rejected','closed') LIMIT 1 FOR UPDATE",
+      [row.id]
+    );
+    if (active.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "An active return or exchange request already exists for this order." });
+    }
+    const created = await client.query(
+      `INSERT INTO return_requests(order_id,customer_id,request_type,reason,details)
+       VALUES($1,$2,$3,$4,$5)
+       RETURNING id,request_type,reason,details,status,created_at`,
+      [row.id, claims.sub, parsed.data.request_type, parsed.data.reason, parsed.data.details]
+    );
+    await client.query(
+      "INSERT INTO return_request_events(return_request_id,actor_type,actor_id,status,note) VALUES($1,'customer',$2,'requested','Request submitted by customer.')",
+      [created.rows[0].id, claims.sub]
+    );
+    await client.query("COMMIT");
+    return res.status(201).json({
+      data: { ...created.rows[0], order_number: row.order_number },
+      message: "Request submitted for BF SHOES review. No refund has been issued and no return fee has been charged."
+    });
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    return next(err);
+  } finally { client.release(); }
+});
+
+customerAuthRouter.get("/returns", async (req, res, next) => {
+  let claims;
+  try { claims = readCustomerClaims(req, res); } catch (err) { return next(err); }
+  if (!claims) return;
+  try {
+    const result = await pool.query(
+      `SELECT r.id,o.order_number,r.request_type,r.reason,r.details,r.status,r.review_note,r.created_at,r.updated_at,
+        COALESCE(json_agg(json_build_object(
+          'status',e.status,'note',e.note,'actor_type',e.actor_type,'created_at',e.created_at
+        ) ORDER BY e.created_at) FILTER (WHERE e.id IS NOT NULL),'[]'::json) AS events
+       FROM return_requests r
+       JOIN orders o ON o.id=r.order_id
+       JOIN customer_accounts c ON c.id=r.customer_id
+       LEFT JOIN return_request_events e ON e.return_request_id=r.id
+       WHERE c.id=$1 AND c.active=true
+       GROUP BY r.id,o.order_number
+       ORDER BY r.created_at DESC
+       LIMIT 50`,
+      [claims.sub]
+    );
+    res.set("Cache-Control", "no-store");
+    return res.json({ data: result.rows });
+  } catch (err) { return next(err); }
+});
