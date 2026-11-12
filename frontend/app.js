@@ -260,11 +260,11 @@
     } catch { state.checkoutReady = false; }
     const checkoutButton = $('#checkout-button');
     const placeOrder = $('#place-order');
-    if (checkoutButton) { checkoutButton.disabled = !state.checkoutReady; checkoutButton.textContent = state.checkoutReady ? 'Continue to PayU checkout' : 'Checkout temporarily unavailable'; }
+    if (checkoutButton) { checkoutButton.disabled = !state.checkoutReady; checkoutButton.textContent = state.checkoutReady ? 'Continue to Razorpay checkout' : 'Checkout temporarily unavailable'; }
     if (placeOrder) placeOrder.disabled = !state.checkoutReady;
     if ($('#checkout-readiness-note')) $('#checkout-readiness-note').textContent = state.checkoutReady
-      ? 'Pay securely with PayU. Your stock is reserved while payment is completed.'
-      : state.market === 'AE' ? 'UAE shopping is available. UAE delivery, VAT and payment setup must be completed before checkout opens.' : 'Checkout opens after verified INR prices, delivery fee, GST profile and PayU merchant credentials are configured.';
+      ? 'Pay securely with Razorpay. Your stock is reserved while payment is completed.'
+      : state.market === 'AE' ? 'UAE shopping is available. UAE delivery, VAT and payment setup must be completed before checkout opens.' : 'Checkout opens after verified INR prices, delivery fee, GST profile and Razorpay merchant credentials are configured.';
   }
 
   if (countrySelect) {
@@ -333,7 +333,7 @@
     }
 
     try {
-      if (!state.checkoutReady) throw new Error('PayU checkout is not ready yet. Verified pricing, delivery fee, GST profile and merchant credentials are required.');
+      if (!state.checkoutReady) throw new Error('Razorpay checkout is not ready yet. Verified pricing, delivery fee, GST profile and Razorpay merchant credentials are required.');
       const result = await request(API_BASE + '/orders/payu', {
         method: 'POST', body: body,
         headers: { 'Idempotency-Key': state.pendingCheckout.key }
@@ -355,7 +355,7 @@
       state.busy = false;
       if(submit) {
         submit.disabled = !state.checkoutReady;
-        submit.innerHTML = 'Pay securely with PayU'; 
+        submit.innerHTML = 'Pay securely with Razorpay'; 
       }
     }
   });
