@@ -205,7 +205,7 @@ customerAuthRouter.post("/returns", async (req, res, next) => {
     await client.query("COMMIT");
     return res.status(201).json({
       data: { ...created.rows[0], order_number: row.order_number },
-      message: "Request submitted for BF SHOES review. No refund or return fee has been charged."
+      message: "Request submitted for BF SHOES review. No refund has been issued and no return fee has been charged."
     });
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
