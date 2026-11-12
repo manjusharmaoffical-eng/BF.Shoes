@@ -26,7 +26,7 @@ test("homepage mobile controls have usable minimum touch sizes", () => {
 test("homepage welcomes visitors with the local BF signature sneaker hero and responsive 3D styling", () => {
   assert.match(html, /WELCOME TO BF SHOES/);
   assert.match(html, /MOVE<br><em>DIFFERENT\.<\/em>/);
-  assert.match(html, /bf-shoes-hero\.svg/);
+  assert.ok(css.includes("url('/bf-shoes-hero.svg')"));
   assert.doesNotMatch(html, /images\.unsplash\.com\/photo-1542291026/);
   assert.match(css, /perspective\(1100px\) rotateY\(-13deg\)/);
   assert.match(css, /@media\(prefers-reduced-motion:reduce\)[\s\S]*?\.hero-reference \.hero-product\{animation:none/);
