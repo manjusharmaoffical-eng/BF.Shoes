@@ -64,8 +64,12 @@ storefrontRouter.get("/market-config", async (_req, res, next) => {
     const feeConfigured = value => value !== undefined && /^\d+$/.test(value) && Number.isSafeInteger(Number(value));
     const indiaPricingVerified = process.env.INDIA_PRICING_VERIFIED === "true" && row.india_pricing_configured;
     const indiaFeeConfigured = process.env.INDIA_DELIVERY_FEE_VERIFIED === "true" && feeConfigured(process.env.INDIA_DELIVERY_FEE_PAISE);
-    const indiaPayuConfigured = payuConfigured();
-    const indiaCheckoutEnabled = indiaPricingVerified && indiaFeeConfigured && row.india_tax_profile_configured && indiaPayuConfigured;
+    // India is configured for Razorpay by the owner. Do not expose the legacy PayU
+    // flow as the selected provider or enable checkout until Razorpay routes and
+    // merchant credentials have been implemented and verified.
+    const indiaPaymentProvider = "Razorpay";
+    const indiaPaymentConfigured = false;
+    const indiaCheckoutEnabled = false;
     const uaeFeeConfigured = feeConfigured(process.env.UAE_DELIVERY_FEE_FILS);
     const uaePaytabsConfigured = paytabsConfigured();
     const uaePricingVerified = process.env.UAE_PRICING_VERIFIED === "true" && row.uae_pricing_configured;
@@ -73,7 +77,7 @@ storefrontRouter.get("/market-config", async (_req, res, next) => {
     const uaeCheckoutEnabled = uaePricingVerified && uaeFeeVerified && row.uae_tax_profile_configured && uaePaytabsConfigured;
     res.set("Cache-Control", "no-store");
     return res.json({ data: [
-      { country: "IN", currency: "INR", pricingConfigured: indiaPricingVerified, deliveryFeeConfigured: indiaFeeConfigured, tax: "GST", taxProfileConfigured: row.india_tax_profile_configured, paymentProvider: "PayU", paymentConfigured: indiaPayuConfigured, checkoutEnabled: indiaCheckoutEnabled },
+      { country: "IN", currency: "INR", pricingConfigured: indiaPricingVerified, deliveryFeeConfigured: indiaFeeConfigured, tax: "GST", taxProfileConfigured: row.india_tax_profile_configured, paymentProvider: indiaPaymentProvider, paymentConfigured: indiaPaymentConfigured, checkoutEnabled: indiaCheckoutEnabled },
       { country: "AE", currency: "AED", pricingConfigured: uaePricingVerified, deliveryFeeConfigured: uaeFeeVerified, tax: "VAT", taxProfileConfigured: row.uae_tax_profile_configured, paymentProvider: "PayTabs", paymentConfigured: uaePaytabsConfigured, checkoutEnabled: uaeCheckoutEnabled }
     ] });
   } catch (err) { next(err); }
@@ -127,7 +131,8 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
   const suppliedKey = req.get("idempotency-key");
   if (!suppliedKey || suppliedKey.length < 16 || suppliedKey.length > 120 || !/^[a-zA-Z0-9._:-]+$/.test(suppliedKey)) return res.status(400).json({ error: "A valid Idempotency-Key is required" });
   const d = parsed.data;
-  if (d.shipping_country !== "IN") return res.status(400).json({ error: "PayU India checkout is only configured for the India market." });
+  if (d.shipping_country !== "IN") return res.status(400).json({ error: "India checkout is only configured for the India market." });
+  if (process.env.INDIA_PAYMENT_PROVIDER !== "payu") return res.status(503).json({ error: "India checkout is configured for Razorpay. The legacy PayU flow is disabled." });
   if (d.shipping_pincode !== "500052") return res.status(400).json({ error: "BF SHOES currently delivers only to PIN code 500052." });
   const allowedPins = new Set((process.env.INDIA_DELIVERY_PINCODES || "500052").split(",").map(value => value.trim()).filter(Boolean));
   if (!allowedPins.has(d.shipping_pincode)) return res.status(400).json({ error: "Sorry, BF SHOES does not deliver to this PIN code yet." });
