@@ -22,3 +22,5 @@ test("storefront checkout copy names Razorpay, not PayU", () => {
   assert.match(storefrontUi, /Continue to Razorpay checkout/);
   assert.doesNotMatch(storefrontUi, /PayU/);
 });
+
+// Keep the India market fail-closed until Razorpay routes and credentials are verified.
