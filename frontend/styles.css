@@ -464,7 +464,7 @@ body{background:#fff;color:#121820;font-size:13px}
 @media(max-width:650px){.category-heading{flex-direction:row;gap:12px;align-items:center}.category-heading .category-rule{width:auto;flex:1;min-width:18px}.category-heading h2{font-size:clamp(18px,5vw,27px)}.category-heading p:not(.eyebrow){font-size:11px}}
 .footer-top{align-items:center}
 
-/* Image placeholders are intentional until the approved BF product photography is uploaded. */
+/* BF SHOES concept hero image plus reserved category image slots. */
 .hero-reference .hero-product{display:grid;place-items:center;min-width:0;min-height:410px;background:none!important;filter:none!important;transform:none!important;padding:24px;}
 .hero-image-slot{width:min(100%,620px);height:clamp(270px,34vw,390px);position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;overflow:hidden;border:1px dashed #e31b2f;border-radius:12px;background:radial-gradient(ellipse at 70% 45%,#4a1019 0%,#171014 38%,#09090b 76%);box-shadow:inset 0 0 70px #e31b2f12,0 22px 55px #0008;color:#fff;text-align:center;}
 .hero-image-slot:before,.hero-image-slot:after{content:"";position:absolute;pointer-events:none;border:1px solid #e31b2f55;transform:rotate(-18deg);width:130%;height:45%;}
@@ -487,3 +487,7 @@ body{background:#fff;color:#121820;font-size:13px}
 .wordmark-footer .bf-logo-mark,.wordmark-footer .bf-logo-copy{color:#fff!important}
 .wordmark-footer .bf-logo-mark{border-color:#e31b2f!important}
 @media(max-width:780px){.site-header .header-icon{display:inline-flex;align-items:center;justify-content:center;color:#fff;min-width:28px;min-height:36px;font-size:22px;padding:2px}.site-header .cart-trigger{min-width:28px;min-height:36px}}
+
+.hero-image-slot{padding:0;border:1px solid #e31b2f66;background:#09090b;box-shadow:0 22px 55px #0008;isolation:isolate}
+.hero-image-slot:before,.hero-image-slot:after{display:none}
+.hero-image{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;display:block;border-radius:inherit}
