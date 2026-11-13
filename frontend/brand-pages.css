@@ -1,0 +1,42 @@
+:root{--brand-red:#e31b2f;--brand-black:#07090c;--brand-paper:#f5f5f6;--brand-line:#e3e4e7}
+body.brand-page{margin:0;min-height:100vh;background:var(--brand-paper);color:#111820;font-family:'DM Sans',Arial,sans-serif}
+.brand-page a{color:inherit}
+.brand-page .site-header{background:var(--brand-black);color:#fff;border-bottom:1px solid #272a30}
+.brand-page .wordmark,.brand-page .wordmark span,.brand-page .bf-logo-copy,.brand-page .main-nav a{color:#fff}
+.brand-page .main-nav a:hover,.brand-page .main-nav a:focus-visible{color:#ff6472}
+.brand-page .account-button,.brand-page button,.brand-page .button{background:var(--brand-red);color:#fff;border:1px solid var(--brand-red);border-radius:3px}
+.brand-page input,.brand-page textarea,.brand-page select{border:1px solid #cfd2d8;border-radius:3px;background:#fff;color:#111820}
+.brand-page input:focus,.brand-page textarea:focus,.brand-page select:focus{outline:2px solid #e31b2f55;border-color:var(--brand-red)}
+.brand-page .account-shell{max-width:1100px;padding-top:42px}
+.brand-page .account-card,.brand-page .account-profile,.brand-page .account-orders,.brand-page .track-card,.brand-page .policy section{background:#fff;border:1px solid var(--brand-line);border-radius:8px;box-shadow:0 8px 28px #11111108}
+.brand-page .account-card h2,.brand-page .account-orders h2{color:#101318}
+.brand-page .account-status{background:#fff;border-left:3px solid var(--brand-red)}
+.brand-page .account-status.error{background:#fff0f1;color:#8c1422}
+.brand-page .track,.brand-page .policy{max-width:920px;margin:0 auto;padding:38px 20px 76px}
+.brand-page .track-card{padding:clamp(24px,5vw,44px)}
+.brand-page .track h1,.brand-page .policy h1{font-weight:900;letter-spacing:-.055em;color:#090b0f}
+.brand-page .track button,.brand-page .policy a{color:var(--brand-red)}
+.brand-page .track button{color:#fff;padding:13px 20px}
+.brand-page .result,.brand-page .notice{background:#fff;border:1px solid #f0c8ce;border-left:4px solid var(--brand-red);border-radius:4px;color:#333}
+.brand-page .card{background:#fff;border:1px solid var(--brand-line);border-top:4px solid var(--brand-red);border-radius:8px;box-shadow:0 16px 44px #090b0f12}
+.brand-page .brand{color:var(--brand-red);font-style:italic;font-weight:900;letter-spacing:-.06em;font-size:26px}
+.brand-page .pay,.brand-page .copy{border-radius:3px}
+.brand-page .copy{background:var(--brand-black);border-color:var(--brand-black)}
+.brand-page .pay{background:var(--brand-red);border-color:var(--brand-red)}
+.brand-page .back{color:var(--brand-red)}
+.brand-page .detail{border-radius:4px;background:#f5f5f6}
+.brand-page .notice{background:#fff4f5;color:#4d2026}
+.brand-page .payment-result-brand{font-weight:900;color:var(--brand-red);letter-spacing:.12em}
+body.admin-page{background:#f3f4f6;color:#111820;font-family:'DM Sans',Arial,sans-serif}
+.admin-page .admin{max-width:1440px;padding:28px clamp(14px,3vw,42px) 64px}
+.admin-page .admin>header{background:var(--brand-black);color:#fff;padding:22px 24px;border:0;border-radius:8px;align-items:center}
+.admin-page .admin>header .muted{color:#c7c9ce}
+.admin-page .admin h1,.admin-page .admin h2,.admin-page .admin h3{letter-spacing:-.035em}
+.admin-page .panel{border:1px solid var(--brand-line);border-radius:8px;box-shadow:0 6px 22px #1013180a;padding:clamp(16px,2.2vw,26px)}
+.admin-page .admin button{background:var(--brand-red);border:1px solid var(--brand-red);border-radius:3px;font-weight:700}
+.admin-page .admin button.secondary{background:#171a20;border-color:#171a20}
+.admin-page .admin .tabs button[aria-pressed=true]{background:var(--brand-red);border-color:var(--brand-red)}
+.admin-page .admin input,.admin-page .admin select,.admin-page .admin textarea{border-radius:3px;min-height:40px}
+.admin-page .admin th{background:#f4f5f7;color:#222}
+.admin-page .admin .status{border-left:3px solid var(--brand-red);background:#f7f7f8}
+@media(max-width:650px){.admin-page .admin{padding:12px}.admin-page .panel{padding:14px}.brand-page .track,.brand-page .policy{padding:22px 14px 50px}}

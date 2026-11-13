@@ -6,6 +6,7 @@ const app = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8
 const html = await readFile(new URL("../frontend/index.html", import.meta.url), "utf8");
 const css = await readFile(new URL("../frontend/styles.css", import.meta.url), "utf8");
 const server = await readFile(new URL("../src/server.js", import.meta.url), "utf8");
+const pages = await Promise.all(["account.html", "admin.html", "payment-result.html", "policies.html", "track-order.html", "upi-payment.html"].map(name => readFile(new URL(`../frontend/${name}`, import.meta.url), "utf8")));
 
 test("homepage product images do not use CSP-blocked inline error handlers", () => {
   assert.doesNotMatch(app, /<img[^>]+onerror\s*=/i);
@@ -29,7 +30,9 @@ test("homepage uses the approved BF-branded sneaker photo and reference headline
   assert.match(html, /STEP UP YOUR <em>STYLE<\/em>/);
   assert.match(html, /class="category-cards"[\s\S]*?category-men[\s\S]*?category-women[\s\S]*?category-sports[\s\S]*?category-casual/);
   assert.match(html, /class="benefit-strip"/);
-  assert.ok(css.includes("url('/bf-hero-shoe.webp')"));
+  assert.ok(css.includes("url('/bf-shoes-hero.svg')"));
+  assert.doesNotMatch(html, /class=\"manifesto\"|Good design|doesn.t need/);
+  assert.doesNotMatch(css, /\.manifesto/);
   assert.match(html, /styles\.css\?v=bf-home-20261113-4/);
   assert.match(html, /app\.js\?v=bf-home-20261113-4/);
   assert.doesNotMatch(html, /images\.unsplash\.com\/photo-1542291026/);
@@ -40,7 +43,7 @@ test("homepage uses the approved BF-branded sneaker photo and reference headline
 test("mobile header lays out all primary navigation links in a visible grid", () => {
   assert.match(css, /@media\(max-width:600px\)[\s\S]*?\.site-header \.main-nav\{[\s\S]*?display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
   assert.match(css, /\.site-header \.main-nav a\{[\s\S]*?justify-content:center/);
-  assert.match(html, /href="#shop">Sale<\/a><a href="#story">About<\/a>/);
+  assert.match(html, /href="#shop">Sale<\/a><a href="#benefits">About<\/a>/);
 });
 
 test("mobile market selector has readable foreground and background contrast", () => {
@@ -50,4 +53,21 @@ test("mobile market selector has readable foreground and background contrast", (
 test("tablet filter drawer never reserves a desktop catalog grid column", () => {
   assert.match(css, /@media\(max-width:1024px\)\{[\s\S]*?\.catalog-layout\{position:relative;grid-template-columns:minmax\(0,1fr\)/);
   assert.match(css, /@media\(max-width:1024px\)\{\.catalog-layout\{grid-template-columns:minmax\(0,1fr\)!important\}/);
+});
+
+
+test("legacy manifesto block and invalid hero asset are removed from the homepage", async () => {
+  const hero = await readFile(new URL("../frontend/bf-shoes-hero.svg", import.meta.url), "utf8");
+  assert.doesNotMatch(html, /manifesto|Good design|doesn.t need/);
+  assert.doesNotMatch(css, /\.manifesto|bf-hero-shoe\.webp/);
+  assert.match(css, /url\('\/bf-shoes-hero\.svg'\)/);
+  assert.match(hero, /BF SHOES|BF/);
+});
+
+test("all secondary pages use the BF SHOES shared theme and CSP-safe external scripts", () => {
+  for (const page of pages) {
+    assert.match(page, /brand-pages\.css/);
+    assert.doesNotMatch(page, /<script>(?!\s*<\/script>)/i);
+    assert.doesNotMatch(page, /on(?:click|error|submit)\s*=/i);
+  }
 });
