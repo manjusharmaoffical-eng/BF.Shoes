@@ -24,13 +24,13 @@ test("homepage mobile controls have usable minimum touch sizes", () => {
   assert.match(css, /\.product-card \.add-row \.button\{min-height:42px/);
 });
 
-test("homepage uses the approved BF-branded sneaker photo and reference headline", () => {
+test("homepage keeps the approved BF brand headline and reserved hero image area", () => {
   assert.match(html, /PREMIUM FOOTWEAR/);
   assert.match(html, /<span class="hero-bf">BF<\/span> SHOES/);
   assert.match(html, /STEP UP YOUR <em>STYLE<\/em>/);
   assert.match(html, /class="category-cards"[\s\S]*?category-men[\s\S]*?category-women[\s\S]*?category-sports[\s\S]*?category-casual[\s\S]*?category-formal/);
   assert.match(html, /class="benefit-strip"/);
-  assert.ok(css.includes("url('/bf-shoes-hero.svg')"));
+  assert.match(html, /class="hero-image-slot" id="hero-image-slot"/);
   assert.doesNotMatch(html, /class=\"manifesto\"|Good design|doesn.t need/);
   assert.doesNotMatch(css, /\.manifesto/);
   assert.match(html, /styles\.css\?v=bf-home-20261113-5/);
