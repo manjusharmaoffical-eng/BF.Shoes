@@ -6,12 +6,12 @@
   <meta name="theme-color" content="#111111" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="description" content="Discover everyday icons and premium sneakers at BF SHOES. Checkout opens when verified delivery and payment setup is complete." />
-  <title>BF SHOES — Move Different</title>
+  <title>BF SHOES — Step Up Your Style</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles.css?v=bf-home-20261113-4" />
-  <script defer src="/app.js?v=bf-home-20261113-4"></script>
+  <link rel="stylesheet" href="/styles.css?v=bf-home-20261113-5" />
+  <script defer src="/app.js?v=bf-home-20261113-5"></script>
 </head>
 <body>
   <section id="campaign-strip" class="campaign-strip hidden" aria-label="Current BF SHOES offers"></section>
@@ -19,7 +19,7 @@
 
   <header class="site-header">
     <a class="wordmark" href="#top" aria-label="BF Shoes home"><span class="bf-logo-mark">BF</span><span class="bf-logo-copy">SHOES<small>STEP INTO BETTER</small></span></a>
-    <nav class="main-nav" aria-label="Main navigation"><a class="nav-current" href="#top">Home</a><a href="#shop">Shop</a><a href="#category-title">Men</a><a href="#category-title">Women</a><a href="#category-title">Sports</a><a href="#benefits">About</a><a href="#footer">Contact</a></nav>
+    <nav class="main-nav" aria-label="Main navigation"><a class="nav-current" href="#top">Home</a><a href="#shop">Shop</a><a href="#category-men">Men</a><a href="#category-women">Women</a><a href="#category-sports">Sports</a><a href="#benefits">About</a><a href="#footer">Contact</a></nav>
     <label class="header-search"><input id="header-product-search" type="search" placeholder="Search for shoes..." aria-label="Search for shoes"><span>⌕</span></label>
     <label class="market-select-wrap"><span class="sr-only">Market</span><select id="market-selector" class="market-select" aria-label="Choose market"><option value="IN">India · INR</option><option value="AE">UAE · AED</option></select></label>
     <button class="header-icon" type="button" aria-label="Account" id="account-link">♙</button><button class="header-icon" type="button" aria-label="Wishlist" id="header-wishlist">♡</button>
@@ -36,9 +36,16 @@
         <p class="hero-tagline">Premium quality shoes for every step of your journey.</p>
         <a class="button button-light" href="#shop">Shop Now <span aria-hidden="true">→</span></a>
       </div>
-      <div class="hero-product" role="img" aria-label="BF SHOES signature black sneaker with red details and BF logo"></div>
+      <div class="hero-product" aria-label="BF SHOES hero product image area">
+        <div class="hero-image-slot" id="hero-image-slot">
+          <span class="hero-slot-mark" aria-hidden="true">BF</span>
+          <strong>BF SHOES IMAGE</strong>
+          <span class="hero-slot-caption">PRODUCT IMAGE SPACE RESERVED</span>
+          <span class="hero-slot-note">Upload the approved hero photo here</span>
+        </div>
+      </div>
       <div class="hero-script" aria-hidden="true">Be Bold<br/>Be <em>You</em></div>
-      <div class="hero-benefits"><div>◇ <span>Premium Quality</span></div><div>ϟ <span>Fast Delivery</span></div><div>♢ <span>Trusted Brand</span></div><div>♧ <span>Customer Support</span></div></div>
+      <div class="hero-benefits"><div>◇ <span>Premium Footwear</span></div><div>◎ <span>UAE · India</span></div><div>▧ <span>Image Upload Ready</span></div><div>✓ <span>Verified Checkout</span></div></div>
     </section>
 
     <section class="benefit-strip" id="benefits" aria-label="Store benefits">
@@ -51,11 +58,11 @@
     <section class="category-showcase" aria-labelledby="category-title">
       <div class="category-heading"><span class="category-rule" aria-hidden="true"></span><div><h2 id="category-title">Shop by Category</h2><p>Find Your Perfect Pair</p></div><span class="category-rule" aria-hidden="true"></span></div>
       <div class="category-cards">
-        <a class="category-card category-men" href="#shop"><span>Men’s<br/>Shoes</span><small>Shop Now →</small><img src="/bf-shoes-hero.svg" alt="BF SHOES signature sneaker collection" loading="lazy"/></a>
-        <a class="category-card category-women" href="#shop"><span>Women’s<br/>Shoes</span><small>Shop Now →</small><img src="/bf-shoes-hero.svg" alt="BF SHOES signature sneaker collection" loading="lazy"/></a>
-        <a class="category-card category-sports" href="#shop"><span>Sports<br/>Shoes</span><small>Shop Now →</small><img src="/bf-shoes-hero.svg" alt="BF SHOES signature sports sneaker" loading="lazy"/></a>
-        <a class="category-card category-casual" href="#shop"><span>Casual<br/>Shoes</span><small>Shop Now →</small><img src="/bf-shoes-hero.svg" alt="BF SHOES signature casual sneaker" loading="lazy"/></a>
-        <a class="category-card category-formal" href="#shop"><span>Formal<br/>Shoes</span><small>Shop Now →</small><img src="/bf-shoes-hero.svg" alt="BF SHOES collection" loading="lazy"/></a>
+        <a id="category-men" class="category-card category-men" href="#shop" aria-label="Shop men’s shoes"><span>Men’s<br/>Shoes</span><small>Shop Now →</small><span class="category-image-slot" aria-hidden="true">IMAGE SPACE</span></a>
+        <a id="category-women" class="category-card category-women" href="#shop" aria-label="Shop women’s shoes"><span>Women’s<br/>Shoes</span><small>Shop Now →</small><span class="category-image-slot" aria-hidden="true">IMAGE SPACE</span></a>
+        <a id="category-sports" class="category-card category-sports" href="#shop" aria-label="Shop sports shoes"><span>Sports<br/>Shoes</span><small>Shop Now →</small><span class="category-image-slot" aria-hidden="true">IMAGE SPACE</span></a>
+        <a id="category-casual" class="category-card category-casual" href="#shop" aria-label="Shop casual shoes"><span>Casual<br/>Shoes</span><small>Shop Now →</small><span class="category-image-slot" aria-hidden="true">IMAGE SPACE</span></a>
+        <a id="category-formal" class="category-card category-formal" href="#shop" aria-label="Shop formal shoes"><span>Formal<br/>Shoes</span><small>Shop Now →</small><span class="category-image-slot" aria-hidden="true">IMAGE SPACE</span></a>
       </div>
     </section>
 
@@ -81,7 +88,7 @@
   </main>
 
 
-  <footer class="site-footer" id="footer"><div class="footer-top"><a class="wordmark wordmark-footer" href="#top" aria-label="BF SHOES home"><span class="bf-logo-mark">BF</span><span class="bf-logo-copy">SHOES<small>STEP INTO BETTER</small></span></a><a href="#shop" class="footer-cta">Shop the collection <span>↗</span></a></div><div class="footer-bottom"><span>© <span id="year"></span> BF SHOES</span><span>DESIGNED FOR THE EVERYDAY</span><a href="/upi-payment.html">UPI PAYMENT</a><a href="/track-order.html">TRACK ORDER</a><a href="/policies.html#shipping">SHIPPING</a><a href="/policies.html#returns">RETURNS</a><a href="/policies.html#privacy">PRIVACY</a><a href="/policies.html#terms">TERMS</a><a href="/admin.html" rel="nofollow">ADMIN</a></div></footer>
+  <footer class="site-footer" id="footer"><div class="footer-top"><a class="wordmark wordmark-footer" href="#top" aria-label="BF SHOES home"><span class="bf-logo-mark">BF</span><span class="bf-logo-copy">SHOES<small>STEP INTO BETTER</small></span></a><a href="#shop" class="footer-cta">Shop the collection <span>↗</span></a></div><div class="footer-bottom"><span>© <span id="year"></span> BF SHOES</span><span>DESIGNED FOR THE EVERYDAY</span><a href="/track-order.html">TRACK ORDER</a><a href="/policies.html#shipping">SHIPPING</a><a href="/policies.html#returns">RETURNS</a><a href="/policies.html#privacy">PRIVACY</a><a href="/policies.html#terms">TERMS</a><a href="/admin.html" rel="nofollow">ADMIN</a></div></footer>
 
   <div class="scrim" id="scrim"></div>
   <aside class="cart-drawer" id="cart-drawer" aria-label="Shopping bag" aria-hidden="true"><div class="drawer-head"><div><p class="eyebrow">YOUR ROTATION</p><h2>Your bag <span id="drawer-count">(0)</span></h2></div><button class="icon-button" id="close-cart" aria-label="Close shopping bag">×</button></div><div class="cart-items" id="cart-items"></div><div class="cart-empty" id="cart-empty"><div class="empty-glyph">BF.</div><h3>Your bag is taking a breather.</h3><p>Find a pair that feels like you.</p><button class="button button-dark" id="continue-shopping">Explore sneakers</button></div><div class="drawer-foot hidden" id="drawer-foot"><div class="subtotal-line"><span>Product subtotal</span><strong id="cart-subtotal">₹0.00</strong></div><p><span id="cart-market-guidance">Delivery and payment setup is not yet complete for this market. Checkout is unavailable.</span> See our <a href="/policies.html#shipping">delivery information</a>.</p><button class="button button-dark button-full" id="checkout-button" disabled>Checkout temporarily unavailable</button></div></aside>

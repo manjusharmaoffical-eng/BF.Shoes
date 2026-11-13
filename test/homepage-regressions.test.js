@@ -33,8 +33,8 @@ test("homepage uses the approved BF-branded sneaker photo and reference headline
   assert.ok(css.includes("url('/bf-shoes-hero.svg')"));
   assert.doesNotMatch(html, /class=\"manifesto\"|Good design|doesn.t need/);
   assert.doesNotMatch(css, /\.manifesto/);
-  assert.match(html, /styles\.css\?v=bf-home-20261113-4/);
-  assert.match(html, /app\.js\?v=bf-home-20261113-4/);
+  assert.match(html, /styles\.css\?v=bf-home-20261113-5/);
+  assert.match(html, /app\.js\?v=bf-home-20261113-5/);
   assert.doesNotMatch(html, /images\.unsplash\.com\/photo-1542291026/);
   assert.doesNotMatch(css, /bfSneakerFloat|perspective\(1100px\)/);
   assert.doesNotMatch(css, /images\.unsplash\.com/);
@@ -43,7 +43,16 @@ test("homepage uses the approved BF-branded sneaker photo and reference headline
 test("mobile header lays out all primary navigation links in a visible grid", () => {
   assert.match(css, /@media\(max-width:600px\)[\s\S]*?\.site-header \.main-nav\{[\s\S]*?display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
   assert.match(css, /\.site-header \.main-nav a\{[\s\S]*?justify-content:center/);
-  assert.match(html, /href="#category-title">Sports<\/a><a href="#benefits">About<\/a><a href="#footer">Contact<\/a>/);
+  assert.match(html, /href="#category-sports">Sports<\/a><a href="#benefits">About<\/a><a href="#footer">Contact<\/a>/);
+});
+
+
+test("homepage reserves an honest hero image slot and does not reuse one fake shoe image for every category", () => {
+  assert.match(html, /class="hero-image-slot" id="hero-image-slot"/);
+  assert.match(html, /PRODUCT IMAGE SPACE RESERVED/);
+  assert.match(html, /Upload the approved hero photo here/);
+  assert.equal((html.match(/class="category-image-slot"/g) || []).length, 5);
+  assert.doesNotMatch(html, /<img src="\/bf-shoes-hero\.svg"/);
 });
 
 test("mobile market selector has readable foreground and background contrast", () => {
