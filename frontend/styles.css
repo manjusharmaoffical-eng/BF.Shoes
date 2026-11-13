@@ -495,3 +495,15 @@ body{background:#fff;color:#121820;font-size:13px}
 /* BF SHOES original branded hero asset: crop away generated canvas lettering and keep the BF-marked shoe as the product focus. */
 .hero-image-slot .hero-image{width:145%;max-width:none;height:100%;left:0;right:auto;object-fit:cover;object-position:center;transform:translateX(-31%);}
 @media(max-width:650px){.hero-image-slot .hero-image{width:145%;transform:translateX(-31%);}}
+
+
+/* Responsive visual QA fixes — BF SHOES */
+.hero-image-slot{overflow:hidden}
+.hero-image-slot .hero-image{width:100%!important;max-width:100%!important;height:100%!important;left:0!important;right:0!important;top:0!important;bottom:0!important;object-fit:contain!important;object-position:center!important;transform:none!important;padding:clamp(8px,2vw,22px);box-sizing:border-box}
+.category-card .category-image-slot{position:absolute!important;display:block!important;right:-2%!important;top:50%!important;bottom:auto!important;transform:translateY(-50%)!important;width:62%!important;height:92%!important;max-width:240px;object-fit:contain!important;object-position:center!important;padding:5px!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;z-index:1!important;filter:drop-shadow(0 9px 9px #00000018)}
+.category-image-slot:before{content:none!important;display:none!important}
+.category-card:hover .category-image-slot{transform:translateY(-50%) scale(1.04)!important}
+.category-card>span:first-child,.category-card>small{position:relative;z-index:2}
+@media(max-width:780px){.site-header{position:relative!important;top:auto!important;z-index:2!important}}
+@media(max-width:650px){.hero-image-slot .hero-image{padding:8px!important}.category-card{min-height:138px}.category-card .category-image-slot{width:58%!important;height:88%!important;right:-1%!important;padding:2px!important}.category-card>span:first-child{font-size:14px}.category-card>small{font-size:9px}}
+@media(min-width:651px) and (max-width:1100px){.category-card .category-image-slot{width:60%!important;height:88%!important}}
