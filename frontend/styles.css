@@ -475,3 +475,100 @@ body{background:#fff;color:#121820;font-size:13px}
 .campaign-strip .campaign-content span{font-size:12px;opacity:.8}
 .campaign-strip .campaign-dismiss{border:1px solid currentColor;background:transparent;color:inherit;width:30px;height:30px;min-width:30px;border-radius:50%;font-size:20px;line-height:1;cursor:pointer}
 @media(max-width:600px){.campaign-strip .campaign-inner{gap:8px}.campaign-strip .campaign-content{gap:8px}.campaign-strip .campaign-content img{width:44px;height:38px}}
+
+
+/* Homepage audit fixes: readable market selector, compact mobile header, accessible footer links. */
+.market-select{
+  background:#050709;
+  color:#fff;
+  border-color:#59616b;
+  color-scheme:dark;
+}
+.market-select option{
+  background:#fff;
+  color:#111;
+}
+.market-select:focus-visible{
+  outline:2px solid #e31b36;
+  outline-offset:3px;
+}
+@media(max-width:600px){
+  .site-header{
+    min-height:0;
+    padding:8px 12px 5px;
+    row-gap:4px;
+    column-gap:8px;
+  }
+  .site-header .wordmark{order:0}
+  .site-header .market-select-wrap{
+    order:1;
+    margin-left:auto;
+  }
+  .site-header .market-select{
+    max-width:108px;
+    min-height:40px;
+    padding:0 7px;
+    font-size:11px;
+    background:#fff;
+    color:#111;
+    border-color:#e31b36;
+    color-scheme:light;
+  }
+  .site-header .market-select option{background:#fff;color:#111}
+  .site-header .cart-trigger{
+    order:2;
+    margin-left:0;
+    min-width:44px;
+    min-height:44px;
+    justify-content:center;
+  }
+  .site-header .header-search{display:none}
+  .site-header .header-icon{display:none}
+  .site-header .main-nav{
+    order:3;
+    flex:1 0 100%;
+    width:100%;
+    min-width:0;
+    min-height:42px;
+    display:flex;
+    flex-wrap:nowrap;
+    align-items:center;
+    justify-content:flex-start;
+    gap:clamp(15px,4vw,22px);
+    margin:0;
+    padding:0 0 2px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    overscroll-behavior-x:contain;
+    white-space:nowrap;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+  }
+  .site-header .main-nav::-webkit-scrollbar{display:none}
+  .site-header .main-nav a{
+    display:inline-flex;
+    flex:0 0 auto;
+    align-items:center;
+    justify-content:center;
+    min-width:44px;
+    min-height:40px;
+    padding:5px 0;
+    font-size:11px;
+    line-height:1.2;
+    white-space:nowrap;
+  }
+  .footer-bottom{
+    align-items:center;
+    gap:6px 16px;
+    font-size:10px;
+    line-height:1.4;
+    letter-spacing:.08em;
+  }
+  .footer-bottom a{
+    display:inline-flex;
+    align-items:center;
+    min-height:44px;
+    padding:8px 0;
+    line-height:1.3;
+  }
+}
