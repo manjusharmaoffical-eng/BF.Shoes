@@ -431,3 +431,26 @@ body{background:#fff;color:#121820;font-size:13px}
 @media(max-width:1024px){.catalog-layout{grid-template-columns:minmax(0,1fr)!important}.catalog-results{grid-column:1;grid-row:1;width:100%;min-width:0}.catalog-results .product-grid{width:100%;grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:780px){.catalog-results .product-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:430px){.catalog-results .product-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Final approved-reference alignment: clean white header, black announcement rail, five category cards. */
+.announcement-bar{min-height:34px;padding:7px clamp(12px,3vw,42px);display:flex;align-items:center;justify-content:center;gap:clamp(10px,2vw,28px);background:#050505;color:#fff;font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.announcement-bar i{width:4px;height:4px;border-radius:50%;background:#e31b2f;flex:0 0 auto}
+.site-header{position:sticky;top:0;background:#fff;color:#111;border-bottom:1px solid #e5e5e5;z-index:40}
+.site-header .wordmark,.site-header .bf-logo-mark,.site-header .bf-logo-copy,.site-header .main-nav a{color:#111}
+.site-header .main-nav a{font-weight:700}
+.site-header .main-nav a.nav-current{background:#e31b2f;color:#fff;padding:10px 15px;border-radius:7px}
+.site-header .market-select{background:#fff;color:#111;border-color:#ddd;color-scheme:light}
+.site-header .market-select option{background:#fff;color:#111}
+.hero-reference .hero-product{background-image:url('/bf-shoes-hero.svg');background-size:contain;background-position:center;background-repeat:no-repeat;filter:drop-shadow(0 28px 32px #000b);mix-blend-mode:normal;transform:scale(1.08)}
+.hero-reference .hero-photo{background:radial-gradient(ellipse at 72% 56%,#4a0d16 0%,transparent 40%),linear-gradient(112deg,#030303 0%,#0c0c0f 56%,#030303 100%)}
+.category-cards{grid-template-columns:repeat(5,minmax(0,1fr))}
+.category-card{background:#f0f0f2;color:#111;border:1px solid #e6e6e8;box-shadow:0 8px 22px #0000000c}
+.category-card:before{background:linear-gradient(90deg,#f3f3f5 0%,#ededf0aa 55%,#ededf000 100%)}
+.category-card img{mix-blend-mode:multiply;right:-7%;width:78%;height:100%;bottom:-2%;filter:none}
+.category-card span{position:relative;z-index:1;color:#111}
+.category-card small{position:relative;z-index:1;color:#111;border-color:#e31b2f}
+.category-women,.category-casual{background:#f0f0f2}
+.category-women:before,.category-casual:before{background:linear-gradient(90deg,#f3f3f5 0%,#ededf0aa 55%,#ededf000 100%)}
+.category-formal{background:#f7f7f8}
+@media(max-width:1100px){.category-cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:650px){.announcement-bar{font-size:8px;gap:7px;letter-spacing:.07em;flex-wrap:wrap}.category-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.site-header .main-nav a.nav-current{padding:7px 9px}}

@@ -28,7 +28,7 @@ test("homepage uses the approved BF-branded sneaker photo and reference headline
   assert.match(html, /PREMIUM FOOTWEAR/);
   assert.match(html, /<span class="hero-bf">BF<\/span> SHOES/);
   assert.match(html, /STEP UP YOUR <em>STYLE<\/em>/);
-  assert.match(html, /class="category-cards"[\s\S]*?category-men[\s\S]*?category-women[\s\S]*?category-sports[\s\S]*?category-casual/);
+  assert.match(html, /class="category-cards"[\s\S]*?category-men[\s\S]*?category-women[\s\S]*?category-sports[\s\S]*?category-casual[\s\S]*?category-formal/);
   assert.match(html, /class="benefit-strip"/);
   assert.ok(css.includes("url('/bf-shoes-hero.svg')"));
   assert.doesNotMatch(html, /class=\"manifesto\"|Good design|doesn.t need/);
@@ -43,7 +43,7 @@ test("homepage uses the approved BF-branded sneaker photo and reference headline
 test("mobile header lays out all primary navigation links in a visible grid", () => {
   assert.match(css, /@media\(max-width:600px\)[\s\S]*?\.site-header \.main-nav\{[\s\S]*?display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
   assert.match(css, /\.site-header \.main-nav a\{[\s\S]*?justify-content:center/);
-  assert.match(html, /href="#shop">Sale<\/a><a href="#benefits">About<\/a>/);
+  assert.match(html, /href="#category-title">Sports<\/a><a href="#benefits">About<\/a><a href="#footer">Contact<\/a>/);
 });
 
 test("mobile market selector has readable foreground and background contrast", () => {
@@ -56,9 +56,9 @@ test("tablet filter drawer never reserves a desktop catalog grid column", () => 
 });
 
 
-test("legacy manifesto block and invalid hero asset are removed from the homepage", async () => {
+test("legacy manifesto and generic shoe imagery are removed from the homepage", async () => {
   const hero = await readFile(new URL("../frontend/bf-shoes-hero.svg", import.meta.url), "utf8");
-  assert.doesNotMatch(html, /manifesto|Good design|doesn.t need/);
+  assert.doesNotMatch(html, /manifesto|Good design|doesn.t need|banner-left-shoe|banner-right-shoe/);
   assert.doesNotMatch(css, /\.manifesto|bf-hero-shoe\.webp/);
   assert.match(css, /url\('\/bf-shoes-hero\.svg'\)/);
   assert.match(hero, /BF SHOES|BF/);
@@ -70,4 +70,10 @@ test("all secondary pages use the BF SHOES shared theme and CSP-safe external sc
     assert.doesNotMatch(page, /<script>(?!\s*<\/script>)/i);
     assert.doesNotMatch(page, /on(?:click|error|submit)\s*=/i);
   }
+});
+
+test("public UPI page does not expose unverified bank account details", () => {
+  const upi = pages.at(-1);
+  assert.match(upi, /Manual payment is not available yet/);
+  assert.doesNotMatch(upi, /9110769425|0054121119|KKBK0007509|Mohammed Faisal Khan/);
 });
