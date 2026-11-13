@@ -33,8 +33,8 @@ test("homepage keeps the approved BF brand headline and reserved hero image area
   assert.match(html, /class="hero-image-slot" id="hero-image-slot"/);
   assert.doesNotMatch(html, /class=\"manifesto\"|Good design|doesn.t need/);
   assert.doesNotMatch(css, /\.manifesto/);
-  assert.match(html, /styles\.css\?v=bf-home-20261113-6/);
-  assert.match(html, /app\.js\?v=bf-home-20261113-6/);
+  assert.match(html, /styles\.css\?v=bf-home-20261113-7/);
+  assert.match(html, /app\.js\?v=bf-home-20261113-7/);
   assert.doesNotMatch(html, /images\.unsplash\.com\/photo-1542291026/);
   assert.doesNotMatch(css, /bfSneakerFloat|perspective\(1100px\)/);
   assert.doesNotMatch(css, /images\.unsplash\.com/);
@@ -47,10 +47,10 @@ test("mobile header lays out all primary navigation links in a visible grid", ()
 });
 
 
-test("homepage reserves an honest hero image slot and does not reuse one fake shoe image for every category", () => {
+test("homepage uses an original BF-branded hero image and reserves distinct category image slots", () => {
   assert.match(html, /class="hero-image-slot" id="hero-image-slot"/);
   assert.match(html, /src="\/assets\/bf-shoes-home-hero\.jpg"/);
-  assert.match(html, /alt="BF SHOES black sneaker concept with red accents"/);
+  assert.match(html, /alt="Original BF SHOES black performance sneaker with a red geometric BF badge"/);
   assert.equal((html.match(/class="category-image-slot"/g) || []).length, 5);
   assert.doesNotMatch(html, /<img src="\/bf-shoes-hero\.svg"/);
 });
