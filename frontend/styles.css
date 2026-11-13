@@ -521,3 +521,13 @@ body{background:#fff;color:#121820;font-size:13px}
 .category-card:hover img{transform:scale(1.06)}
 @media(max-width:900px){.hero-reference{min-height:430px;height:430px;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr)}.hero-reference .hero-product{min-height:340px}.hero-script{right:2%;top:9%}.category-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.category-card{height:165px}}
 @media(max-width:650px){.hero-reference{height:auto;min-height:0;padding:0 18px 0;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto}.hero-reference .hero-copy{grid-column:1;grid-row:1;padding:42px 0 0}.hero-reference h1{font-size:clamp(48px,13vw,72px)}.hero-slogan{font-size:clamp(20px,6vw,30px)}.hero-reference .hero-product{grid-column:1;grid-row:2;min-height:260px;margin:-6px -10px 0;transform:none}.hero-script{right:5%;top:38%;font-size:22px}.hero-reference .hero-benefits{position:relative;grid-column:1;grid-row:3;left:auto;right:auto;bottom:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));padding:15px 0 18px}.benefit-strip{grid-template-columns:repeat(2,minmax(0,1fr));padding:14px 16px;gap:14px}.benefit-strip>div{justify-content:flex-start}.benefit-strip b{font-size:24px}.benefit-strip strong{font-size:10px}.benefit-strip small{font-size:9px}.category-showcase{padding:26px 16px 32px}.category-heading{align-items:flex-start;flex-direction:column;gap:16px}.category-tabs{gap:6px}.category-tabs a{padding:7px 12px;font-size:10px}.category-cards{gap:9px}.category-card{height:138px;padding:18px 12px;border-radius:6px}.category-card span{font-size:17px}.category-card small{font-size:10px}.category-card img{width:78%;height:90%;right:-8%;bottom:-2%}}
+
+/* QA fix: keep tablet catalog cards in the full results column and maintain header selector contrast. */
+@media(min-width:781px) and (max-width:1100px){
+  .catalog-results{display:block;width:100%;min-width:0}
+  .catalog-results>.product-grid{display:grid;width:100%;min-width:0;grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(min-width:601px){
+  .site-header .market-select{background:#11161d;color:#fff;border-color:#e31b2f;color-scheme:dark}
+  .site-header .market-select option{background:#11161d;color:#fff}
+}
