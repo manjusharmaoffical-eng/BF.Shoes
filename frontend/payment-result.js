@@ -1,0 +1,4 @@
+const params=new URLSearchParams(location.search),status=params.get('status'),order=params.get('order');
+const copy={success:['Payment verified','Your PayU payment was verified. Your order is now being processed.'],failed:['Payment not completed','The payment was not completed. If you were charged, contact BF SHOES support.'],pending:['Payment pending','PayU has not confirmed the final payment status yet. Please contact BF SHOES before retrying.'],review:['Payment needs review','Payment verification or stock allocation needs manual review. Please contact BF SHOES with your order number.']};
+const view=copy[status]||['Payment status unavailable','Return to BF SHOES and contact support if you were charged.'];
+document.getElementById('title').textContent=view[0];document.getElementById('message').textContent=view[1];document.getElementById('order').textContent=order?'Order #'+order:'';

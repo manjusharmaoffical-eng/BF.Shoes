@@ -23,42 +23,17 @@ button,.pay{display:inline-block;border:0;border-radius:8px;padding:12px 16px;fo
 button:focus-visible,a:focus-visible{outline:3px solid #c7192d;outline-offset:3px}
 @media(max-width:380px){.card{padding:20px}.detail{align-items:flex-start;flex-direction:column}.detail strong{text-align:left}}
 </style>
+<link rel="stylesheet" href="/brand-pages.css">
 </head>
-<body>
+<body class="brand-page">
 <main class="card">
   <div class="brand">BF SHOES</div>
-  <p class="eyebrow" style="text-align:center">INDIA PAYMENT DETAILS</p>
-  <h1>Pay by UPI or Bank Transfer</h1>
-  <p class="sub">Use the verified details below when making a manual transfer for a BF SHOES order.</p>
-
-  <section aria-labelledby="upi-heading">
-    <p class="eyebrow" id="upi-heading">UPI PAYMENT</p>
-    <p class="payee">Mohammed Faisal Khan</p>
-    <div class="detail"><span>UPI ID</span><strong id="upi">9110769425@kotakbank</strong></div>
-    <button class="copy" type="button" data-copy="upi">Copy UPI ID</button>
-    <a class="pay" href="upi://pay?pa=9110769425%40kotakbank&amp;pn=Mohammed%20Faisal%20Khan&amp;cu=INR">Open UPI app</a>
-  </section>
-
-  <section class="section" aria-labelledby="bank-heading">
-    <p class="eyebrow" id="bank-heading">BANK TRANSFER (IMPS / NEFT / RTGS)</p>
-    <div class="detail"><span>Account holder</span><strong>Mohammed Faisal Khan</strong></div>
-    <div class="detail"><span>Account number</span><strong id="account">0054121119</strong></div>
-    <button class="copy" type="button" data-copy="account">Copy account number</button>
-    <div class="detail"><span>IFSC code</span><strong id="ifsc">KKBK0007509</strong></div>
-    <button class="copy" type="button" data-copy="ifsc">Copy IFSC</button>
-    <div class="detail"><span>Bank</span><strong>Kotak Mahindra Bank</strong></div>
-    <div class="detail"><span>Home branch</span><strong>Hyderabad – Attapur</strong></div>
-  </section>
-
-  <p class="notice"><strong>Important:</strong> Before paying, confirm your BF SHOES order total and order reference. Enter the exact amount shown on your confirmed order. A bank/UPI transfer alone does not confirm an order; BF SHOES must verify receipt separately. Never share your UPI PIN or OTP.</p>
+  <p class="eyebrow" style="text-align:center">PAYMENT SETUP</p>
+  <h1>Manual payment is not available yet</h1>
+  <p class="sub">BF SHOES is completing payment-account verification. UPI and bank-transfer details will appear here only after the merchant setup is verified.</p>
+  <div class="notice"><strong>Please do not transfer money to previously shared or unverified account details.</strong> Your checkout remains unavailable until the payment provider and order total are confirmed.</div>
   <a class="back" href="/">← Back to BF SHOES</a>
 </main>
-<script>
-document.querySelectorAll('[data-copy]').forEach(button=>button.addEventListener('click',async()=>{
-  const value=document.getElementById(button.dataset.copy).textContent.trim();
-  try{await navigator.clipboard.writeText(value);button.textContent='Copied';}
-  catch{button.textContent=value+' — select and copy';}
-}));
-</script>
+<script defer src="/upi-payment.js"></script>
 </body>
 </html>
