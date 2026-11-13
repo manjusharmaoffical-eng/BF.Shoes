@@ -475,3 +475,49 @@ body{background:#fff;color:#121820;font-size:13px}
 .campaign-strip .campaign-content span{font-size:12px;opacity:.8}
 .campaign-strip .campaign-dismiss{border:1px solid currentColor;background:transparent;color:inherit;width:30px;height:30px;min-width:30px;border-radius:50%;font-size:20px;line-height:1;cursor:pointer}
 @media(max-width:600px){.campaign-strip .campaign-inner{gap:8px}.campaign-strip .campaign-content{gap:8px}.campaign-strip .campaign-content img{width:44px;height:38px}}
+
+/* Approved BF SHOES reference layout: black/red hero, benefit band and category tiles. */
+.hero-reference{min-height:500px;height:500px;padding:0 clamp(24px,4.2vw,64px) 76px;grid-template-columns:minmax(0,.88fr) minmax(0,1.12fr);background:#050505}
+.hero-reference .hero-photo{background:radial-gradient(ellipse at 75% 55%,#311016 0%,transparent 38%),linear-gradient(110deg,#030303 0%,#101014 54%,#050505 100%)}
+.hero-reference .hero-copy{padding:54px 0 38px;max-width:680px;z-index:3}
+.hero-reference .eyebrow{color:#fff;margin-bottom:16px;font-size:10px;letter-spacing:.22em}
+.hero-reference .hero-bf{color:#e31b2f}
+.hero-reference h1{font-size:clamp(52px,6.6vw,100px);font-weight:900;line-height:.9;letter-spacing:-.075em;white-space:nowrap}
+.hero-slogan{margin:12px 0 0;color:#fff;font-size:clamp(22px,2.65vw,40px);font-weight:900;letter-spacing:-.04em;line-height:1.05}
+.hero-slogan em{color:#e31b2f;font-style:normal}
+.hero-reference .hero-tagline{margin:14px 0 20px;max-width:510px;font-size:clamp(13px,1.2vw,17px);color:#f1f1f1}
+.hero-reference .button-light{min-height:48px;padding:0 22px;background:#e31b2f;color:white;border:1px solid #e31b2f;border-radius:4px;font-size:13px;font-weight:800;gap:28px}
+.hero-reference .hero-product{background:url('/bf-shoes-hero.svg') center/contain no-repeat;min-height:410px;filter:drop-shadow(0 30px 32px #000b);mix-blend-mode:normal;transform:scale(1.08)}
+.hero-script{position:absolute;right:3.5%;top:15%;z-index:2;color:#fff;font-family:Georgia,serif;font-style:italic;font-size:clamp(22px,3vw,42px);line-height:1.05;transform:rotate(-9deg);text-align:center}
+.hero-script em{color:#e31b2f}
+.hero-reference .hero-benefits{left:4.2%;right:4.2%;padding:16px 0 18px;gap:12px}
+.hero-reference .hero-benefits div{font-size:17px}
+.hero-reference .hero-benefits span{font-size:11px}
+.benefit-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:#f4f4f5;color:#111;padding:17px clamp(22px,5vw,76px);gap:16px}
+.benefit-strip>div{display:flex;align-items:center;justify-content:center;gap:14px;min-width:0}
+.benefit-strip b{color:#e31b2f;font-size:28px;line-height:1}
+.benefit-strip span{display:grid;gap:4px}
+.benefit-strip strong{font-size:12px;font-weight:900;letter-spacing:.02em}
+.benefit-strip small{font-size:10px;color:#555}
+.category-showcase{padding:34px clamp(22px,4.2vw,64px) 40px;background:#fff;color:#111}
+.category-heading{display:flex;justify-content:space-between;align-items:end;gap:24px;margin-bottom:22px}
+.category-heading .eyebrow{color:#e31b2f;font-size:12px;font-weight:900;letter-spacing:.18em;margin:0 0 8px}
+.category-heading h2{font-size:clamp(28px,3vw,42px);line-height:1;letter-spacing:-.06em;margin:0;font-weight:900}
+.category-heading h2 em{color:#e31b2f;font-style:normal}
+.category-heading p:not(.eyebrow){margin:8px 0 0;font-size:14px;color:#333}
+.category-tabs{display:flex;flex-wrap:wrap;gap:8px}
+.category-tabs a{border:1px solid #ddd;border-radius:24px;padding:9px 18px;font-size:12px;color:#171717;text-decoration:none}
+.category-tabs a.active{background:#e31b2f;border-color:#e31b2f;color:white}
+.category-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.category-card{height:174px;position:relative;overflow:hidden;border-radius:9px;background:#08090c;color:white;text-decoration:none;padding:28px 22px;display:flex;flex-direction:column;justify-content:space-between;isolation:isolate}
+.category-card:before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(0,0,0,.94),rgba(0,0,0,.55) 58%,rgba(0,0,0,.05))}
+.category-card img{position:absolute;z-index:-2;right:-3%;bottom:-8%;width:70%;height:110%;object-fit:contain;mix-blend-mode:screen;transition:transform .25s ease}
+.category-card span{font-size:22px;font-weight:900;line-height:1.05;letter-spacing:-.04em}
+.category-card small{font-size:12px;font-weight:700;border-bottom:2px solid #e31b2f;padding-bottom:6px;width:max-content}
+.category-women,.category-casual{background:#c40018}
+.category-women:before,.category-casual:before{background:linear-gradient(90deg,rgba(190,0,20,.98),rgba(210,0,30,.58) 58%,rgba(210,0,30,.06))}
+.category-men img,.category-women img,.category-casual img{filter:contrast(1.05)}
+.category-sports img{width:75%;right:-5%}
+.category-card:hover img{transform:scale(1.06)}
+@media(max-width:900px){.hero-reference{min-height:430px;height:430px;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr)}.hero-reference .hero-product{min-height:340px}.hero-script{right:2%;top:9%}.category-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.category-card{height:165px}}
+@media(max-width:650px){.hero-reference{height:auto;min-height:0;padding:0 18px 0;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto}.hero-reference .hero-copy{grid-column:1;grid-row:1;padding:42px 0 0}.hero-reference h1{font-size:clamp(48px,13vw,72px)}.hero-slogan{font-size:clamp(20px,6vw,30px)}.hero-reference .hero-product{grid-column:1;grid-row:2;min-height:260px;margin:-6px -10px 0;transform:none}.hero-script{right:5%;top:38%;font-size:22px}.hero-reference .hero-benefits{position:relative;grid-column:1;grid-row:3;left:auto;right:auto;bottom:auto;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));padding:15px 0 18px}.benefit-strip{grid-template-columns:repeat(2,minmax(0,1fr));padding:14px 16px;gap:14px}.benefit-strip>div{justify-content:flex-start}.benefit-strip b{font-size:24px}.benefit-strip strong{font-size:10px}.benefit-strip small{font-size:9px}.category-showcase{padding:26px 16px 32px}.category-heading{align-items:flex-start;flex-direction:column;gap:16px}.category-tabs{gap:6px}.category-tabs a{padding:7px 12px;font-size:10px}.category-cards{gap:9px}.category-card{height:138px;padding:18px 12px;border-radius:6px}.category-card span{font-size:17px}.category-card small{font-size:10px}.category-card img{width:78%;height:90%;right:-8%;bottom:-2%}}
