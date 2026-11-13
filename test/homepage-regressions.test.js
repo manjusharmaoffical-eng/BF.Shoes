@@ -77,3 +77,10 @@ test("public UPI page does not expose unverified bank account details", () => {
   assert.match(upi, /Manual payment is not available yet/);
   assert.doesNotMatch(upi, /9110769425|0054121119|KKBK0007509|Mohammed Faisal Khan/);
 });
+
+test("homepage matches the approved first-screen sequence without unapproved filler sections", () => {
+  assert.doesNotMatch(html, /Easy by design|Clear delivery terms|Made to move|THE BF LETTER|Good things\.<br \/><em>Occasionally\.|Move different\.<br \/>Keep it simple\.|class="ticker"/);
+  assert.match(html, /Shop by Category/);
+  assert.match(html, /Find Your Perfect Pair/);
+  assert.match(css, /\.category-heading \.category-rule\{display:block/);
+});

@@ -454,3 +454,12 @@ body{background:#fff;color:#121820;font-size:13px}
 .category-formal{background:#f7f7f8}
 @media(max-width:1100px){.category-cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:650px){.announcement-bar{font-size:8px;gap:7px;letter-spacing:.07em;flex-wrap:wrap}.category-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.site-header .main-nav a.nav-current{padding:7px 9px}}
+
+/* Homepage alignment to the approved BF SHOES reference: category title is centered
+   between red rules; remove the unapproved promise/newsletter content blocks. */
+.category-heading{justify-content:center;align-items:center;text-align:center;gap:34px;margin-bottom:22px}
+.category-heading .category-rule{display:block;width:min(15vw,230px);height:1px;background:#e31b2f;flex:0 1 230px}
+.category-heading h2{font-size:clamp(28px,3vw,42px);letter-spacing:-.035em}
+.category-heading p:not(.eyebrow){margin:6px 0 0;color:#666;font-size:14px}
+@media(max-width:650px){.category-heading{flex-direction:row;gap:12px;align-items:center}.category-heading .category-rule{width:auto;flex:1;min-width:18px}.category-heading h2{font-size:clamp(18px,5vw,27px)}.category-heading p:not(.eyebrow){font-size:11px}}
+.footer-top{align-items:center}
