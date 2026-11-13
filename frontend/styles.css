@@ -58,7 +58,7 @@ body{background:#fff;color:#121820;font-size:13px}
 .cart-trigger svg{width:24px;height:24px;stroke:#fff}
 .cart-trigger span{position:absolute;top:-7px;right:-7px;background:#e11d36;width:18px;height:18px;font-size:10px}
 .hero-reference{height:190px;min-height:190px;grid-template-columns:38% 1fr 205px;background:#050709;color:#fff;border-bottom:0;isolation:isolate}
-.hero-photo{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.92),rgba(0,0,0,.62) 43%,rgba(0,0,0,.1)),url('/banner-right-shoe.jpg') center 52%/cover;z-index:-2;opacity:.95}
+.hero-photo{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.92),rgba(0,0,0,.62) 43%,rgba(0,0,0,.1)),none center 52%/cover;z-index:-2;opacity:.95}
 .hero-reference:after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.4),transparent 45%);z-index:-1}
 .hero-reference .hero-copy{padding:28px 0 24px 5.2%;justify-content:center}
 .hero-reference .eyebrow{color:#fff;margin:0 0 5px;font-size:10px;letter-spacing:.18em}
@@ -66,7 +66,7 @@ body{background:#fff;color:#121820;font-size:13px}
 .hero-tagline{display:flex;gap:15px;align-items:center;margin:6px 0 15px;font-size:12px;color:#f4f4f4}
 .hero-tagline span{color:#aaa}
 .button-light{background:#fff;color:#080b0f;border-color:#fff;border-radius:10px;min-height:34px;padding:0 17px;gap:22px;font-size:11px}
-.hero-product{align-self:stretch;background:url('/banner-right-shoe.jpg') center 54%/contain no-repeat;filter:grayscale(1) contrast(1.18);mix-blend-mode:screen;transform:scale(1.2)}
+.hero-product{align-self:stretch;background:none center 54%/contain no-repeat;filter:grayscale(1) contrast(1.18);mix-blend-mode:screen;transform:scale(1.2)}
 .hero-benefits{align-self:center;border-left:1px solid #aab0b7;padding:0 18px;display:grid;gap:14px;font-size:20px;color:#fff}
 .hero-benefits div{display:flex;align-items:center;gap:13px;white-space:nowrap}
 .hero-benefits span{font-size:12px}
@@ -131,8 +131,8 @@ body{background:#fff;color:#121820;font-size:13px}
 .bf-logo-copy{font-size:20px;letter-spacing:-.035em}
 .bf-logo-copy small{font-size:8px;letter-spacing:.2em}
 .hero-reference{background:#07090b}
-.hero-photo{background-image:linear-gradient(90deg,rgba(0,0,0,.93),rgba(0,0,0,.64) 43%,rgba(0,0,0,.12)),url('/banner-right-shoe.jpg');background-position:center 55%;background-size:cover}
-.hero-product{background-image:url('/banner-right-shoe.jpg');background-position:center;background-size:contain;background-repeat:no-repeat;filter:grayscale(1) contrast(1.2);mix-blend-mode:normal;transform:scale(1.06)}
+.hero-photo{background-image:linear-gradient(90deg,rgba(0,0,0,.93),rgba(0,0,0,.64) 43%,rgba(0,0,0,.12)),none;background-position:center 55%;background-size:cover}
+.hero-product{background-image:none;background-position:center;background-size:contain;background-repeat:no-repeat;filter:grayscale(1) contrast(1.2);mix-blend-mode:normal;transform:scale(1.06)}
 .hero-reference .hero-copy{position:relative;z-index:2}
 .hero-benefits{position:relative;z-index:2}
 .catalog-status:empty{display:none}
@@ -151,8 +151,8 @@ body{background:#fff;color:#121820;font-size:13px}
 .bf-logo-mark{font-weight:900;transform:skew(-8deg);letter-spacing:-.14em}
 .bf-logo-copy{font-weight:800}
 .hero-reference{min-height:220px;height:220px;grid-template-columns:35% 1fr 195px}
-.hero-photo{background-image:linear-gradient(90deg,rgba(0,0,0,.88) 0%,rgba(0,0,0,.56) 43%,rgba(0,0,0,.12) 75%),url('/banner-right-shoe.jpg')}
-.hero-product{background-image:url('/banner-right-shoe.jpg');background-size:contain;filter:grayscale(1) contrast(1.2);opacity:.96}
+.hero-photo{background-image:linear-gradient(90deg,rgba(0,0,0,.88) 0%,rgba(0,0,0,.56) 43%,rgba(0,0,0,.12) 75%),none}
+.hero-product{background-image:none;background-size:contain;filter:grayscale(1) contrast(1.2);opacity:.96}
 .hero-benefits{gap:12px}
 .catalog-topline{margin-bottom:17px}
 .catalog-sidebar{background:#fcfcfd}

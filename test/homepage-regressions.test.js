@@ -59,7 +59,7 @@ test("tablet filter drawer never reserves a desktop catalog grid column", () => 
 test("legacy manifesto and generic shoe imagery are removed from the homepage", async () => {
   const hero = await readFile(new URL("../frontend/bf-shoes-hero.svg", import.meta.url), "utf8");
   assert.doesNotMatch(html, /manifesto|Good design|doesn.t need|banner-left-shoe|banner-right-shoe/);
-  assert.doesNotMatch(css, /\.manifesto|bf-hero-shoe\.webp/);
+  assert.doesNotMatch(css, /\.manifesto|bf-hero-shoe\.webp|banner-left-shoe|banner-right-shoe/);
   assert.match(css, /url\('\/bf-shoes-hero\.svg'\)/);
   assert.match(hero, /BF SHOES|BF/);
 });
