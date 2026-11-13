@@ -23,16 +23,18 @@ test("homepage mobile controls have usable minimum touch sizes", () => {
   assert.match(css, /\.product-card \.add-row \.button\{min-height:42px/);
 });
 
-test("homepage welcomes visitors with the local BF signature sneaker hero and responsive 3D styling", () => {
+test("homepage uses the approved BF-branded sneaker photo and reference headline", () => {
   assert.match(html, /PREMIUM FOOTWEAR/);
   assert.match(html, /<span class="hero-bf">BF<\/span> SHOES/);
   assert.match(html, /STEP UP YOUR <em>STYLE<\/em>/);
   assert.match(html, /class="category-cards"[\s\S]*?category-men[\s\S]*?category-women[\s\S]*?category-sports[\s\S]*?category-casual/);
   assert.match(html, /class="benefit-strip"/);
-  assert.ok(css.includes("url('/bf-shoes-hero.svg')"));
+  assert.ok(css.includes("url('/bf-hero-shoe.webp')"));
+  assert.match(html, /styles\.css\?v=bf-home-20261113-4/);
+  assert.match(html, /app\.js\?v=bf-home-20261113-4/);
   assert.doesNotMatch(html, /images\.unsplash\.com\/photo-1542291026/);
-  assert.match(css, /perspective\(1100px\) rotateY\(-13deg\)/);
-  assert.match(css, /@media\(prefers-reduced-motion:reduce\)[\s\S]*?\.hero-reference \.hero-product\{animation:none/);
+  assert.doesNotMatch(css, /bfSneakerFloat|perspective\(1100px\)/);
+  assert.doesNotMatch(css, /images\.unsplash\.com/);
 });
 
 test("mobile header lays out all primary navigation links in a visible grid", () => {
@@ -43,4 +45,9 @@ test("mobile header lays out all primary navigation links in a visible grid", ()
 
 test("mobile market selector has readable foreground and background contrast", () => {
   assert.match(css, /\.site-header \.market-select\{[\s\S]*?background:#fff;color:#111;border-color:#e31b2f/);
+});
+
+test("tablet filter drawer never reserves a desktop catalog grid column", () => {
+  assert.match(css, /@media\(max-width:1024px\)\{[\s\S]*?\.catalog-layout\{position:relative;grid-template-columns:minmax\(0,1fr\)/);
+  assert.match(css, /@media\(max-width:1024px\)\{\.catalog-layout\{grid-template-columns:minmax\(0,1fr\)!important\}/);
 });
