@@ -1,141 +1,90 @@
 <!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="theme-color" content="#111111" />
-<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<meta name="description" content="Discover everyday icons and premium sneakers at BF SHOES. Checkout opens when verified delivery and payment setup is complete." />
-<title>BF SHOES — Step Up Your Style</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Poppins:ital,wght@0,400;0,600;0,700;0,800;1,800&family=Great+Vibes&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link rel="stylesheet" href="/styles.css" />
-<script defer src="/app.js"></script>
-
-<!-- BANNER FIX CSS -->
-<style>
-    /* Ye CSS sirf banner ko theek karegi, tere baaki design ko nahi chuegi */
-    .hero-custom-banner {
-        background: linear-gradient(90deg, rgba(10,10,10,0.95) 40%, rgba(10,10,10,0.3) 100%), 
-                    url('/banner-right-shoe.jpg') no-repeat center center/cover;
-        color: white; display: flex; align-items: center; justify-content: flex-start;
-        padding: 80px 5%; position: relative; min-height: 85vh;
-    }
-    .hero-custom-content { width: 55%; z-index: 2; }
-    .hero-custom-tag { display: flex; align-items: center; gap: 15px; font-size: 12px; letter-spacing: 3px; font-weight: 600; text-transform: uppercase; margin-bottom: 20px; font-family: 'Poppins', sans-serif;}
-    .hero-custom-tag .line { width: 60px; height: 2px; background: #e63946; }
-    .hero-custom-title { font-size: 75px; font-weight: 800; font-style: italic; line-height: 1; margin-bottom: 10px; font-family: 'Poppins', sans-serif; color: #fff; }
-    .hero-custom-title span { color: #e63946; }
-    .hero-custom-subtitle { font-size: 32px; font-weight: 700; font-style: italic; margin-bottom: 20px; font-family: 'Poppins', sans-serif; color: #fff;}
-    .hero-custom-subtitle span { color: #e63946; }
-    .hero-custom-desc { font-size: 16px; color: #cccccc; margin-bottom: 40px; max-width: 80%; font-family: 'DM Sans', sans-serif;}
-    .btn-custom-red { background: #e63946; color: white; padding: 15px 35px; border-radius: 8px; font-weight: 600; font-size: 16px; display: inline-flex; align-items: center; gap: 10px; text-decoration: none; transition: 0.3s; font-family: 'DM Sans', sans-serif;}
-    .btn-custom-red:hover { background: #c1121f; color: white;}
-    .hero-custom-icons { display: flex; gap: 25px; margin-top: 50px; font-size: 13px; font-weight: 500; font-family: 'DM Sans', sans-serif;}
-    .hero-custom-icons div { display: flex; align-items: center; gap: 8px; border-right: 1px solid #555; padding-right: 25px; }
-    .hero-custom-icons div:last-child { border-right: none; padding-right: 0; }
-    .hero-custom-icons i { color: #ffffff; font-size: 18px; }
-    .hero-custom-script { position: absolute; top: 15%; right: 5%; font-family: 'Great Vibes', cursive; font-size: 50px; color: white; transform: rotate(-10deg); z-index: 3; text-shadow: 2px 2px 5px rgba(0,0,0,0.7); }
-    .hero-custom-script span { color: #e63946; font-size: 60px; display: block; margin-left: 30px; }
-
-    @media (max-width: 768px) {
-        .hero-custom-banner { flex-direction: column; text-align: left; padding: 50px 5% 80px 5%; justify-content: center; background-position: 65% center; min-height: 90vh; }
-        .hero-custom-content { width: 100%; margin-top: 50px; }
-        .hero-custom-title { font-size: 48px; }
-        .hero-custom-subtitle { font-size: 22px; }
-        .hero-custom-icons { justify-content: flex-start; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
-        .hero-custom-icons div { border-right: none; padding-right: 0; width: 45%; font-size: 11px;}
-        .hero-custom-script { display: block; top: 20px; right: 5%; font-size: 28px; }
-        .hero-custom-script span { font-size: 32px; margin-left: 10px; }
-    }
-</style>
-
-</head>
-<body>
-
-<section id="campaign-strip" class="campaign-strip hidden" aria-label="Current BF SHOES offers"></section>
-<style>.campaign-strip{background:#111;color:#fff;padding:10px 5vw;display:flex;justify-content:center;gap:14px;align-items:center;text-align:center}.campaign-strip.hidden{display:none}.campaign-strip a{color:inherit;text-decoration:none;display:flex;gap:14px;align-items:center;justify-content:center}.campaign-strip img{width:56px;height:42px;object-fit:cover;border-radius:2px}.campaign-strip strong{font-size:13px;letter-spacing:.04em}.campaign-strip span{font-size:12px;opacity:.8}@media(max-width:600px){.campaign-strip{padding:8px 12px}.campaign-strip img{width:44px;height:38px}}</style>
-
-<header class="site-header">
-<a class="wordmark" href="#top" aria-label="BF Shoes home"><span class="bf-logo-mark">BF</span><span class="bf-logo-copy">SHOES<small>STEP INTO BETTER</small></span></a>
-<nav class="main-nav" aria-label="Main navigation"><a class="nav-current" href="#top">Home</a><a href="#shop">Shop</a><a href="#shop">Brands</a><a href="#shop">New Arrivals</a><a href="#shop">Best Sellers</a><a href="#shop">Sale</a><a href="#story">About</a></nav>
-<label class="header-search"><input id="header-product-search" type="search" placeholder="Search for shoes..." aria-label="Search for shoes"><span>⌕</span></label>
-<label class="market-select-wrap"><span class="sr-only">Market</span><select id="market-selector" class="market-select" aria-label="Choose market"><option value="IN">India · INR</option><option value="AE">UAE · AED</option></select></label>
-<button class="header-icon" type="button" aria-label="Account" id="account-link">♙</button><button class="header-icon" type="button" aria-label="Wishlist" id="header-wishlist">♡</button>
-<button class="cart-trigger" id="open-cart" aria-label="Open shopping bag"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l1 12H4L5 8Z M9 9V6a3 3 0 0 1 6 0v3"/></svg><span id="cart-count">0</span></button>
-</header>
-
-<main id="top">
-
-<!-- YAHAN TUNE NAYA BANNER LAGAYA HAI -->
-<section class="hero-custom-banner">
-    <div class="hero-custom-script">Be Bold <span>Be Fast</span></div>
-    <div class="hero-custom-content">
-        <div class="hero-custom-tag">Premium Footwear <div class="line"></div></div>
-        <h1 class="hero-custom-title"><span>BF</span> SHOES</h1>
-        <h2 class="hero-custom-subtitle">STEP UP YOUR <span>STYLE</span></h2>
-        <p class="hero-custom-desc">Premium quality shoes for every step of your journey.</p>
-        <a href="#shop" class="btn-custom-red">Shop Now <i class="fas fa-arrow-right"></i></a>
-        
-        <div class="hero-custom-icons">
-            <div><i class="far fa-gem"></i> Premium Quality</div>
-            <div><i class="fas fa-bolt"></i> Fast Delivery</div>
-            <div><i class="fas fa-shield-alt"></i> Trusted Brand</div>
-            <div><i class="fas fa-headset"></i> 24/7 Support</div>
-        </div>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#111"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><title>BF SHOES · Admin</title><link rel="stylesheet" href="/styles.css"><style>
+body{background:#f4f3ef;color:#111;font-family:Arial,sans-serif}.admin{max-width:1180px;margin:auto;padding:28px 18px}.admin header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ccc;padding-bottom:18px;margin-bottom:24px}.admin h1{font-size:26px;margin:0}.panel{background:white;border:1px solid #ddd;padding:22px;margin:18px 0}.admin input,.admin select,.admin textarea{padding:11px;border:1px solid #ccc;width:100%;box-sizing:border-box;background:#fff}.admin label{display:block;font-size:12px;margin:12px 0 5px}.admin button{padding:11px 15px;background:#111;color:white;border:0;cursor:pointer;margin-top:12px}.admin .secondary{background:#555}.admin .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.admin table{width:100%;border-collapse:collapse;font-size:13px}.admin th,.admin td{text-align:left;border-bottom:1px solid #ddd;padding:10px 7px}.admin .table-wrap{overflow:auto}.admin .muted{color:#666;font-size:13px}.admin .status{padding:10px;background:#eee;margin-top:12px;white-space:pre-wrap}.admin .hidden{display:none}.admin .tabs{display:flex;gap:8px;flex-wrap:wrap}.admin .tabs button{margin:0}.admin .tabs button[aria-pressed=true]{background:#555}@media(max-width:650px){.admin .grid{grid-template-columns:1fr}.admin header{align-items:flex-start;gap:12px;flex-direction:column}}
+</style></head><body><main class="admin">
+<header>
+    <div><p class="muted">BF SHOES / PRIVATE AREA</p><h1>Store operations</h1></div>
+    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <a href="/" style="padding: 11px 15px; background: #555; color: white; text-decoration: none; font-size: 14px;">← Back to Store</a>
+        <button id="logout" class="secondary hidden" style="margin-top: 0;">Sign out</button>
     </div>
-</section>
-<!-- BANNER END -->
+</header>
+<section class="panel" id="login-panel"><h2>Admin sign in</h2><p class="muted">Uses the existing secure API login. Access token is kept in this tab's session only.</p><form id="login"><label>Email</label><input name="email" type="email" required autocomplete="username"><label>Password</label><input name="password" type="password" required autocomplete="current-password"><button>Sign in</button></form></section>
+<div id="workspace" class="hidden">
+<section class="panel"><h2>Change admin password</h2><p class="muted">Use a unique password of at least 14 characters. Your current password is required.</p><form id="password-change-form"><div class="grid"><div><label>Current password</label><input name="current_password" type="password" required autocomplete="current-password" maxlength="200"></div><div><label>New password</label><input name="new_password" type="password" required minlength="14" maxlength="200" autocomplete="new-password"></div><div><label>Confirm new password</label><input name="confirm_password" type="password" required minlength="14" maxlength="200" autocomplete="new-password"></div></div><button>Change password</button></form></section>
+<section class="panel"><div class="tabs">
+    <button data-tab="products" aria-pressed="true">Products</button>
+    <button data-tab="inventory" aria-pressed="false">Inventory</button>
+    <button data-tab="warehouse" aria-pressed="false">Warehouse & Production</button>
+    <button data-tab="orders" aria-pressed="false">Orders</button>
+    <button data-tab="analytics" aria-pressed="false">Analytics</button>
+    <button data-tab="team" aria-pressed="false">Staff</button>
+    <button data-tab="activity" aria-pressed="false">Activity log</button>
+    <button data-tab="communications" aria-pressed="false">Email queue</button>
+    <button data-tab="campaigns" aria-pressed="false">Campaigns</button>
+    <button data-tab="finance" aria-pressed="false">Finance & P/L</button>
+    <button data-tab="invoices" aria-pressed="false">Invoices & Tax</button>
+    <button data-tab="ai-studio" aria-pressed="false">AI Product Studio</button>
+    <button data-tab="ultron" aria-pressed="false">Ultron Monitor</button>
+    <!-- NAYE TABS ADD KIYE HAIN (Purane tab waise hi hain) -->
+    <button data-tab="customers" aria-pressed="false">Customers</button>
+    <button data-tab="coupons" aria-pressed="false">Coupons & Discounts</button>
+    <button data-tab="shipping" aria-pressed="false">Shipping & Tracking</button>
+    <button data-tab="seo" aria-pressed="false">SEO & Payments</button>
+</div><p id="status" class="status" role="status">Signed in. Choose a section.</p></section>
 
-<section class="ticker" aria-label="Brand values"><div>BUILT FOR THE EVERYDAY <span>✳</span> CLEAN BY DESIGN <span>✳</span> COMFORT THAT MOVES <span>✳</span> BUILT FOR THE EVERYDAY <span>✳</span></div></section>
-
-<section class="shop-section section-wrap" id="shop">
-<div class="catalog-topline"><div><p class="eyebrow">BF SHOES COLLECTION</p><h2>Find your <strong>next pair.</strong></h2></div><label class="sort-label">Sort by: <select id="product-sort" aria-label="Sort products"><option value="featured">Popularity</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option><option value="name">Name: A–Z</option></select></label></div>
-<div class="catalog-layout">
-
-<aside class="catalog-sidebar" id="catalog-sidebar" aria-label="Product filters"><div class="mobile-filter-heading"><strong>Filter products</strong><button id="close-mobile-filters" type="button" aria-label="Close filters">×</button></div>
-<label class="catalog-search"><span aria-hidden="true">⌕</span><input id="product-search" type="search" placeholder="Search shoes..." aria-label="Search sneakers" autocomplete="off"></label>
-<details open><summary>Categories</summary><label><input type="checkbox" data-category="men"> Men's Shoes</label><label><input type="checkbox" data-category="women"> Women's Shoes</label><label><input type="checkbox" data-category="kids"> Kids' Shoes</label><label><input type="checkbox" data-category="sports"> Sports Shoes</label><label><input type="checkbox" data-category="casual"> Casual Shoes</label><label><input type="checkbox" data-category="running"> Running Shoes</label><label><input type="checkbox" data-category="formal"> Formal Shoes</label></details>
-<details open><summary>Brand</summary><label><input type="checkbox" checked disabled> BF <span class="filter-count" id="brand-count"></span></label></details>
-<details open><summary>Size</summary><label><input type="checkbox" data-size="6"> UK 6</label><label><input type="checkbox" data-size="7"> UK 7</label><label><input type="checkbox" data-size="8"> UK 8</label><label><input type="checkbox" data-size="9"> UK 9</label><label><input type="checkbox" data-size="10"> UK 10</label><label><input type="checkbox" data-size="11"> UK 11</label><label><input type="checkbox" data-size="12"> UK 12</label></details>
-<details open><summary>Color</summary><label><input type="checkbox" data-color="Black"><i class="color-dot" style="--dot:#111"></i>Black</label><label><input type="checkbox" data-color="White"><i class="color-dot" style="--dot:#fff"></i>White</label><label><input type="checkbox" data-color="Gray"><i class="color-dot" style="--dot:#8e969e"></i>Gray</label><label><input type="checkbox" data-color="Blue"><i class="color-dot" style="--dot:#337ed6"></i>Blue</label><label><input type="checkbox" data-color="Red"><i class="color-dot" style="--dot:#e92b3d"></i>Red</label><label><input type="checkbox" data-color="Green"><i class="color-dot" style="--dot:#20a55b"></i>Green</label><label><input type="checkbox" data-color="Beige"><i class="color-dot" style="--dot:#c4b19a"></i>Beige</label></details>
-<details open><summary>Price Range</summary><input class="price-range" type="range" min="699" max="4999" value="4999" id="price-range"><div class="price-range-labels"><span id="price-range-min-value">₹699</span><span id="price-range-value">₹4,999</span></div></details>
-<div class="filter-row" role="group" aria-label="Availability filters"><button class="filter active" data-filter="all">All styles</button><button class="filter" data-filter="available">In stock</button><button class="filter" data-filter="saved">Wishlist <span id="wishlist-count">0</span></button></div>
-</aside>
-
-<div class="catalog-results"><div class="catalog-results-bar"><span id="catalog-count">Showing products</span><div class="catalog-actions"><button class="mobile-filter-trigger" id="mobile-filter-trigger" type="button" aria-expanded="false" aria-controls="catalog-sidebar">☷ Filters</button><div class="view-toggle"><button class="view-mode active" type="button" aria-label="Grid view">▦</button><button class="view-mode" type="button" aria-label="List view">☷</button></div></div></div>
-<div class="catalog-status" id="catalog-status" role="status">Finding your next pair…</div>
-<div class="product-grid" id="product-grid" aria-live="polite"></div>
-<div class="empty-state hidden" id="empty-state"><p class="eyebrow">THE SHELF IS QUIET</p><h3>No pairs just yet.</h3><p>Products will appear here once the BF SHOES catalog is connected and stocked.</p></div></div></div>
-</section>
-
-<section class="manifesto" id="story"><div class="manifesto-image"><img src="/banner-left-shoe.jpg" alt="Minimal sneaker detail" loading="lazy" /></div><div class="manifesto-copy"><p class="eyebrow">OUR STANDARD / 001</p><h2>Good design<br />doesn’t need<br /><em>to shout.</em></h2><p>We believe the best pair is the one you reach for without thinking. Understated by design. Made to move with you. Ready for whatever comes next.</p><a href="#shop" class="text-link">Find your everyday pair <span>↗</span></a><div class="manifesto-number">BF—001</div></div></section>
-
-<section class="promise-row section-wrap"><div><span class="promise-icon">01</span><h3>Easy by design</h3><p>Simple choices. Clear sizing. No fuss.</p></div><div><span class="promise-icon">02</span><h3>Clear delivery terms</h3><p>Delivery charges will be confirmed before orders open.</p></div><div><span class="promise-icon">03</span><h3>Made to move</h3><p>Everyday style, built around comfort.</p></div></section>
-
-</main>
-
-<section class="newsletter section-wrap" aria-labelledby="newsletter-title"><div><p class="eyebrow">THE BF LETTER</p><h2 id="newsletter-title">Good things.<br /><em>Occasionally.</em></h2><p>Get collection updates and new-drop announcements. No spam.</p></div><form id="newsletter-form" class="newsletter-form"><label for="newsletter-email">EMAIL ADDRESS</label><div><input id="newsletter-email" name="email" type="email" autocomplete="email" required maxlength="254" placeholder="you@example.com"><button type="submit" aria-label="Subscribe to newsletter">Join ↗</button></div><small id="newsletter-message" role="status">Join for new-drop announcements and collection updates.</small></form></section>
-
-<footer class="site-footer" id="footer"><div class="footer-top"><a class="wordmark wordmark-footer" href="#top" aria-label="BF SHOES home"><span class="bf-logo-mark">BF</span><span class="bf-logo-copy">SHOES<small>STEP INTO BETTER</small></span></a><p>Move different.<br />Keep it simple.</p><a href="#shop" class="footer-cta">Find your pair <span>↗</span></a></div><div class="footer-bottom"><span>© <span id="year"></span> BF SHOES</span><span>DESIGNED FOR THE EVERYDAY</span><a href="/upi-payment.html">UPI PAYMENT</a><a href="/track-order.html">TRACK ORDER</a><a href="/policies.html#shipping">SHIPPING</a><a href="/policies.html#returns">RETURNS</a><a href="/policies.html#privacy">PRIVACY</a><a href="/policies.html#terms">TERMS</a><a href="/admin.html" rel="nofollow">ADMIN</a></div></footer>
-
-<div class="scrim" id="scrim"></div>
-<aside class="cart-drawer" id="cart-drawer" aria-label="Shopping bag" aria-hidden="true"><div class="drawer-head"><div><p class="eyebrow">YOUR ROTATION</p><h2>Your bag <span id="drawer-count">(0)</span></h2></div><button class="icon-button" id="close-cart" aria-label="Close shopping bag">×</button></div><div class="cart-items" id="cart-items"></div><div class="cart-empty" id="cart-empty"><div class="empty-glyph">BF.</div><h3>Your bag is taking a breather.</h3><p>Find a pair that feels like you.</p><button class="button button-dark" id="continue-shopping">Explore sneakers</button></div><div class="drawer-foot hidden" id="drawer-foot"><div class="subtotal-line"><span>Product subtotal</span><strong id="cart-subtotal">₹0.00</strong></div><p><span id="cart-market-guidance">Delivery and payment setup is not yet complete for this market. Checkout is unavailable.</span> See our <a href="/policies.html#shipping">delivery information</a>.</p><button class="button button-dark button-full" id="checkout-button" disabled>Checkout temporarily unavailable</button></div></aside>
-
-<div class="modal-backdrop" id="checkout-backdrop" aria-hidden="true"><section class="checkout-modal" role="dialog" aria-modal="true" aria-labelledby="checkout-title"><div class="checkout-head"><div><p class="eyebrow">ALMOST YOURS</p><h2 id="checkout-title">Checkout.</h2><p class="checkout-subtitle">A few details, then we’ll take it from here.</p></div><button class="icon-button" id="close-checkout" aria-label="Close checkout">×</button></div><form id="checkout-form"><div class="form-grid"><label class="field field-wide">Full name<input name="customer_name" autocomplete="name" required minlength="2" maxlength="160" placeholder="Your name" /></label><label class="field">Email address<input name="customer_email" type="email" autocomplete="email" required maxlength="254" placeholder="you@example.com" /></label><label class="field">Phone number<input name="customer_phone" type="tel" autocomplete="tel" required minlength="10" maxlength="15" pattern="[+]?[0-9]{10,14}" placeholder="+91 98765 43210" /></label><label class="field">Delivery country<input value="India" readonly aria-readonly="true" /></label><label class="field">PIN code<input name="shipping_pincode" id="shipping-pincode" inputmode="numeric" pattern="500052" maxlength="6" value="500052" required readonly aria-describedby="pin-delivery-note" /><small id="pin-delivery-note">Currently delivering only to PIN code 500052.</small></label><label class="field field-wide">Delivery address<textarea name="shipping_address" autocomplete="street-address" required minlength="10" maxlength="1000" rows="3" placeholder="Building, street, area, city, and any delivery notes"></textarea></label></div><fieldset class="payment-options"><legend>Payment method</legend>
-<div class="payment-method payment-unavailable"><span class="payment-icon">PAYU</span><span class="payment-copy"><strong>PayU Hosted Checkout</strong><p>Secure hosted payment. Available modes depend on your approved PayU merchant account.</p></span><span class="payment-status">Setup pending</span></div>
-</fieldset><div class="checkout-summary"><div><span>Order total</span><strong id="checkout-total">₹0.00</strong></div><small id="checkout-readiness-note">Checkout opens after verified INR prices, delivery fee, GST profile and PayU merchant credentials are configured.</small></div><p class="form-error hidden" id="checkout-error" role="alert"></p><button class="button button-dark button-full" id="place-order" type="submit" disabled>Pay securely with PayU <span>↗</span></button><p class="privacy-note">Your details are used to process and deliver this order.</p></form></section></div>
-
-<div class="success-backdrop" id="success-backdrop" aria-hidden="true"><section class="success-card" role="dialog" aria-modal="true" aria-labelledby="success-title"><div class="success-mark">✓</div><p class="eyebrow">ORDER RECEIVED</p><h2 id="success-title">That’s a good move.</h2><p>Your order has been placed.</p><div class="order-reference"><span>ORDER NUMBER</span><strong id="success-order-number">—</strong></div><p class="success-small">Keep this reference for your records. Our team will confirm delivery details with you.</p><button class="button button-dark button-full" id="finish-order">Back to the store</button></section></div>
-
-<div class="modal-backdrop account-backdrop" id="account-backdrop" aria-hidden="true">
-<section class="checkout-modal account-modal" role="dialog" aria-modal="true" aria-labelledby="account-title">
-<div class="checkout-head"><div><p class="eyebrow">BF SHOES ACCOUNT</p><h2 id="account-title">Welcome back.</h2><p class="checkout-subtitle" id="account-intro">Sign in to your BF SHOES account.</p></div><button class="icon-button" id="account-close" type="button" aria-label="Close account dialog">×</button></div>
-<form id="account-form" class="account-form">
-<label class="field hidden" id="account-name-field">Full name<input id="account-name" name="name" autocomplete="name" minlength="2" maxlength="160" placeholder="Your full name"></label>
-<label class="field">Email address<input id="account-email" name="email" type="email" autocomplete="email" required maxlength="254" placeholder="you@example.com"></label>
-<label class="field">Password<input id="account-password" name="password" type="password" autocomplete="current-password" required minlength="12" maxlength="200" placeholder="At least 12 characters"></label>
-<p class="account-password-hint">Use at least 12 characters, including uppercase, lowercase, and a number when creating an account.</p>
-<p class="form-error hidden" id="account-message" role="status" 
+<!-- ================= PURANA CODE (BILKUL WAISA HI HAI) ================= -->
+<section class="panel" id="products-panel"><h2>Products</h2><form id="product-form"><div class="grid"><div><label>Product name</label><input name="name" required maxlength="160"></div><div><label>Slug</label><input name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*"></div><div><label>Brand</label><input name="brand" value="BF SHOES"></div><div><label>Price (market currency)</label><input name="price" type="number" min="0" step=".01" required><label>Currency</label><select name="currency" required><option value="INR">INR · ₹</option><option value="AED">AED · د.إ</option></select></div><div><label>Image URL (HTTPS)</label><input name="image_url" type="url" placeholder="Optional"></div><div><label>Description</label><input name="description" maxlength="5000"></div><div><label>Unit cost (same currency as product; actual purchase cost)</label><input name="unit_cost" type="number" min="0" step=".01" placeholder="Leave blank if unknown"></div></div><button>Create product</button></form><div class="table-wrap"><table><thead><tr><th>Product</th><th>Price</th><th>Variants</th><th>Active</th></tr></thead><tbody id="products-table"></tbody></table></div>
+<h3>Edit existing product</h3>
+<p class="muted">Update product copy, SEO text and its HTTPS image URL. Price and currency are deliberately left unchanged in this editor.</p>
+<form id="product-edit-form">
+<label>Choose product</label><select name="product_id" id="edit-product-id" required><option value="">Select a product</option></select>
+<div class="grid"><div><label>Product name</label><input name="name" id="edit-product-name" required maxlength="160"></div><div><label>Short description</label><input name="short_description" id="edit-product-short" maxlength="500"></div><div><label>Image URL (HTTPS)</label><input name="image_url" id="edit-product-image" type="url" placeholder="https://…"></div></div>
+<label>Full description</label><textarea name="description" id="edit-product-description" rows="4" maxlength="5000"></textarea>
+<div class="grid"><div><label>SEO title</label><input name="seo_title" id="edit-product-seo-title" maxlength="200"></div><div><label>SEO description</label><input name="seo_description" id="edit-product-seo-description" maxlength="320"></div><div><label>Visibility</label><select name="active" id="edit-product-active"><option value="true">Active / visible</option><option value="false">Inactive / hidden</option></select></div></div>
+<button type="submit">Save product changes</button><button type="button" class="secondary" id="cancel-product-edit">Cancel</button>
+</form>
+<h3>Record actual unit cost</h3>
+<p class="muted">Enter the real purchase cost in the product's own currency. This changes cost records only, never the selling price. Existing order cost snapshots are not rewritten.</p>
+<form id="product-cost-form">
+<label>Choose product</label><select id="product-cost-id" name="product_id" required><option value="">Select a product</option></select>
+<div class="grid"><div><label id="product-cost-currency">Actual unit cost</label><input id="product-cost-value" name="unit_cost" type="number" min="0" step=".01" required placeholder="Enter verified purchase cost"></div><div><p id="product-cost-current" class="muted">Choose a product to view its recorded cost.</p></div></div>
+<button type="submit">Save actual unit cost</button>
+</form>
+<h3>Product photo gallery</h3>
+<p class="muted">Upload real product photos (JPG, PNG or WebP, up to 8 MB each) to the connected Cloudinary media account. You can keep multiple angles and choose the main photo. Images are not published until you add them to a product.</p>
+<form id="product-gallery-form">
+<label>Choose product</label><select id="gallery-product-id" name="product_id" required><option value="">Select a product</option></select>
+<div class="grid"><div><label>Product photos</label><input id="gallery-files" name="images" type="file" accept="image/jpeg,image/png,image/webp" multiple required></div><div><label>Image description / alt text</label><input id="gallery-alt" name="alt_text" maxlength="240" placeholder="e.g. Side view, black running shoe"></div><div><label>Primary image</label><select id="gallery-primary" name="make_primary"><option value="first">First uploaded image</option><option value="none">Keep current primary image</option></select></div></div>
+<button type="submit">Upload product photos</button>
+</form>
+<div id="product-gallery" class="grid" aria-live="polite"><p class="muted">Choose a product to view its photo gallery.</p></div>
+<h3>Add size variant</h3><form id="variant-form"><label>Product</label><select name="product_id" id="variant-product" required><option value="">Select a product</option></select><div class="grid"><div><label>SKU</label><input name="sku" required></div><div><label>Size</label><input name="size_label" required></div><div><label>Color</label><input name="color_name" required></div><div><label>Starting stock</label><input name="stock_qty" type="number" min="0" step="1" required></div></div><button>Add variant</button></form>
+<h3>Bulk add size variants</h3><p class="muted">One variant per line: SKU, size, color, starting stock. Example: BF-001-42, 42, Black, 8. All rows save together or none do.</p>
+<form id="bulk-variant-form"><label>Product</label><select name="product_id" id="bulk-variant-product" required><option value="">Select a product</option></select><label>Variants (one per line)</label><textarea name="variants" rows="7" required placeholder="BF-001-40, 40, Black, 5&#10;BF-001-41, 41, Black, 8"></textarea><button>Add all variants</button></form></section>
+<section class="panel hidden" id="inventory-panel"><h2>Inventory</h2><p class="muted">Adjustments are recorded in the inventory movement log.</p><div class="table-wrap"><table><thead><tr><th>Product</th><th>SKU</th><th>Size / color</th><th>Stock</th></tr></thead><tbody id="inventory-table"></tbody></table></div><h3>Adjust stock</h3><form id="stock-form"><label>SKU</label><input name="sku" required><div class="grid"><div><label>Change (+/-)</label><input name="delta" type="number" step="1" required></div><div><label>Reason</label><input name="reason" minlength="3" maxlength="200" required></div></div><button>Apply adjustment</button></form></section>
+<section class="panel hidden" id="warehouse-panel">
+<h2>Warehouse & Production</h2>
+<p class="muted">Track location-assigned stock, production output, rejects and transfers. Existing stock without a recorded warehouse is shown separately; no opening quantities are invented.</p>
+<button type="button" id="refresh-warehouse" class="secondary">Refresh warehouse dashboard</button>
+<div id="warehouse-summary" class="grid"></div>
+<div class="grid"><div class="panel"><h3>Stock by warehouse</h3><div id="warehouse-stock-chart" role="img" aria-label="Stock units by warehouse"></div></div><div class="panel"><h3>Production output · last 30 days</h3><div id="production-chart" role="img" aria-label="Good and rejected production units"></div></div></div>
+<h3>Warehouses</h3>
+<form id="warehouse-form"><div class="grid"><div><label>Warehouse name</label><input name="name" required minlength="2" maxlength="120" placeholder="e.g. Main Warehouse"></div><div><label>Warehouse code</label><input name="code" required pattern="[A-Za-z0-9_-]{2,24}" maxlength="24" placeholder="MAIN"></div><div><label>Address / location (optional)</label><input name="address" maxlength="500"></div></div><button>Create warehouse</button></form>
+<div class="table-wrap"><table><thead><tr><th>Warehouse</th><th>Code</th><th>Location</th><th>Units</th></tr></thead><tbody id="warehouses-table"></tbody></table></div>
+<h3>Receive / adjust warehouse stock</h3>
+<form id="warehouse-stock-form"><div class="grid"><div><label>Warehouse</label><select name="warehouse_id" id="warehouse-stock-location" required></select></div><div><label>SKU</label><select name="sku" id="warehouse-stock-sku" required></select></div><div><label>Quantity change (+ receive / − issue)</label><input name="delta" type="number" step="1" required></div><div><label>Reason</label><input name="reason" minlength="3" maxlength="200" required></div></div><button>Save stock movement</button></form>
+<h3>Production batches</h3>
+<form id="production-form"><div class="grid"><div><label>SKU to produce</label><select name="sku" id="production-sku" required></select></div><div><label>Planned quantity</label><input name="planned_qty" type="number" min="1" max="1000000" required></div><div><label>Planned date</label><input name="planned_for" type="date"></div><div><label>Notes</label><input name="notes" maxlength="1000"></div></div><button>Create production batch</button></form>
+<div class="table-wrap"><table><thead><tr><th>Batch</th><th>Product / SKU</th><th>Plan</th><th>Good</th><th>Rejected</th><th>Status</th><th>Action</th></tr></thead><tbody id="production-batches-table"></tbody></table></div>
+<form id="production-complete-form"><h3>Complete production batch</h3><div class="grid"><div><label>Batch</label><select name="batch_id" id="production-complete-batch" required></select></div><div><label>Destination warehouse</label><select name="warehouse_id" id="production-destination" required></select></div><div><label>Good units received</label><input name="good_qty" type="number" min="0" required></div><div><label>Rejected units</label><input name="rejected_qty" type="number" min="0" required></div><div><label>Notes</label><input name="notes" maxlength="1000"></div></div><button>Complete batch & receive good stock</button></form>
+<h3>Transfer stock between warehouses</h3>
+<form id="warehouse-transfer-form"><div class="grid"><div><label>From</label><select name="from_warehouse_id" id="transfer-from" required></select></div><div><label>To</label><select name="to_warehouse_id" id="transfer-to" required></select></div><div><label>SKU</label><select name="sku" id="transfer-sku" required></select></div><div><label>Quantity</label><input name="quantity" type="number" min="1" required></div></div><button>Transfer stock</button></form>
+<div class="table-wrap"><table><thead><tr><th>Date</th><th>SKU</th><th>From</th><th>To</th><th>Quantity</th></tr></thead><tbody id="warehouse-transfers-table"></tbody></table></div>
+<p class="muted" id="warehouse-note"></p></section>
+<section class="panel hidden" id="orders-panel"><h2>Orders</h2><button id="refresh-orders" class="secondary">Refresh orders</button><div class="table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Total</th><th>Status</th><th>Update</th></tr></thead><tbody id="orders-table"></tbody></table></div></section>
+<section class="panel hidden" id="analytics-panel"><h2>Business analytics</h2><p class="muted">Select one market at a time. AED and INR figures are never combined. Order value is not profit.</p><label for="analytics-currency">Market currency</label><select id="analytics-currency"><option value="AED">UAE · AED</option><option value="INR">India · INR</option></select><button id="refresh-analytics" class="secondary">Refresh reports</button><div id="analytics-summary" class="grid"></div><h3>Last 30 days</h3><div class="table-wrap"><table><thead><tr><th>Date</th><th>Orders</th><th>Order value</th></tr></thead><tbody id="analytics-daily"></tbody></table></div><h3>Top products</h3><div class="table-wrap"><table><thead><tr><th>Product</th><th>Units sold</th><th>Order value</th></tr></thead><tbody id="analytics-products"></tbody></table></div></section>
+<section class="panel hidden" id="team-panel"><h2>Staff management</h2><p class="muted">Only the owner can add staff or change roles. Use a unique password of at least 14 characters.</p><form id="team-form"><div class="grid"><div><label>Staff email</label><input name="email" type="email" required maxlength="254"></div><div><label>Temporary password</label><input name="password" type="password" minlength="14" maxlength="200" required autocomplete="new-password"></div><div><label>Role</label><select name="role"><option value="staff">Staff (read-only)</option><option value="manager">Manager (operations)</option></select></div></div><button>Add team member</button></form><div class="table-wrap"><table><thead><tr><th>Email</th><th>Role</th><th>Active</th><th>Access</th></tr></thead><tbody id="team-table"></tbody></table></div></section>
+<section class="panel hidden" id="activity-panel"><h2>Activity log</h2><button id="refresh-activity" class="secondary">Refresh activity & performance</button><h3>Staff performance (recorded actions)</h3><div class="table-wrap"><table><thead><tr><th>Staff</th><th>Role</th><th>Actions</th><th>Order actions</th><th>Last activity</th></tr></thead><tbody id="performance-table"></tbody></table></div><h3>Recent activity</h3><div class="table-wrap"><table><thead><tr><th>When</th><th>Staff</th><th>Action</th><th>Resource</th></tr></thead><tbody id="activity-table"></tbody></table></div></section>
+<section class="panel hidden" id="campaigns-panel"><h2>Campaigns & banners</h2><p class="muted">This manages campaign records. Ad platform spend and attribution need separate provider integration.</p><form id="campaign-form"><div class="grid"><div><label>Campaign name</label><input name="name" required minlength="2" maxlength="160"></div><div><label>Type</label><select name="kind"><option value="banner">Banner</option><option value="coupon">Coupon</option><option value="sale">Sale</option><option value="ad">Ad record</option></select></div><div><label>Headline</label><input name="headline" maxlength="200"></div><div><label>Image URL (HTTPS)</label><input name="image_url" type="url"></div><div><label>Target URL (HTTPS)</label><input name="target_url" type="url"></div><div><label>Coupon code</label><input name="coupon_code" maxlength="40"></div><div><label>Discount (%)</label><input name="discount_percent" type="number" min="0" max="90" value="0"></div><div><label>Budget (selected currency)</label><input name="budget" type="number" min="0" step=".01" value="0"></div><div><label>Budget currency</label><select name="currency"><option value="AED">AED</option><option value="INR">INR</option></select></div><div><label>Status</label><select name="status"><option value="draft">Draft</option><option value="active">Active</option><option value="paused">Paused</option></select></div><div><label>Start date/time (optional)</label><input name="starts_at" type="datetime-local"></div><div><label>End date/time (optional)</label><input name="ends_at" type="datetime-local"></div></div><button>Create campaign</button></form><div class="table-wrap"><table><thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Budget</th><th>Starts</th><th>Ends</th></tr></thead><tbody id="campaigns-table"></tbody></table></div></section>
+<section class="panel hidden" id="finance-panel"><h2>Finance & Profit/Loss</h2><p class="muted">Select INR or AED to view recorded orders, unit costs and expenses. Profit is marked incomplete until all sold product costs are recorded.</p><div class="grid"><div><label>Currency</label><select id="finance-currency"><option value="INR" selected>INR
