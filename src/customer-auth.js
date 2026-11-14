@@ -2,6 +2,7 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
+import { randomUUID } from "node:crypto";
 import { pool } from "./db.js";
 
 export const customerAuthRouter = express.Router();
@@ -21,13 +22,55 @@ const loginSchema = z.object({
 
 const DUMMY_HASH = await bcrypt.hash("Not-a-real-customer-password-9381", 12);
 
-function customerToken(customer) {
-  if (!process.env.JWT_SECRET || Buffer.byteLength(process.env.JWT_SECRET) < 32) {
-    throw new Error("JWT_SECRET must be at least 32 bytes");
+const COOKIE_NAME = "bf_customer_session";
+const SESSION_SECONDS = 2 * 60 * 60;
+const cookieOptions = req => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production" || req.secure,
+  sameSite: "lax",
+  path: "/api/v1/customer-auth",
+  maxAge: SESSION_SECONDS * 1000
+});
+function readCookie(req, name) {
+  const header = req.headers.cookie || "";
+  for (const part of header.split(";")) {
+    const i = part.indexOf("=");
+    if (i < 0 || part.slice(0, i).trim() !== name) continue;
+    try { return decodeURIComponent(part.slice(i + 1).trim()); } catch { return ""; }
   }
-  return jwt.sign({ typ: "customer" }, process.env.JWT_SECRET, {
-    subject: customer.id, expiresIn: "2h", issuer: "bf-shoes-api", audience: "bf-shoes-customer"
+  return "";
+}
+function requireJwtSecret() {
+  if (!process.env.JWT_SECRET || Buffer.byteLength(process.env.JWT_SECRET) < 32) throw new Error("JWT_SECRET must be at least 32 bytes");
+}
+async function createCustomerSession(customer, res, req) {
+  requireJwtSecret();
+  const sessionId = randomUUID();
+  const expiresAt = new Date(Date.now() + SESSION_SECONDS * 1000);
+  await pool.query("INSERT INTO customer_sessions(id,customer_id,expires_at) VALUES($1,$2,$3)", [sessionId, customer.id, expiresAt]);
+  const token = jwt.sign({ typ: "customer" }, process.env.JWT_SECRET, {
+    subject: customer.id, jwtid: sessionId, expiresIn: SESSION_SECONDS,
+    issuer: "bf-shoes-api", audience: "bf-shoes-customer"
   });
+  res.cookie(COOKIE_NAME, token, cookieOptions(req));
+}
+function clearCustomerCookie(res, req) {
+  const options = cookieOptions(req);
+  delete options.maxAge;
+  res.clearCookie(COOKIE_NAME, options);
+}
+async function getSession(req) {
+  const token = readCookie(req, COOKIE_NAME);
+  if (!token) return null;
+  const claims = jwt.verify(token, process.env.JWT_SECRET, { issuer: "bf-shoes-api", audience: "bf-shoes-customer" });
+  if (claims.typ !== "customer" || !claims.sub || !claims.jti) return null;
+  const result = await pool.query(
+    "SELECT c.id,c.name,c.email,c.created_at,c.active,s.id AS session_id FROM customer_sessions s JOIN customer_accounts c ON c.id=s.customer_id WHERE s.id=$1 AND s.customer_id=$2 AND s.revoked_at IS NULL AND s.expires_at>now()",
+    [claims.jti, claims.sub]
+  );
+  const row = result.rows[0];
+  if (!row?.active) return null;
+  return { row, claims };
 }
 function publicCustomer(row) {
   return { id: row.id, name: row.name, email: row.email, created_at: row.created_at };
@@ -44,7 +87,8 @@ customerAuthRouter.post("/register", async (req, res, next) => {
       [parsed.data.name, email, passwordHash]
     );
     const customer = result.rows[0];
-    return res.status(201).json({ customer: publicCustomer(customer), access_token: customerToken(customer), token_type: "Bearer", expires_in: 7200 });
+    await createCustomerSession(customer, res, req);
+    return res.status(201).json({ customer: publicCustomer(customer), expires_in: SESSION_SECONDS });
   } catch (err) {
     if (err.code === "23505") return res.status(409).json({ error: "An account with this email already exists. Sign in instead." });
     next(err);
@@ -63,27 +107,36 @@ customerAuthRouter.post("/login", async (req, res, next) => {
     const row = result.rows[0];
     const valid = await bcrypt.compare(parsed.data.password, row?.password_hash || DUMMY_HASH);
     if (!row || !valid || !row.active) return res.status(401).json({ error: "Invalid email or password." });
-    return res.json({ customer: publicCustomer(row), access_token: customerToken(row), token_type: "Bearer", expires_in: 7200 });
+    await createCustomerSession(row, res, req);
+    return res.json({ customer: publicCustomer(row), expires_in: SESSION_SECONDS });
   } catch (err) { next(err); }
 });
 
 customerAuthRouter.get("/me", async (req, res, next) => {
-  const auth = req.get("authorization") || "";
-  if (!auth.startsWith("Bearer ")) return res.status(401).json({ error: "Sign in to view your account." });
   try {
-    const claims = jwt.verify(auth.slice(7), process.env.JWT_SECRET, {
-      issuer: "bf-shoes-api", audience: "bf-shoes-customer"
-    });
-    if (claims.typ !== "customer" || !claims.sub) return res.status(401).json({ error: "Invalid customer session." });
-    const result = await pool.query(
-      "SELECT id,name,email,created_at,active FROM customer_accounts WHERE id=$1",
-      [claims.sub]
-    );
-    const row = result.rows[0];
-    if (!row?.active) return res.status(401).json({ error: "Customer account is unavailable." });
-    return res.json({ customer: publicCustomer(row) });
+    const session = await getSession(req);
+    if (!session) {
+      clearCustomerCookie(res, req);
+      return res.status(401).json({ error: "Sign in to view your account." });
+    }
+    return res.json({ customer: publicCustomer(session.row) });
   } catch (err) {
-    if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") return res.status(401).json({ error: "Your session expired. Please sign in again." });
+    if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") {
+      clearCustomerCookie(res, req);
+      return res.status(401).json({ error: "Your session expired. Please sign in again." });
+    }
     next(err);
   }
+});
+
+customerAuthRouter.post("/logout", async (req, res, next) => {
+  try {
+    const session = await getSession(req).catch(err => {
+      if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") return null;
+      throw err;
+    });
+    if (session) await pool.query("UPDATE customer_sessions SET revoked_at=now() WHERE id=$1 AND revoked_at IS NULL", [session.claims.jti]);
+    clearCustomerCookie(res, req);
+    return res.status(204).end();
+  } catch (err) { next(err); }
 });

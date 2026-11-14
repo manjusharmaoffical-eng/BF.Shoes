@@ -1,25 +1,23 @@
 (() => {
   'use strict';
   const API_BASE = (window.BF_SHOES_CONFIG && window.BF_SHOES_CONFIG.API_BASE_URL) || '/api/v1/store';
-  const FALLBACK_IMAGES = [
-    'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=80',
-    'https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?auto=format&fit=crop&w=900&q=80',
-    'https://images.unsplash.com/photo-1495555961986-6d4c1ecb7be3?auto=format&fit=crop&w=900&q=80',
-    'https://images.unsplash.com/photo-1460353581641-37baddab0fa2?auto=format&fit=crop&w=900&q=80'
-  ];
-  const state = { products: [], cart: [], selectedSizes: {}, filter: 'all', search: '', categories: [], colors: [], sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null };
+  const FALLBACK_IMAGE = '/assets/bf-speed-run-product.jpeg';
+  const PLACEHOLDER_IMAGE = '/assets/bf-product-placeholder.svg';
+  const state = { products: [], cart: [], selectedSizes: {}, filter: 'all', search: '', categories: [], colors: [], sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null, marketConfig: null };
   try { state.wishlist = new Set(JSON.parse(localStorage.getItem('bf-shoes-wishlist') || '[]').map(String)); } catch { state.wishlist = new Set(); }
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  const money = (cents, currency = 'INR') => `₹${(Number(cents || 0) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const DELIVERY_FEE_PAISE = 5000;
-  const checkoutTotalCents = () => totalCents() + (state.cart.length ? DELIVERY_FEE_PAISE : 0);
+  const money = (minorUnits, currency = 'INR') => new Intl.NumberFormat('en-IN', { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(minorUnits || 0) / 100);
+  const deliveryFeeCents = () => state.marketConfig && Number.isSafeInteger(state.marketConfig.delivery_fee_paise) ? state.marketConfig.delivery_fee_paise : null;
+  const vatCents = () => 0;
+  const checkoutTotalCents = () => totalCents() + (deliveryFeeCents() || 0) + vatCents();
+  const setupMessage = () => { const messages = { delivery_fee_not_configured: 'Delivery fee for PIN 500052 has not been confirmed.', pin_500052_not_configured: 'Delivery PIN 500052 is not enabled in the store configuration.', product_price_conversion_required: 'Existing AED product prices need verified conversion to INR before checkout.', no_inr_priced_products: 'No products with verified INR prices are available yet.', gst_status_not_confirmed: 'The seller GST registration status has not been confirmed.', valid_in_gst_profile_required: 'A valid India GST tax profile is required before checkout.', payment_method_not_confirmed: 'Cash on Delivery must be confirmed in the store configuration.' }; return (state.marketConfig?.setup_required || []).map(code => messages[code] || 'Store setup is incomplete.').join(' ') || 'India delivery and pricing settings are configured.'; };
   const productImage = product => {
     const candidate = typeof product.image_url === 'string' && product.image_url.startsWith('https://') ? product.image_url : '';
-    return candidate || FALLBACK_IMAGES[Math.abs(hashCode(product.slug || product.name || 'bf')) % FALLBACK_IMAGES.length];
+    return candidate || productFallback(product);
   };
-  function hashCode(value) { let hash = 0; for (let i = 0; i < value.length; i++) hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0; return hash; }
+  const productFallback = product => /speed[- ]run/i.test(`${product.slug || ''} ${product.name || ''}`) ? FALLBACK_IMAGE : PLACEHOLDER_IMAGE;
   function toast(message) { const el = $('#toast'); el.textContent = message; el.classList.add('show'); clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.remove('show'), 2600); }
   async function request(url, options = {}) {
     const controller = new AbortController();
@@ -40,10 +38,12 @@
   function availableVariants(product) { return (product.variants || []).filter(v => Number(v.stock_qty) > 0); }
   function renderProducts() {
     const grid = $('#product-grid');
-    let products = state.products.filter(product => { const inStock = availableVariants(product).length > 0; const query = state.search.trim().toLowerCase(); const matchesSearch = !query || [product.name, product.brand, product.description, product.slug].some(value => String(value || '').toLowerCase().includes(query)); const category=String(product.category || product.category_name || '').toLowerCase(); const matchesCategory=!state.categories.length || state.categories.some(value=>category.includes(value)); const productColors=(product.variants||[]).map(v=>String(v.color_name||'').toLowerCase()); const matchesColor=!state.colors.length || state.colors.some(value=>productColors.some(color=>color.includes(value))); return (state.filter !== 'available' || inStock) && (state.filter !== 'saved' || state.wishlist.has(String(product.id))) && matchesSearch && matchesCategory && matchesColor; });
+    const marketCurrency = state.marketConfig?.currency || 'INR';
+    const marketProducts = state.products.filter(product => product.currency === marketCurrency);
+    let products = marketProducts.filter(product => { const inStock = availableVariants(product).length > 0; const query = state.search.trim().toLowerCase(); const matchesSearch = !query || [product.name, product.brand, product.description, product.slug].some(value => String(value || '').toLowerCase().includes(query)); const family=String(product.category || '').toLowerCase(), audience=String(product.audience || '').toLowerCase(), type=String(product.product_type || product.category_name || '').toLowerCase(); const matchesCategory=!state.categories.length || state.categories.some(value=>value===family || value===audience || type.includes(value)); const productColors=(product.variants||[]).map(v=>String(v.color_name||'').toLowerCase()); const matchesColor=!state.colors.length || state.colors.some(value=>productColors.some(color=>color.includes(value))); const priceLimit=Number($('#price-range')?.value || 100000); return (state.filter !== 'available' || inStock) && (state.filter !== 'saved' || state.wishlist.has(String(product.id))) && (product.price_pending_conversion || Number(product.price_cents)<=priceLimit) && matchesSearch && matchesCategory && matchesColor; });
     if (state.sort === 'price-low') products.sort((a,b) => Number(a.price_cents)-Number(b.price_cents)); else if (state.sort === 'price-high') products.sort((a,b) => Number(b.price_cents)-Number(a.price_cents)); else if (state.sort === 'name') products.sort((a,b) => String(a.name).localeCompare(String(b.name)));
-    $('#catalog-status').textContent = state.loading ? 'Finding your next pair…' : state.products.length ? `${products.length} ${products.length === 1 ? 'style' : 'styles'} shown` : 'The catalog is connected, but no active products have been added yet.';
-    const countLabel = $('#catalog-count'); if (countLabel) countLabel.textContent = state.loading ? 'Loading products…' : `Showing ${products.length} of ${state.products.length} products`;
+    $('#catalog-status').textContent = state.loading ? 'Finding your next pair…' : marketProducts.length ? `${products.length} ${products.length === 1 ? 'style' : 'styles'} shown` : 'The catalog is connected, but no active products have been added yet.';
+    const countLabel = $('#catalog-count'); if (countLabel) countLabel.textContent = state.loading ? 'Loading products…' : `Showing ${products.length} of ${marketProducts.length} products` ;
     const wishlistCount = $('#wishlist-count'); if (wishlistCount) wishlistCount.textContent = String(state.wishlist.size);
     $('#empty-state').classList.toggle('hidden', state.loading || products.length > 0);
     if (state.loading) { grid.innerHTML = ''; return; }
@@ -56,10 +56,10 @@
       const sizes = variants.map(v => `<button class="size-option ${v.sku === selected ? 'selected' : ''}" type="button" data-size-product="${escapeHtml(product.id)}" data-sku="${escapeHtml(v.sku)}" aria-pressed="${v.sku === selected}" ${Number(v.stock_qty) <= 0 ? 'disabled title="Out of stock"' : ''}>${escapeHtml(v.size_label)}</button>`).join('');
       const status = !available.length ? 'Sold out' : (available.length <= 2 ? 'Limited run' : 'Everyday essential');
       return `<article class="product-card" data-product="${escapeHtml(product.id)}">
-        <div class="product-image"><img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(product.name)} sneaker" loading="${index < 3 ? 'eager' : 'lazy'}" onerror="this.onerror=null;this.src='${FALLBACK_IMAGES[index % FALLBACK_IMAGES.length]}'" /><span class="product-tag">${status}</span><button class="wishlist-toggle ${state.wishlist.has(String(product.id)) ? 'saved' : ''}" type="button" data-wishlist="${escapeHtml(product.id)}" aria-label="${state.wishlist.has(String(product.id)) ? 'Remove from wishlist' : 'Save to wishlist'}" aria-pressed="${state.wishlist.has(String(product.id))}">${state.wishlist.has(String(product.id)) ? '♥' : '♡'}</button><button class="quick-add" type="button" data-quick-add="${escapeHtml(product.id)}" aria-label="Quick add ${escapeHtml(product.name)}" ${!available.length ? 'disabled' : ''}>+</button></div>
-        <div class="product-info"><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.brand || 'BF SHOES')} · ${escapeHtml(product.short_description || product.description || 'Everyday sneaker').slice(0, 58)}</p></div><strong class="product-price">${money(product.price_cents, product.currency)}</strong></div>
+        <div class="product-image"><img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(product.name)} sneaker" loading="${index < 3 ? 'eager' : 'lazy'}" onerror="this.onerror=null;this.src='${escapeHtml(productFallback(product))}'" /><span class="product-tag">${status}</span><button class="wishlist-toggle ${state.wishlist.has(String(product.id)) ? 'saved' : ''}" type="button" data-wishlist="${escapeHtml(product.id)}" aria-label="${state.wishlist.has(String(product.id)) ? 'Remove from wishlist' : 'Save to wishlist'}" aria-pressed="${state.wishlist.has(String(product.id))}">${state.wishlist.has(String(product.id)) ? '♥' : '♡'}</button><button class="quick-add" type="button" data-quick-add="${escapeHtml(product.id)}" aria-label="Quick add ${escapeHtml(product.name)}" ${!available.length || product.price_pending_conversion ? 'disabled title="INR price conversion pending"' : ''}>+</button></div>
+        <div class="product-info"><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.brand || 'BF SHOES')} · ${escapeHtml(product.short_description || product.description || 'Everyday sneaker').slice(0, 58)}</p></div><strong class="product-price">${product.price_pending_conversion ? `INR price pending verification (source ${escapeHtml(product.currency)})` : money(product.price_cents, 'INR')}</strong></div>
         <div class="product-sizes" aria-label="Choose size for ${escapeHtml(product.name)}">${sizes || '<span class="product-info"><p>No sizes listed</p></span>'}</div>
-        <div class="add-row"><button class="button button-dark" type="button" data-add="${escapeHtml(product.id)}" ${!selectedVariant ? 'disabled' : ''}>${selectedVariant ? 'Add to bag' : 'Out of stock'} <span>+</span></button></div>
+        <div class="add-row"><button class="button button-dark" type="button" data-add="${escapeHtml(product.id)}" ${!selectedVariant || product.price_pending_conversion ? 'disabled' : ''}>${product.price_pending_conversion ? 'Price pending' : selectedVariant ? 'Add to bag' : 'Out of stock'} <span>+</span></button></div>
       </article>`;
     }).join('');
   }
@@ -70,11 +70,17 @@
     $('#cart-empty').classList.toggle('hidden', count > 0);
     $('#drawer-foot').classList.toggle('hidden', count === 0);
     $('#cart-items').classList.toggle('hidden', count === 0);
-    $('#cart-subtotal').textContent = money(totalCents(), 'INR'); const delivery=$('#cart-delivery-fee'); if(delivery) delivery.textContent=money(state.cart.length ? DELIVERY_FEE_PAISE : 0,'INR');
-    $('#checkout-total').textContent = money(checkoutTotalCents(), 'INR');
+    $('#cart-subtotal').textContent = money(totalCents(), 'INR'); const delivery=$('#cart-delivery-fee'); if(delivery) delivery.textContent = !state.cart.length ? money(0,'INR') : deliveryFeeCents() === null ? 'To be confirmed' : money(deliveryFeeCents(),'INR');
+    const total=$('#checkout-total'); if(total) total.textContent=state.marketConfig?.checkout_ready?money(checkoutTotalCents(),'INR'):'To be confirmed';
+    const sub=$('#checkout-subtotal'); if(sub)sub.textContent=money(totalCents(),'INR'); const fee=$('#checkout-delivery'); if(fee)fee.textContent=deliveryFeeCents()===null?'To be confirmed':money(deliveryFeeCents(),'INR');
+    const cvrow=$('#checkout-vat-row'); if(cvrow)cvrow.classList.toggle('hidden',!(state.marketConfig?.checkout_ready&&Number(state.marketConfig.gst_rate_bps)>0)); const cvat=$('#checkout-vat'); if(cvat)cvat.textContent=money(vatCents(),'INR');
+    const checkoutButton=$('#checkout-button'); if(checkoutButton){checkoutButton.disabled=!state.marketConfig?.checkout_ready;checkoutButton.textContent=state.marketConfig?.checkout_ready?'Continue to checkout ↗':'Checkout setup pending';}
+    const note=$('#market-setup-note'); if(note)note.textContent=(state.marketConfig?.checkout_ready?'Delivery, payment and tax settings are configured.':setupMessage()) + (state.marketConfig?.online_payment_ready?' Online payment is available.':' Online payment remains disabled until gateway integration and merchant credentials are verified.');
+    const submit=$('#place-order'); if(submit){submit.disabled=!state.marketConfig?.checkout_ready;submit.textContent=state.marketConfig?.checkout_ready?'Place India order ↗':'Checkout setup pending';}
     $('#cart-items').innerHTML = state.cart.map(item => `<div class="cart-line"><img src="${escapeHtml(productImage(item.product))}" alt="" /><div><h3>${escapeHtml(item.product.name)}</h3><p>Size ${escapeHtml(item.variant.size_label)} · ${escapeHtml(item.variant.color_name || 'Classic')}</p><div class="qty-control"><button type="button" data-qty="-1" data-sku="${escapeHtml(item.variant.sku)}" aria-label="Decrease quantity">−</button><span>${item.quantity}</span><button type="button" data-qty="1" data-sku="${escapeHtml(item.variant.sku)}" aria-label="Increase quantity" ${item.quantity >= 10 ? 'disabled' : ''}>+</button></div></div><strong class="cart-line-price">${money(Number(item.product.price_cents) * item.quantity, item.product.currency)}</strong></div>`).join('');
   }
   function addToCart(product, variant) {
+    if (product?.price_pending_conversion || product?.currency !== 'INR') return toast('This product needs a verified INR price before it can be ordered.');
     if (!variant || Number(variant.stock_qty) <= 0) return toast('That size is out of stock.');
     const current = state.cart.find(item => item.variant.sku === variant.sku);
     const already = current?.quantity || 0;
@@ -87,11 +93,11 @@
   }
   function setCheckout(open) {
     $('#checkout-backdrop').classList.toggle('visible', open); $('#checkout-backdrop').setAttribute('aria-hidden', String(!open)); document.body.classList.toggle('locked', open || $('#cart-drawer').classList.contains('open') || $('#success-backdrop').classList.contains('visible'));
-    if (open) { $('#checkout-error').classList.add('hidden'); $('#checkout-total').textContent = money(checkoutTotalCents(), 'INR'); setTimeout(() => $('input[name="customer_name"]')?.focus(), 80); }
+    if (open) { $('#checkout-error').classList.add('hidden'); const total=$('#checkout-total'); if(total)total.textContent=state.marketConfig?.checkout_ready?money(checkoutTotalCents(),'INR'):'To be confirmed'; setTimeout(() => $('input[name="customer_name"]')?.focus(), 80); }
   }
   function setSuccess(open, order = null) {
     $('#success-backdrop').classList.toggle('visible', open); $('#success-backdrop').setAttribute('aria-hidden', String(!open));
-    if (order) $('#success-order-number').textContent = order.order_number ? `BF-${String(order.order_number).padStart(6, '0')}` : 'Confirmed';
+    if (order) { $('#success-order-number').textContent = order.order_number ? `BF-${String(order.order_number).padStart(6, '0')}` : 'Confirmed'; const total=$('#success-total'); if(total)total.textContent=money(order.total_cents,'INR'); }
     document.body.classList.toggle('locked', open);
   }
   function showCheckoutError(message) { $('#checkout-error').textContent = message; $('#checkout-error').classList.remove('hidden'); }
@@ -138,7 +144,7 @@
   $('#header-product-search')?.addEventListener('input', event => { $('#product-search').value=event.target.value; state.search=event.target.value; renderProducts(); if(event.target.value) $('#shop').scrollIntoView({behavior:'smooth',block:'start'}); });
   $('#header-wishlist')?.addEventListener('click', () => { state.filter='saved'; $$('.filter').forEach(b=>b.classList.toggle('active',b.dataset.filter==='saved')); renderProducts(); $('#shop').scrollIntoView({behavior:'smooth',block:'start'}); });
 
-  $('#price-range')?.addEventListener('input', event => { $('#price-range-value').textContent=`₹${Number(event.target.value).toLocaleString('en-IN')}`; });
+  $('#price-range')?.addEventListener('input', event => { $('#price-range-value').textContent=money(Number(event.target.value),'INR'); renderProducts(); });
   $$('.catalog-sidebar [data-category]').forEach(input => input.addEventListener('change', () => { state.categories=$$('.catalog-sidebar [data-category]:checked').map(x=>x.dataset.category.toLowerCase()); renderProducts(); }));
   $$('.catalog-sidebar [data-color]').forEach(input => input.addEventListener('change', () => { state.colors=$$('.catalog-sidebar [data-color]:checked').map(x=>x.dataset.color.toLowerCase()); renderProducts(); }));
   $$('.view-mode').forEach(button=>button.addEventListener('click',()=>{$$('.view-mode').forEach(b=>b.classList.toggle('active',b===button));$('#product-grid').classList.toggle('list-view',button.textContent.trim()==='☷');}));
@@ -159,28 +165,14 @@
   catalogLayout?.addEventListener('click', event => {
     if (catalogLayout.classList.contains('filters-open') && event.target === catalogLayout) setMobileFilters(false);
   });
-  $('.catalog-sidebar input').forEach(input => input.addEventListener('change', () => {
+  $$('.catalog-sidebar input').forEach(input => input.addEventListener('change', () => {
     if (window.matchMedia('(max-width: 1024px)').matches && input.type === 'checkbox') setMobileFilters(false);
   }));
   document.addEventListener('keydown', event => { if (event.key === 'Escape') setMobileFilters(false); });
 
-  const countrySelect = $('#shipping-country');
-  if (countrySelect) {
-    countrySelect.addEventListener('change', () => {
-      $('input[name="customer_phone"]').placeholder = '+971 50 000 0000';
-    });
-  }
   $('#newsletter-form').addEventListener('submit', async event => { event.preventDefault(); const form=event.currentTarget, button=form.querySelector('button[type=submit],button:not([type])'); if(button)button.disabled=true; $('#newsletter-message').textContent='Submitting…'; try { const email=String(new FormData(form).get('email')||'').trim(); const result=await request('/api/v1/newsletter/subscribe',{method:'POST',body:JSON.stringify({email})}); $('#newsletter-message').textContent=result.message+(result.email_status==='sent'?' Email confirmation sent.': ' Your signup is saved; email delivery may need configuration.'); form.reset(); } catch(error) { $('#newsletter-message').textContent=error.message||'Signup failed. Please try again.'; } finally { if(button)button.disabled=false; } });
   document.addEventListener('keydown', event => { if (event.key === 'Escape') { setCheckout(false); setSuccess(false); setDrawer(false); } });
 
-  $('#shipping-country')?.addEventListener('change', event => {
-    const isIndia = event.target.value === 'IN';
-    $('#india-pin-field')?.classList.toggle('hidden', !isIndia);
-    const pin = $('#shipping-pincode');
-    if (pin) { pin.required = isIndia; if (!isIndia) pin.value = ''; }
-    const phone = $('input[name="customer_phone"]');
-    if (phone) phone.placeholder = isIndia ? '+91 98765 43210' : '+971 50 000 0000';
-  });
   $('#checkout-form').addEventListener('submit', async event => {
     event.preventDefault(); if (state.busy || !state.cart.length) return;
     const form = event.currentTarget; if (!form.reportValidity()) return;
@@ -192,7 +184,8 @@
       customer_phone: String(formData.get('customer_phone') || '').trim(),
       shipping_address: String(formData.get('shipping_address') || '').trim(),
       shipping_country: 'IN',
-      shipping_pincode: String(formData.get('shipping_pincode') || '').trim(),
+      shipping_pincode: '500052',
+      payment_method: String(formData.get('payment_method') || 'cod'),
       items: state.cart.map(item => ({ sku: item.variant.sku, quantity: item.quantity }))
     };
     const body = JSON.stringify(payload);
@@ -203,7 +196,7 @@
     } catch (error) {
       showCheckoutError(error.message || 'Could not place the order. Please try again.');
       if (error.status === 409) toast('Stock or cart details changed. Please review your bag.');
-    } finally { state.busy = false; submit.disabled = false; submit.innerHTML = 'Place COD order <span>↗</span>'; }
+    } finally { state.busy = false; submit.disabled = false; submit.innerHTML = 'Place India order <span>↗</span>'; submit.disabled=!state.marketConfig?.checkout_ready; }
   });
   function randomKey() {
     if (window.crypto?.randomUUID) return window.crypto.randomUUID();
@@ -214,7 +207,7 @@
     state.loading = true; renderProducts();
     try {
       const response = await request(`${API_BASE}/products`);
-      state.products = Array.isArray(response.data) ? response.data : [];
+      state.products = Array.isArray(response.data) ? response.data : []; const pendingPrices=state.products.some(product=>product.price_pending_conversion); const range=$('#price-range'); if(range)range.disabled=pendingPrices; const rangeValue=$('#price-range-value'); if(rangeValue&&pendingPrices)rangeValue.textContent='Available after INR price verification';
       state.products.forEach(product => { if (!state.selectedSizes[product.id]) { const first = availableVariants(product)[0]; if (first) state.selectedSizes[product.id] = first.sku; } });
       $('#catalog-status').textContent = state.products.length ? '' : 'The catalog is connected, but no active products have been added yet.';
     } catch (error) {
@@ -241,6 +234,7 @@
       banner.replaceChildren(link); banner.classList.remove('hidden');
     } catch { /* Homepage stays usable when no campaign has been configured. */ }
   }
+  async function loadMarketConfig() { try { const r=await request('/api/v1/store/config'); state.marketConfig=r.data||null; } catch { state.marketConfig={checkout_ready:false,online_payment_ready:false,setup_required:['delivery_fee_not_configured','gst_status_not_confirmed','no_inr_priced_products']}; } finally { renderCart(); renderProducts(); } }
   $('#year').textContent = String(new Date().getFullYear());
-  renderCart(); loadProducts(); loadActiveCampaigns();
+  renderCart(); loadMarketConfig(); loadProducts(); loadActiveCampaigns();
 })();

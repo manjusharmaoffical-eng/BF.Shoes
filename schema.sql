@@ -55,6 +55,11 @@ CREATE TABLE IF NOT EXISTS variants (
 ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url TEXT;
 -- Costs remain NULL until the owner records actual purchase cost; reports must not invent profit.
 ALTER TABLE products ADD COLUMN IF NOT EXISTS unit_cost_cents INTEGER CHECK (unit_cost_cents IS NULL OR unit_cost_cents >= 0);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'shoes' CHECK (category IN ('shoes','watches','eyewear'));
+ALTER TABLE products ADD COLUMN IF NOT EXISTS audience TEXT NOT NULL DEFAULT 'unisex' CHECK (audience IN ('men','women','kids','unisex'));
+ALTER TABLE products ADD COLUMN IF NOT EXISTS product_type TEXT NOT NULL DEFAULT 'general' CHECK (length(product_type) BETWEEN 1 AND 80);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS attributes JSONB NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(attributes) = 'object');
+CREATE INDEX IF NOT EXISTS products_catalog_category_idx ON products(category, audience, active);
 CREATE INDEX IF NOT EXISTS variants_product_idx ON variants(product_id);
 
 CREATE TABLE IF NOT EXISTS orders (
@@ -65,6 +70,10 @@ CREATE TABLE IF NOT EXISTS orders (
   currency CHAR(3) NOT NULL DEFAULT 'INR',
   subtotal_cents INTEGER NOT NULL CHECK (subtotal_cents >= 0),
   delivery_fee_cents INTEGER NOT NULL DEFAULT 5000 CHECK (delivery_fee_cents >= 0),
+  vat_cents INTEGER NOT NULL DEFAULT 0 CHECK (vat_cents >= 0),
+  tax_rate_bps INTEGER NOT NULL DEFAULT 0 CHECK (tax_rate_bps BETWEEN 0 AND 10000),
+  shipping_country CHAR(2) NOT NULL DEFAULT 'IN' CHECK (shipping_country IN ('IN','AE')),
+  shipping_emirate TEXT NOT NULL DEFAULT '',
   total_cents INTEGER NOT NULL DEFAULT 0 CHECK (total_cents >= 0),
   status TEXT NOT NULL DEFAULT 'confirmed'
     CHECK (status IN ('confirmed', 'processing', 'shipped', 'delivered', 'cancelled')),
@@ -73,12 +82,17 @@ CREATE TABLE IF NOT EXISTS orders (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS request_fingerprint TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_phone TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_address TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT 'cod';
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_fee_cents INTEGER NOT NULL DEFAULT 5000 CHECK (delivery_fee_cents >= 0);
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_cents INTEGER NOT NULL DEFAULT 0 CHECK (total_cents >= 0);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS vat_cents INTEGER NOT NULL DEFAULT 0 CHECK (vat_cents >= 0);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS tax_rate_bps INTEGER NOT NULL DEFAULT 0 CHECK (tax_rate_bps BETWEEN 0 AND 10000);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_country CHAR(2) NOT NULL DEFAULT 'IN' CHECK (shipping_country IN ('IN','AE'));
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_emirate TEXT NOT NULL DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS order_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -174,7 +188,7 @@ CREATE TABLE IF NOT EXISTS finance_expenses (
  description TEXT NOT NULL,
  amount_cents BIGINT NOT NULL CHECK (amount_cents > 0),
  expense_date DATE NOT NULL,
- currency CHAR(3) NOT NULL DEFAULT 'INR' CHECK (currency='INR'),
+ currency CHAR(3) NOT NULL DEFAULT 'INR' CHECK (currency IN ('INR','AED')),
  created_by UUID REFERENCES admins(id) ON DELETE SET NULL,
  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -184,6 +198,7 @@ CREATE TABLE IF NOT EXISTS finance_funding (
  kind TEXT NOT NULL CHECK (kind IN ('owner_capital','loan','investor')),
  source_name TEXT NOT NULL,
  principal_cents BIGINT NOT NULL CHECK (principal_cents > 0),
+ currency CHAR(3) NOT NULL DEFAULT 'INR' CHECK (currency IN ('INR','AED')),
  interest_rate_bps INTEGER NOT NULL DEFAULT 0 CHECK (interest_rate_bps BETWEEN 0 AND 100000),
  start_date DATE NOT NULL,
  due_date DATE,
@@ -192,6 +207,11 @@ CREATE TABLE IF NOT EXISTS finance_funding (
  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
  CHECK (due_date IS NULL OR due_date >= start_date)
 );
+ALTER TABLE finance_funding ADD COLUMN IF NOT EXISTS currency CHAR(3) NOT NULL DEFAULT 'INR';
+ALTER TABLE finance_funding DROP CONSTRAINT IF EXISTS finance_funding_currency_check;
+ALTER TABLE finance_funding ADD CONSTRAINT finance_funding_currency_check CHECK (currency IN ('INR','AED'));
+ALTER TABLE finance_expenses DROP CONSTRAINT IF EXISTS finance_expenses_currency_check;
+ALTER TABLE finance_expenses ADD CONSTRAINT finance_expenses_currency_check CHECK (currency IN ('INR','AED'));
 CREATE TABLE IF NOT EXISTS finance_repayments (
  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
  funding_id UUID NOT NULL REFERENCES finance_funding(id) ON DELETE RESTRICT,
@@ -235,7 +255,7 @@ CREATE TABLE IF NOT EXISTS tax_invoices (
  profile_id UUID NOT NULL REFERENCES tax_profiles(id) ON DELETE RESTRICT, invoice_number TEXT NOT NULL UNIQUE,
  jurisdiction TEXT NOT NULL CHECK (jurisdiction IN ('IN_GST','AE_VAT')), currency CHAR(3) NOT NULL,
  invoice_date DATE NOT NULL DEFAULT CURRENT_DATE, seller_snapshot JSONB NOT NULL, buyer_snapshot JSONB NOT NULL, lines JSONB NOT NULL,
- subtotal_cents BIGINT NOT NULL CHECK (subtotal_cents >= 0), discount_cents BIGINT NOT NULL DEFAULT 0 CHECK (discount_cents >= 0),
+ subtotal_cents BIGINT NOT NULL CHECK (subtotal_cents >= 0), delivery_fee_cents BIGINT NOT NULL DEFAULT 0 CHECK (delivery_fee_cents >= 0), discount_cents BIGINT NOT NULL DEFAULT 0 CHECK (discount_cents >= 0),
  tax_rate_bps INTEGER NOT NULL CHECK (tax_rate_bps BETWEEN 0 AND 10000), cgst_cents BIGINT NOT NULL DEFAULT 0 CHECK (cgst_cents >= 0),
  sgst_cents BIGINT NOT NULL DEFAULT 0 CHECK (sgst_cents >= 0), igst_cents BIGINT NOT NULL DEFAULT 0 CHECK (igst_cents >= 0),
  vat_cents BIGINT NOT NULL DEFAULT 0 CHECK (vat_cents >= 0), total_cents BIGINT NOT NULL CHECK (total_cents >= 0),
@@ -244,6 +264,7 @@ CREATE TABLE IF NOT EXISTS tax_invoices (
  created_by UUID REFERENCES admins(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
  UNIQUE(order_id, profile_id)
 );
+ALTER TABLE tax_invoices ADD COLUMN IF NOT EXISTS delivery_fee_cents BIGINT NOT NULL DEFAULT 0 CHECK (delivery_fee_cents >= 0);
 CREATE INDEX IF NOT EXISTS tax_invoices_date_idx ON tax_invoices(invoice_date DESC);
 CREATE INDEX IF NOT EXISTS tax_invoices_jurisdiction_date_idx ON tax_invoices(jurisdiction, invoice_date DESC);
 CREATE TABLE IF NOT EXISTS tax_credit_notes (
@@ -251,3 +272,28 @@ CREATE TABLE IF NOT EXISTS tax_credit_notes (
  credit_note_number TEXT NOT NULL UNIQUE, reason TEXT NOT NULL, amount_cents BIGINT NOT NULL CHECK (amount_cents > 0),
  tax_cents BIGINT NOT NULL CHECK (tax_cents >= 0), created_by UUID REFERENCES admins(id) ON DELETE SET NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+
+-- Storefront customer accounts. Existing orders and inventory are not altered.
+CREATE TABLE IF NOT EXISTS public.customer_accounts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL CHECK (char_length(name) BETWEEN 2 AND 160),
+  email TEXT NOT NULL CHECK (email = lower(email)),
+  password_hash TEXT NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT customer_accounts_email_unique UNIQUE (email)
+);
+CREATE INDEX IF NOT EXISTS customer_accounts_created_idx ON public.customer_accounts(created_at DESC);
+
+-- Revocable customer sessions for HttpOnly storefront authentication cookies.
+CREATE TABLE IF NOT EXISTS public.customer_sessions (
+  id UUID PRIMARY KEY,
+  customer_id UUID NOT NULL REFERENCES public.customer_accounts(id) ON DELETE CASCADE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  revoked_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS customer_sessions_customer_idx ON public.customer_sessions(customer_id, expires_at DESC);
+CREATE INDEX IF NOT EXISTS customer_sessions_active_idx ON public.customer_sessions(id, expires_at) WHERE revoked_at IS NULL;

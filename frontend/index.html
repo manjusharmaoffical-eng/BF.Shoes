@@ -8,32 +8,62 @@
   <title>BF SHOES — Move Different</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Poppins:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer" />
   <link rel="stylesheet" href="/styles.css" />
   <script defer src="/app.js"></script>
+  <style>.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}</style>
 </head>
 <body>
   <section id="campaign-strip" class="campaign-strip hidden" aria-label="Current BF SHOES offers"></section>
   <style>.campaign-strip{background:#111;color:#fff;padding:10px 5vw;display:flex;justify-content:center;gap:14px;align-items:center;text-align:center}.campaign-strip.hidden{display:none}.campaign-strip a{color:inherit;text-decoration:none;display:flex;gap:14px;align-items:center;justify-content:center}.campaign-strip img{width:56px;height:42px;object-fit:cover;border-radius:2px}.campaign-strip strong{font-size:13px;letter-spacing:.04em}.campaign-strip span{font-size:12px;opacity:.8}@media(max-width:600px){.campaign-strip{padding:8px 12px}.campaign-strip img{width:44px;height:38px}}</style>
   <header class="site-header">
     <a class="wordmark" href="#top" aria-label="BF Shoes home"><span class="bf-logo-mark">BF</span><span class="bf-logo-copy">SHOES<small>STEP INTO BETTER</small></span></a>
-    <nav class="main-nav" aria-label="Main navigation"><a class="nav-current" href="#top">Home</a><a href="#shop">Shop</a><a href="#shop">Brands</a><a href="#shop">New Arrivals</a><a href="#shop">Best Sellers</a><a href="#shop">Sale</a><a href="#story">About</a></nav>
+    <nav class="main-nav" aria-label="Main navigation"><a class="nav-current" href="#top">Home</a><a href="#shop">Shop</a><a href="#shop">Brands</a><a href="#shop">New Arrivals</a><a href="#shop">Best Sellers</a><a href="#shop">Sale</a><a href="#footer">About</a></nav>
     <label class="header-search"><input id="header-product-search" type="search" placeholder="Search for shoes..." aria-label="Search for shoes"><span>⌕</span></label>
     <button class="header-icon" type="button" aria-label="Account" id="account-link">♙</button><button class="header-icon" type="button" aria-label="Wishlist" id="header-wishlist">♡</button>
     <button class="cart-trigger" id="open-cart" aria-label="Open shopping bag"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l1 12H4L5 8Z M9 9V6a3 3 0 0 1 6 0v3"/></svg><span id="cart-count">0</span></button>
   </header>
 
   <main id="top">
-    <section class="hero hero-reference">
-      <div class="hero-photo"></div>
+    <section class="hero hero-reference" id="bf-reference-hero" aria-label="BF SHOES premium footwear">
+      <div class="hero-photo" aria-hidden="true"></div>
       <div class="hero-copy">
-        <p class="eyebrow">PREMIUM FOOTWEAR</p>
-        <h1>BF SHOES</h1>
-        <p class="hero-tagline">Style <span>|</span> Comfort <span>|</span> Performance</p>
-        <a class="button button-light" href="#shop">Shop Now <span aria-hidden="true">→</span></a>
+        <p class="eyebrow"><span class="eyebrow-diamond">◆</span> PREMIUM FOOTWEAR <i aria-hidden="true"></i></p><span class="sr-only">WELCOME TO BF SHOES</span>
+        <h1><span>BF</span> SHOES</h1>
+        <h2 class="hero-style-line">STEP UP YOUR <em>STYLE</em></h2>
+        <p class="hero-description">Premium quality shoes for every step of your journey.</p>
+        <a class="button button-light" href="#shop">Shop Now <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
       </div>
-      <div class="hero-product" role="img" aria-label="Premium black and white athletic sneaker"></div>
-      <div class="hero-benefits"><div>✧ <span>Premium Quality</span></div><div>♧ <span>Comfort Fit</span></div><div>◇ <span>Trendy Designs</span></div><div>◎ <span>Delivery to PIN 500052</span></div></div>
+      <div class="hero-product" role="img" aria-label="BF black performance sneaker on a dramatic dark studio background"></div>
+      <div class="hero-script" aria-label="Be Bold, Be Fast"><span>Be Bold</span><span>Be <em>Fast</em></span><i></i></div>
+      <div class="hero-benefits" aria-label="BF SHOES benefits">
+        <div><i class="fa-regular fa-gem" aria-hidden="true"></i><span>Premium Quality</span></div>
+        <div><i class="fa-solid fa-bolt" aria-hidden="true"></i><span>Fast Delivery</span></div>
+        <div><i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span>Trusted Brand</span></div>
+        <div><i class="fa-solid fa-headset" aria-hidden="true"></i><span>24/7 Support</span></div>
+      </div>
+      <div class="hero-dots" aria-label="Slide 1 of 3"><span class="active"></span><span></span><span></span></div>
+    </section>
+
+    <section class="trust-strip" aria-label="Shopping benefits">
+      <div class="trust-item"><i class="fa-solid fa-truck-fast" aria-hidden="true"></i><span><strong>FREE SHIPPING</strong><small>On orders over $50</small></span></div>
+      <div class="trust-item"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i><span><strong>EASY RETURNS</strong><small>Within 30 days</small></span></div>
+      <div class="trust-item"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span><strong>SECURE PAYMENTS</strong><small>100% secure checkout</small></span></div>
+      <div class="trust-item"><i class="fa-solid fa-tags" aria-hidden="true"></i><span><strong>BEST OFFERS</strong><small>Save more every day</small></span></div>
+    </section>
+
+    <section class="category-showcase" aria-labelledby="category-heading">
+      <div class="category-heading-row">
+        <div><p class="category-eyebrow">SHOP BY CATEGORY <i></i></p><h2 id="category-heading">Find your <em>next</em> pair.</h2><p>Performance. Comfort. Style.</p></div>
+        <nav class="category-pills" aria-label="Shop categories"><a class="active" href="#shop">All</a><a href="#shop" data-category-jump="men">Men</a><a href="#shop" data-category-jump="women">Women</a><a href="#shop" data-category-jump="sports">Sports</a><a href="#shop" data-category-jump="casual">Casual</a></nav>
+      </div>
+      <div class="category-cards">
+        <a class="category-card category-men" href="#shop"><span class="category-card-copy"><strong>Men’s<br>Shoes</strong><small>Shop Now <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></small></span><img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=85" alt="Red and black athletic sneaker" loading="lazy"></a>
+        <a class="category-card category-women" href="#shop"><span class="category-card-copy"><strong>Women’s<br>Shoes</strong><small>Shop Now <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></small></span><img src="https://images.unsplash.com/photo-1543163521-1bf539c55dd2?auto=format&fit=crop&w=900&q=85" alt="Women's fashion footwear" loading="lazy"></a>
+        <a class="category-card category-sports" href="#shop"><span class="category-card-copy"><strong>Sports<br>Shoes</strong><small>Shop Now <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></small></span><img src="https://images.unsplash.com/photo-1552346154-21d32810aba3?auto=format&fit=crop&w=900&q=85" alt="Performance sports sneaker" loading="lazy"></a>
+        <a class="category-card category-casual" href="#shop"><span class="category-card-copy"><strong>Casual<br>Shoes</strong><small>Shop Now <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></small></span><img src="https://images.unsplash.com/photo-1495555961986-6d4c1ecb7be3?auto=format&fit=crop&w=900&q=85" alt="Casual everyday shoe" loading="lazy"></a>
+      </div>
     </section>
 
     <section class="ticker" aria-label="Brand values"><div>BUILT FOR THE EVERYDAY <span>✳</span> CLEAN BY DESIGN <span>✳</span> COMFORT THAT MOVES <span>✳</span> BUILT FOR THE EVERYDAY <span>✳</span></div></section>
@@ -43,7 +73,7 @@
       <div class="catalog-layout">
       <aside class="catalog-sidebar" id="catalog-sidebar" aria-label="Product filters"><div class="mobile-filter-heading"><strong>Filter products</strong><button id="close-mobile-filters" type="button" aria-label="Close filters">×</button></div>
         <label class="catalog-search"><span aria-hidden="true">⌕</span><input id="product-search" type="search" placeholder="Search shoes..." aria-label="Search sneakers" autocomplete="off"></label>
-        <details open><summary>Categories</summary><label><input type="checkbox" data-category="men"> Men's Shoes</label><label><input type="checkbox" data-category="women"> Women's Shoes</label><label><input type="checkbox" data-category="kids"> Kids' Shoes</label><label><input type="checkbox" data-category="sports"> Sports Shoes</label><label><input type="checkbox" data-category="casual"> Casual Shoes</label><label><input type="checkbox" data-category="running"> Running Shoes</label><label><input type="checkbox" data-category="formal"> Formal Shoes</label></details>
+        <details open><summary>Categories</summary><label><input type="checkbox" data-category="men"> Men's Shoes</label><label><input type="checkbox" data-category="women"> Women's Shoes</label><label><input type="checkbox" data-category="kids"> Kids' Shoes</label><label><input type="checkbox" data-category="sports"> Sports Shoes</label><label><input type="checkbox" data-category="casual"> Casual Shoes</label><label><input type="checkbox" data-category="running"> Running Shoes</label><label><input type="checkbox" data-category="formal"> Formal Shoes</label><label><input type="checkbox" data-category="watches"> Watches</label><label><input type="checkbox" data-category="eyewear"> Eyewear / Glasses</label></details>
         <details open><summary>Brand</summary><label><input type="checkbox" checked disabled> BF <span class="filter-count" id="brand-count"></span></label></details>
         <details open><summary>Size</summary><label><input type="checkbox" data-size="6"> UK 6</label><label><input type="checkbox" data-size="7"> UK 7</label><label><input type="checkbox" data-size="8"> UK 8</label><label><input type="checkbox" data-size="9"> UK 9</label><label><input type="checkbox" data-size="10"> UK 10</label><label><input type="checkbox" data-size="11"> UK 11</label><label><input type="checkbox" data-size="12"> UK 12</label></details>
         <details open><summary>Color</summary><label><input type="checkbox" data-color="Black"><i class="color-dot" style="--dot:#111"></i>Black</label><label><input type="checkbox" data-color="White"><i class="color-dot" style="--dot:#fff"></i>White</label><label><input type="checkbox" data-color="Gray"><i class="color-dot" style="--dot:#8e969e"></i>Gray</label><label><input type="checkbox" data-color="Blue"><i class="color-dot" style="--dot:#337ed6"></i>Blue</label><label><input type="checkbox" data-color="Red"><i class="color-dot" style="--dot:#e92b3d"></i>Red</label><label><input type="checkbox" data-color="Green"><i class="color-dot" style="--dot:#20a55b"></i>Green</label><label><input type="checkbox" data-color="Beige"><i class="color-dot" style="--dot:#c4b19a"></i>Beige</label></details>
@@ -55,8 +85,6 @@
       <div class="product-grid" id="product-grid" aria-live="polite"></div>
       <div class="empty-state hidden" id="empty-state"><p class="eyebrow">THE SHELF IS QUIET</p><h3>No pairs just yet.</h3><p>Products will appear here once the BF SHOES catalog is connected and stocked.</p></div></div></div>
     </section>
-
-    <section class="manifesto" id="story"><div class="manifesto-image"><img src="/banner-left-shoe.jpg" alt="Minimal sneaker detail" loading="lazy" /></div><div class="manifesto-copy"><p class="eyebrow">OUR STANDARD / 001</p><h2>Good design<br />doesn’t need<br /><em>to shout.</em></h2><p>We believe the best pair is the one you reach for without thinking. Understated by design. Made to move with you. Ready for whatever comes next.</p><a href="#shop" class="text-link">Find your everyday pair <span>↗</span></a><div class="manifesto-number">BF—001</div></div></section>
 
     <section class="promise-row section-wrap"><div><span class="promise-icon">01</span><h3>Easy by design</h3><p>Simple choices. Clear sizing. No fuss.</p></div><div><span class="promise-icon">02</span><h3>Cash on Delivery</h3><p>Pay when your order reaches you.</p></div><div><span class="promise-icon">03</span><h3>Made to move</h3><p>Everyday style, built around comfort.</p></div></section>
   </main>

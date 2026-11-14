@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 const schema = await readFile(new URL("../schema.sql", import.meta.url), "utf8");
 
 const requiredColumns = {
-  products: ["unit_cost_cents", "short_description", "seo_title", "seo_description"],
+  products: ["unit_cost_cents", "short_description", "seo_title", "seo_description", "category", "audience", "product_type", "attributes"],
   variants: ["sku", "stock_qty", "active"],
   orders: ["request_fingerprint", "delivery_fee_cents", "total_cents", "payment_method"],
   order_items: ["unit_cost_cents", "line_total_cents"],
@@ -38,6 +38,103 @@ test("schema.sql contains the required business tables and columns", () => {
 
 test("checkout schema keeps India COD delivery disabled until prices are configured", async () => {
   const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
-  assert.ok(storefront.includes("payment_method") && storefront.includes("'cod'"), "Storefront orders must remain COD-only");
-  assert.match(storefront, /INR product pricing and the ₹50 delivery fee must be configured first/);
+  assert.match(storefront, /payment_method:\s*z\.literal\(["']cod["']\)/, "Checkout schema must accept COD only");
+  assert.doesNotMatch(storefront, /payment_method:\s*z\.enum\([^)]*online/, "Online payment must not be accepted by checkout schema");
+  assert.match(storefront, /Verify INR product prices, delivery fee and the active GST profile first/);
+});
+
+
+test("catalog supports shoes, watches, eyewear and age/audience segmentation", async () => {
+  const routes = await readFile(new URL("../src/routes.js", import.meta.url), "utf8");
+  const admin = await readFile(new URL("../frontend/admin.html", import.meta.url), "utf8");
+  const script = await readFile(new URL("../frontend/admin.js", import.meta.url), "utf8");
+  for (const category of ["shoes", "watches", "eyewear"]) assert.match(routes, new RegExp(category));
+  for (const audience of ["men", "women", "kids", "unisex"]) assert.match(routes, new RegExp(audience));
+  assert.match(admin, /name="category"/);
+  assert.match(admin, /name="audience"/);
+  assert.match(script, /category:f\.get\('category'\)/);
+});
+
+
+test("public catalog exposes family and audience fields for customer filters", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  const app = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8");
+  const html = await readFile(new URL("../frontend/index.html", import.meta.url), "utf8");
+  assert.match(storefront, /to_jsonb\(p\)->>'category'/);
+  assert.match(storefront, /to_jsonb\(p\)->>'audience'/);
+  assert.match(storefront, /to_jsonb\(p\)->>'product_type'/);
+  assert.match(storefront, /to_jsonb\(p\)->'attributes'/);
+  assert.match(app, /product\.audience/);
+  assert.match(html, /data-category="watches"/);
+  assert.match(html, /data-category="eyewear"/);
+});
+
+
+test("finance ledger supports separate INR and AED books without currency conversion", async () => {
+  const finance = await readFile(new URL("../src/finance.js", import.meta.url), "utf8");
+  assert.match(schema, /currency IN \('INR','AED'\)/);
+  assert.match(finance, /currency:z\.enum\(\["INR","AED"\]\)/);
+  assert.match(finance, /currency,sales:s/);
+  assert.doesNotMatch(finance, /currency:\s*"INR",sales:s/);
+});
+
+
+test("admin product creation supports explicit AED and INR pricing", async () => {
+  const routes = await readFile(new URL("../src/routes.js", import.meta.url), "utf8");
+  const adminHtml = await readFile(new URL("../frontend/admin.html", import.meta.url), "utf8");
+  const adminJs = await readFile(new URL("../frontend/admin.js", import.meta.url), "utf8");
+  assert.match(routes, /currency: z\.enum\(\["AED", "INR"\]\)/);
+  assert.match(adminHtml, /name="currency"[\s\S]*value="AED"[\s\S]*value="INR"/);
+  assert.match(adminJs, /currency:String\(f\.get\('currency'\)\|\|'AED'\)/);
+  assert.match(adminJs, /money\(p\.price_cents,p\.currency\)/);
+});
+
+
+test("homepage has one current BF hero and no duplicate legacy hero markup or imagery", async () => {
+  const html = await readFile(new URL("../frontend/index.html", import.meta.url), "utf8");
+  const css = await readFile(new URL("../frontend/styles.css", import.meta.url), "utf8");
+  assert.doesNotMatch(html, /Good design[\s\S]*doesn’t need/);
+  assert.equal((html.match(/<main\b/g) || []).length, 1);
+  assert.equal((html.match(/<section class="hero hero-reference"/g) || []).length, 1);
+  assert.match(html, /WELCOME TO BF SHOES/);
+  assert.match(html, /href="#footer">About/);
+  assert.match(css, /background-image:url\('\/assets\/bf-home-hero\.jpeg'\)/);
+  assert.doesNotMatch(css, /images\.unsplash\.com|banner-left-shoe\.jpg/);
+  assert.match(css, /#c8102e/);
+});
+
+
+test("public catalog remains readable before optional category columns are migrated", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  assert.match(storefront, /to_jsonb\(p\)->>'category'/);
+  assert.match(storefront, /to_jsonb\(p\)->>'audience'/);
+  assert.match(storefront, /to_jsonb\(p\)->'attributes'/);
+});
+
+
+test("CSP allows secure HTTPS product images without weakening script sources", async () => {
+  const server = await readFile(new URL("../src/server.js", import.meta.url), "utf8");
+  assert.match(server, /"img-src":\s*\["'self'", "data:", "https:"\]/);
+  assert.match(server, /getDefaultDirectives\(\)/);
+  assert.doesNotMatch(server, /scriptSrc:\s*\[[^\]]*https:/);
+});
+
+test("homepage product cards use local BF artwork when catalog image URLs are missing", async () => {
+  const app = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8");
+  const css = await readFile(new URL("../frontend/styles.css", import.meta.url), "utf8");
+  assert.match(app, /FALLBACK_IMAGE\s*=\s*['"]\/assets\/bf-speed-run-product\.jpeg['"]/);
+  assert.match(app, /return candidate \|\| productFallback\(product\)/);
+  assert.match(app, /const productFallback = product => \/speed\[- \]run\/i/);
+  const placeholder = await readFile(new URL("../frontend/assets/bf-product-placeholder.svg", import.meta.url), "utf8");
+  assert.match(placeholder, /BF/);
+  assert.doesNotMatch(app, /images\.unsplash\.com/);
+  assert.match(css, /\.product-image\{background:#07080a\}/);
+  assert.match(css, /\.product-image img\{display:block;object-fit:contain;padding:0;mix-blend-mode:normal;filter:none\}/);
+});
+
+test("storefront catalog respects the active market currency", async () => {
+  const app = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8");
+  assert.match(app, /const marketCurrency = state\.marketConfig\?\.currency \|\| 'INR'/);
+  assert.match(app, /const marketProducts = state\.products\.filter\(product => product\.currency === marketCurrency\)/);
+  assert.match(app, /finally \{ renderCart\(\); renderProducts\(\); \}/);
 });

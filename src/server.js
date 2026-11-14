@@ -27,7 +27,16 @@ if (!Number.isInteger(trustProxyHops) || trustProxyHops < 0 || trustProxyHops > 
   throw new Error("TRUST_PROXY_HOPS must be an integer between 0 and 10");
 }
 app.set("trust proxy", trustProxyHops);
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      // Product and campaign artwork is HTTPS-only at the API boundary.
+      // Permit secure remote images while keeping scripts and connections same-origin.
+      "img-src": ["'self'", "data:", "https:"]
+    }
+  }
+}));
 const configuredOrigins = (process.env.ADMIN_ORIGIN || "").split(",").map(s => s.trim()).filter(Boolean);
 // Vercel assigns a unique hostname to each preview deployment. Add only this
 // deployment's exact Vercel and branch hostnames; never allow a broad *.vercel.app wildcard.
@@ -60,7 +69,9 @@ app.use("/api/v1/auth/login", rateLimit({ windowMs: 15 * 60_000, limit: 10, stan
 app.use("/api/v1/store/orders", rateLimit({ windowMs: 15 * 60_000, limit: 8, standardHeaders: "draft-7", legacyHeaders: false }));
 app.use("/api/v1/store/orders/track", rateLimit({ windowMs: 15 * 60_000, limit: 8, standardHeaders: "draft-7", legacyHeaders: false }));
 app.use("/api/v1/store", storefrontRouter);
-app.use("/api/v1/customer-auth", rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false }), customerAuthRouter);
+const customerCredentialLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false });
+app.use(["/api/v1/customer-auth/register", "/api/v1/customer-auth/login"], customerCredentialLimiter);
+app.use("/api/v1/customer-auth", customerAuthRouter);
 app.use("/api/v1/newsletter", rateLimit({ windowMs: 60 * 60_000, limit: 5, standardHeaders: "draft-7", legacyHeaders: false }), newsletterRouter);
 app.use("/api/v1/business", businessRouter);
 app.use("/api/v1/finance", financeRouter);

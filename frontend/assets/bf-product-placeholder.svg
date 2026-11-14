@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 758" role="img" aria-label="BF SHOES product image placeholder">
+  <rect width="1200" height="758" fill="#08090b"/>
+  <path d="M0 0h1200v758H0z" fill="url(#g)"/>
+  <path d="M600 210l-36 70h72z" fill="#c8102e"/>
+  <text x="600" y="390" fill="#fff" text-anchor="middle" font-family="Arial,sans-serif" font-size="116" font-weight="900" letter-spacing="-12">BF</text>
+  <path d="M470 425h260" stroke="#c8102e" stroke-width="7"/>
+  <text x="600" y="480" fill="#d8d8d8" text-anchor="middle" font-family="Arial,sans-serif" font-size="38" font-weight="700" letter-spacing="14">SHOES</text>
+  <text x="600" y="548" fill="#92969d" text-anchor="middle" font-family="Arial,sans-serif" font-size="16" letter-spacing="7">PRODUCT IMAGE COMING SOON</text>
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#101216"/><stop offset="1" stop-color="#050506"/></linearGradient></defs>
+</svg>

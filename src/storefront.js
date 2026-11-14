@@ -3,6 +3,7 @@ import { z } from "zod";
 import { pool } from "./db.js";
 import { aggregateStorefrontItems, storefrontRequestFingerprint } from "./storefront-policies.js";
 import { deliverEmail } from "./email.js";
+import { parseIndiaMarketEnv, calculateIndiaTotals } from "./india-market-policy.js";
 
 export const storefrontRouter = express.Router();
 
@@ -11,8 +12,9 @@ const checkoutSchema = z.object({
   customer_email: z.string().trim().email().max(254),
   customer_phone: z.string().trim().min(7).max(30).regex(/^[+()0-9 .-]+$/),
   shipping_address: z.string().trim().min(10).max(1000),
-  shipping_country: z.literal("IN").default("IN"),
-  shipping_pincode: z.string().trim().optional().default(""),
+  shipping_country: z.literal("IN"),
+  shipping_pincode: z.literal("500052"),
+  payment_method: z.literal("cod"),
   items: z.array(z.object({ sku: z.string().trim().min(2).max(80), quantity: z.number().int().min(1).max(10) })).min(1).max(20)
 }).strict();
 
@@ -44,16 +46,47 @@ storefrontRouter.get("/campaigns/active", async (_req, res, next) => {
 storefrontRouter.get("/products", async (_req, res, next) => {
   try {
     const result = await pool.query(
-      `SELECT p.id, p.name, p.slug, p.description, p.brand, p.price_cents, p.currency, p.image_url,
+      `SELECT p.id, p.name, p.slug, p.description, p.brand,
+        COALESCE(to_jsonb(p)->>'category','shoes') AS category,
+        COALESCE(to_jsonb(p)->>'audience','unisex') AS audience,
+        COALESCE(to_jsonb(p)->>'product_type','general') AS product_type,
+        COALESCE(to_jsonb(p)->'attributes','{}'::jsonb) AS attributes,
+        p.price_cents, p.currency, p.image_url, (p.currency <> 'INR') AS price_pending_conversion,
         COALESCE(json_agg(json_build_object('id', v.id, 'sku', v.sku, 'size_label', v.size_label,
           'color_name', v.color_name, 'stock_qty', v.stock_qty)
           ORDER BY v.size_label) FILTER (WHERE v.id IS NOT NULL AND v.active = true), '[]') AS variants
        FROM products p LEFT JOIN variants v ON v.product_id = p.id
-       WHERE p.active = true AND p.currency = 'INR' GROUP BY p.id ORDER BY p.created_at DESC LIMIT 100`
+       WHERE p.active = true GROUP BY p.id ORDER BY p.created_at DESC LIMIT 100`
     );
     res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
     res.json({ data: result.rows });
   } catch (err) { next(err); }
+});
+
+
+async function getIndiaMarketConfig(db = pool) {
+  const env = parseIndiaMarketEnv(process.env);
+  const reasons = [];
+  if (env.deliveryFeePaise === null || !Number.isSafeInteger(env.deliveryFeePaise) || env.deliveryFeePaise < 0 || env.deliveryFeePaise > 2000000000) reasons.push("delivery_fee_not_configured");
+  if (!env.deliveryPincodes.includes("500052")) reasons.push("pin_500052_not_configured");
+  if (env.gstStatus === "unconfigured") reasons.push("gst_status_not_confirmed");
+  const currencies = await db.query("SELECT currency, count(*)::int AS product_count FROM products WHERE active=TRUE GROUP BY currency");
+  if (currencies.rows.some(row => row.currency !== "INR" && Number(row.product_count) > 0)) reasons.push("product_price_conversion_required");
+  if (!currencies.rows.some(row => row.currency === "INR" && Number(row.product_count) > 0)) reasons.push("no_inr_priced_products");
+  if (!env.paymentMethods.length) reasons.push("payment_method_not_confirmed");
+  let taxProfile = null, taxRate = 0;
+  if (env.gstStatus === "registered") {
+    const r = await db.query("SELECT id, currency, tax_rate_bps, registration_number, seller_state FROM tax_profiles WHERE jurisdiction='IN_GST' AND active=TRUE ORDER BY created_at DESC LIMIT 2");
+    if (r.rowCount !== 1 || r.rows[0].currency !== "INR" || !String(r.rows[0].registration_number || "").trim() || !String(r.rows[0].seller_state || "").trim() || !Number.isSafeInteger(Number(r.rows[0].tax_rate_bps)) || Number(r.rows[0].tax_rate_bps) <= 0 || Number(r.rows[0].tax_rate_bps) > 10000) reasons.push("valid_in_gst_profile_required");
+    else { taxProfile = r.rows[0]; taxRate = Number(r.rows[0].tax_rate_bps); }
+  }
+  const onlineReady = false; // Razorpay server-side order creation, signature verification and webhook handling are not yet implemented.
+  return { currency: "INR", country: "IN", delivery_pincodes: env.deliveryPincodes, target_pincode: "500052", delivery_fee_paise: env.deliveryFeePaise, payment_methods: env.paymentMethods, payment_gateway: env.paymentGateway, online_payment_ready: onlineReady, online_payment_note: "Razorpay order creation, signature verification, webhook handling and merchant credentials are required before online payments can be accepted.", gst_status: env.gstStatus, gst_rate_bps: env.gstStatus === "registered" ? (taxProfile ? taxRate : null) : (env.gstStatus === "not_registered" ? 0 : null), checkout_ready: reasons.length === 0, setup_required: [...new Set(reasons)], tax_profile: taxProfile };
+}
+
+storefrontRouter.get("/config", async (_req, res, next) => {
+  try { const c = await getIndiaMarketConfig(); const { tax_profile, ...publicConfig } = c; res.set("Cache-Control", "no-store"); res.json({ data: publicConfig }); }
+  catch (err) { next(err); }
 });
 
 // Customer self-service tracking: order number plus the exact checkout email.
@@ -65,7 +98,7 @@ storefrontRouter.get("/orders/track", async (req, res, next) => {
   }
   try {
     const found = await pool.query(
-      "SELECT order_number, customer_email, status, currency, subtotal_cents, created_at, updated_at FROM orders WHERE order_number=$1 AND customer_email=$2",
+      "SELECT order_number, customer_email, status, currency, subtotal_cents, delivery_fee_cents, vat_cents, tax_rate_bps, total_cents, shipping_country, shipping_emirate, created_at, updated_at FROM orders WHERE order_number=$1 AND customer_email=$2",
       [orderNumber, email]
     );
     if (!found.rowCount) return res.status(404).json({ error: "No matching order found. Check your order number and email." });
@@ -86,19 +119,12 @@ storefrontRouter.post("/orders", async (req, res, next) => {
     return res.status(400).json({ error: "A valid Idempotency-Key is required" });
   }
   const d = parsed.data;
-  if (d.shipping_country !== "IN") return res.status(400).json({ error: "BF SHOES currently delivers in India only." });
-  if (d.shipping_pincode !== "500052") return res.status(400).json({ error: "BF SHOES currently delivers only to PIN code 500052." });
-  if (d.shipping_country === "IN") {
-    const pin = d.shipping_pincode;
-    if (!/^[1-9][0-9]{5}$/.test(pin)) return res.status(400).json({ error: "Enter a valid six-digit Indian PIN code" });
-    const allowedPins = new Set((process.env.INDIA_DELIVERY_PINCODES || "500052").split(",").map(value => value.trim()).filter(Boolean));
-    if (!allowedPins.size) return res.status(503).json({ error: "India delivery is not configured yet. Please contact the store before ordering." });
-    if (!allowedPins.has(pin)) return res.status(400).json({ error: "Sorry, BF SHOES does not deliver to this PIN code yet." });
-    // Safety gate: catalog prices are currently AED and orders have no separate INR delivery-fee field.
-    return res.status(503).json({ error: "India delivery to this PIN code is planned, but checkout is not enabled yet. INR product pricing and the ₹50 delivery fee must be configured first." });
-  } else if (d.shipping_pincode) {
-    return res.status(400).json({ error: "PIN code is only used for India delivery. Select the correct delivery country." });
-  }
+  if (d.shipping_country !== "IN" || d.shipping_pincode !== "500052") return res.status(400).json({ error: "BF SHOES currently supports delivery only to PIN 500052, India." });
+  let marketConfig;
+  try { marketConfig = await getIndiaMarketConfig(); } catch (err) { return next(err); }
+  if (!marketConfig.checkout_ready) return res.status(503).json({ error: "India checkout is not enabled yet. Verify INR product prices, delivery fee and the active GST profile first.", setup_required: marketConfig.setup_required });
+  if (!marketConfig.payment_methods.includes(d.payment_method)) return res.status(400).json({ error: "This payment method is not enabled for the store." });
+  if (d.payment_method === "online") return res.status(503).json({ error: "Online payment is not live yet. Configure and verify the payment gateway before accepting online payments." });
   const idempotencyKey = `store:${suppliedKey}`;
   const requestFingerprint = storefrontRequestFingerprint(d);
   const quantities = aggregateStorefrontItems(d.items);
@@ -138,11 +164,22 @@ storefrontRouter.post("/orders", async (req, res, next) => {
     const currency = found.rows[0].currency;
     if (found.rows.some(v => v.currency !== currency)) { await client.query("ROLLBACK"); return res.status(400).json({ error: "Mixed currencies are not supported" }); }
 
+    if (currency !== "INR") { await client.query("ROLLBACK"); return res.status(400).json({ error: "India checkout only accepts verified INR-priced products. Existing prices have not been converted." }); }
+    const deliveryFee = marketConfig.delivery_fee_paise;
+    const taxRate = marketConfig.gst_rate_bps || 0;
+    let totals;
+    try { totals = calculateIndiaTotals(subtotal, deliveryFee, taxRate); }
+    catch { await client.query("ROLLBACK"); return res.status(400).json({ error: "Order total exceeds limit" }); }
+    const vatCents = totals.tax_paise;
+    const total = totals.total_paise;
+    const paymentMethod = d.payment_method;
     const inserted = await client.query(
       `INSERT INTO orders(customer_name, customer_email, customer_phone, shipping_address, payment_method,
-         currency, subtotal_cents, delivery_fee_cents, total_cents, idempotency_key, request_fingerprint)
-       VALUES($1,$2,$3,$4,'cod',$5,$6,5000,$6+5000,$7,$8) RETURNING order_number, status, subtotal_cents, delivery_fee_cents, total_cents, currency, created_at`,
-      [d.customer_name, d.customer_email.toLowerCase(), d.customer_phone, `${d.shipping_address}${d.shipping_country === "IN" ? `, India PIN: ${d.shipping_pincode}` : ""}`, currency, subtotal, idempotencyKey, requestFingerprint]
+         currency, subtotal_cents, delivery_fee_cents, vat_cents, tax_rate_bps, shipping_country, shipping_emirate,
+         total_cents, idempotency_key, request_fingerprint)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'IN','',$11,$12,$13)
+       RETURNING order_number, status, subtotal_cents, delivery_fee_cents, vat_cents, tax_rate_bps, total_cents, currency, shipping_country, shipping_emirate, created_at`,
+      [d.customer_name, d.customer_email.toLowerCase(), d.customer_phone, `${d.shipping_address}, PIN ${d.shipping_pincode}, India`, paymentMethod, currency, subtotal, deliveryFee, vatCents, taxRate, total, idempotencyKey, requestFingerprint]
     );
     const order = inserted.rows[0];
     const orderIdResult = await client.query("SELECT id FROM orders WHERE order_number=$1", [order.order_number]);
@@ -164,8 +201,8 @@ storefrontRouter.post("/orders", async (req, res, next) => {
       await deliverEmail({ kind: "order_confirmation", recipient: d.customer_email.toLowerCase(), subject: `BF SHOES order #${order.order_number} confirmed`, textBody: `Hi ${d.customer_name},\
 \
 Your BF SHOES order #${order.order_number} has been received.\
-Total: ${order.currency} ${(Number(order.subtotal_cents) / 100).toFixed(2)}\
-Payment: Cash on Delivery\
+Total: ${order.currency} ${(Number(order.total_cents) / 100).toFixed(2)}\
+Payment: ${order.payment_method === "cod" ? "Cash on Delivery" : "Online"}\
 \
 We will update you as your order progresses.` });
     } catch { /* order is committed; notification delivery is non-blocking */ }

@@ -76,10 +76,14 @@ const productSchema = z.object({
   seo_title: z.string().max(200).optional().default(""),
   seo_description: z.string().max(320).optional().default(""),
   brand: z.string().trim().max(100).optional().default("BF SHOES"),
+  category: z.enum(["shoes", "watches", "eyewear"]).optional().default("shoes"),
+  audience: z.enum(["men", "women", "kids", "unisex"]).optional().default("unisex"),
+  product_type: z.string().trim().min(1).max(80).optional().default("general"),
+  attributes: z.record(z.string(), z.unknown()).optional().default({}),
   image_url: z.string().url().max(2000).refine(value => value.startsWith("https://"), "Image URL must use HTTPS").optional().nullable().default(null),
   price_cents: z.number().int().min(0).max(100000000),
   unit_cost_cents: z.number().int().min(0).max(100000000).optional().nullable(),
-  currency: z.string().regex(/^[A-Za-z]{3}$/).optional().default("AED")
+  currency: z.enum(["AED", "INR"]).optional().default("AED")
 });
 router.get("/products", authenticate, requireScope("products:read"), async (req, res, next) => {
   try {
@@ -106,9 +110,9 @@ router.post("/products", authenticate, requireScope("products:write"), async (re
     client = await pool.connect();
     await client.query("BEGIN");
     const result = await client.query(
-      `INSERT INTO products(name, slug, description, short_description, seo_title, seo_description, brand, image_url, price_cents, unit_cost_cents, currency)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-      [p.name, p.slug, p.description, p.short_description, p.seo_title, p.seo_description, p.brand, p.image_url, p.price_cents, p.unit_cost_cents ?? null, p.currency.toUpperCase()]
+      `INSERT INTO products(name, slug, description, short_description, seo_title, seo_description, brand, category, audience, product_type, attributes, image_url, price_cents, unit_cost_cents, currency)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
+      [p.name, p.slug, p.description, p.short_description, p.seo_title, p.seo_description, p.brand, p.category, p.audience, p.product_type, JSON.stringify(p.attributes), p.image_url, p.price_cents, p.unit_cost_cents ?? null, p.currency.toUpperCase()]
     );
     await client.query(
       "INSERT INTO audit_events(actor_type, actor_id, action, resource_type, resource_id) VALUES($1,$2,$3,$4,$5)",
@@ -129,6 +133,10 @@ const productUpdateSchema = z.object({
   short_description: z.string().max(500).optional(),
   seo_title: z.string().max(200).optional(),
   seo_description: z.string().max(320).optional(),
+  category: z.enum(["shoes", "watches", "eyewear"]).optional(),
+  audience: z.enum(["men", "women", "kids", "unisex"]).optional(),
+  product_type: z.string().trim().min(1).max(80).optional(),
+  attributes: z.record(z.string(), z.unknown()).optional(),
   price_cents: z.number().int().min(0).max(100000000).optional(),
   unit_cost_cents: z.number().int().min(0).max(100000000).nullable().optional(),
   image_url: z.string().url().max(2000).refine(v => v.startsWith("https://")).nullable().optional(),
@@ -376,7 +384,7 @@ router.patch("/orders/:id/status", authenticate, requireScope("orders:write"), a
       }
     }
     const updated = await client.query(
-      "UPDATE orders SET status=$1, updated_at=now() WHERE id=$2 RETURNING *",
+      "UPDATE orders SET status=$1, updated_at=now(), delivered_at=CASE WHEN $1='delivered' THEN COALESCE(delivered_at, now()) ELSE delivered_at END WHERE id=$2 RETURNING *",
       [nextStatus, old.id]
     );
     await client.query(
