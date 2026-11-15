@@ -380,8 +380,8 @@
     const pin = $('#shipping-pincode');
     if (pin) { pin.required = isIndia; pin.value = isIndia ? '500052' : ''; }
     $('#payment-razorpay-option')?.classList.toggle('hidden', !isIndia);
-    $('#payment-card-option')?.classList.toggle('hidden', !isIndia);
-    $('#payment-upi-option')?.classList.toggle('hidden', !isIndia);
+    $('#payment-card-option')?.classList.add('hidden');
+    $('#payment-upi-option')?.classList.add('hidden');
     $('#payment-binance-option')?.classList.toggle('hidden', isIndia);
     const binance = $('#payment-binance-option input');
     const razorpay = $('#payment-razorpay-option input');
