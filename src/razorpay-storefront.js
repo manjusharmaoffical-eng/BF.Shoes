@@ -250,7 +250,7 @@ async function finalizeCapturedPayment({ razorpayOrderId, payment, callbackPaylo
     if (!stockReview) {
       for (const reservation of locked) {
         await client.query("UPDATE variants SET stock_qty=stock_qty-$1,updated_at=now() WHERE id=$2", [reservation.quantity,reservation.variant_id]);
-        await client.query("INSERT INTO inventory_movements(variant_id,delta,reason,reference_order_id) VALUES($1,$2,'storefront_razorpay_paid',$3)", [-Number(reservation.quantity),reservation.variant_id,attempt.order_id]);
+        await client.query("INSERT INTO inventory_movements(variant_id,delta,reason,reference_order_id) VALUES($1,$2,'storefront_razorpay_paid',$3)", [reservation.variant_id,-Number(reservation.quantity),attempt.order_id]);
         await allocateOrderWarehouseStock(client, { orderId: attempt.order_id, variantId: reservation.variant_id, quantity: Number(reservation.quantity), reason: "storefront_razorpay_paid" });
       }
     }
