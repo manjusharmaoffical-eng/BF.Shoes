@@ -36,7 +36,9 @@ app.use(helmet({
       // Product and campaign artwork is HTTPS-only at the API boundary.
       // Permit secure remote images while keeping scripts and connections same-origin.
       "img-src": ["'self'", "data:", "https:", "https://res.cloudinary.com"],
-      "connect-src": ["'self'", "https://api.cloudinary.com"]
+      "script-src": ["'self'", "https://checkout.razorpay.com"],
+      "frame-src": ["'self'", "https://api.razorpay.com", "https://checkout.razorpay.com"],
+      "connect-src": ["'self'", "https://api.cloudinary.com", "https://api.razorpay.com", "https://checkout.razorpay.com"]
     }
   }
 }));
