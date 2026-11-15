@@ -35,7 +35,7 @@ test("homepage welcomes visitors with the local BF signature sneaker hero and re
 test("mobile header lays out all primary navigation links in a visible grid", () => {
   assert.match(css, /@media\(max-width:600px\)[\s\S]*?\.site-header \.main-nav\{[\s\S]*?display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
   assert.match(css, /\.site-header \.main-nav a\{[\s\S]*?justify-content:center/);
-  assert.match(html, /href="#shop">Sale<\/a><a href="#footer">About<\/a>/);
+  assert.match(html, /href="#shop">Shop<\/a><a href="#footer">About<\/a>/);
 });
 
 test("mobile market selector has readable foreground and background contrast", () => {
