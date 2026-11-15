@@ -51,15 +51,15 @@ test("UAE storefront routes hosted checkout through PayTabs and keeps it gated",
     readFile(new URL("../schema.sql", import.meta.url), "utf8"),
     readFile(new URL("../src/binance-pay.js", import.meta.url), "utf8")
   ]);
-  assert.match(storefront, /storefrontRouter\.post\("\/orders\/paytabs"/);
-  assert.match(storefront, /storefrontRouter\.post\("\/payments\/paytabs\/callback"/);
+  assert.match(storefront, /storefrontRouter\.post\("\/orders\/binance"/);
+  assert.match(storefront, /storefrontRouter\.post\("\/payments\/binance\/webhook"/);
   assert.match(helper, /BINANCE_PAY_ENABLED/);
   assert.match(helper, /\/binancepay\/openapi\/v2\/order/);
   assert.match(helper, /fiatAmount: Number\(amount\)/);
   assert.match(helper, /fiatCurrency: "AED"/);
   assert.doesNotMatch(helper, /orderAmount: Number\(amount\),\s*currency: "AED"/);
-  assert.match(frontend, /API_BASE \+ '\/orders\/paytabs'/);
-  assert.match(frontend, /parsed\.hostname === 'secure\.paytabs\.com'/);
+  assert.match(frontend, /API_BASE \+ '\/orders\/binance'/);
+  assert.match(frontend, /https:\/\/pay\.binance\.com\//);
   assert.match(html, /id="payment-paytabs-option"/);
   assert.match(schema, /razorpay/);
 });
@@ -73,7 +73,7 @@ test("Binance Pay AED order uses V2 fiatAmount/fiatCurrency and validates quote"
     return {
       ok: true,
       json: async () => ({ status: "SUCCESS", code: "000000", data: {
-  assert.match(frontend, /parsed\.hostname === 'secure\.paytabs\.com'/);
+        prepayId: "1234567890123456789", checkoutUrl: "https://pay.binance.com/checkout/test",
         currency: "USDT", totalFee: "27.12345678", fiatCurrency: "AED", fiatAmount: "100.00", expireTime: 1794719999999
       } })
     };
@@ -93,7 +93,7 @@ test("Binance Pay AED order uses V2 fiatAmount/fiatCurrency and validates quote"
     merchantTradeNo: "BF12346", amount: "100.00", description: "BF SHOES order",
     returnUrl: "https://bf-shoes.vercel.app/payment-result.html?order=12346", env,
     fetchImpl: async () => ({ ok: true, json: async () => ({ status: "SUCCESS", code: "000000", data: {
-  assert.match(frontend, /parsed\.hostname === 'secure\.paytabs\.com'/);
+      prepayId: "1234567890123456788", checkoutUrl: "https://pay.binance.com/checkout/test",
       currency: "USDT", totalFee: "27.12", fiatCurrency: "USD", fiatAmount: "100.00"
     } }) })
   }), /invalid or unverifiable AED checkout session/);
