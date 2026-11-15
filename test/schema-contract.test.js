@@ -209,3 +209,14 @@ test("finance expenses and funding support INR and AED without combining currenc
   assert.match(finance, /f\.currency=\$1/);
   assert.match(finance, /currency,sales:s/);
 });
+
+
+test("admin tax report never combines INR and AED into a mixed-currency total", async () => {
+  const admin = await readFile(new URL("../frontend/admin.js", import.meta.url), "utf8");
+  const report = admin.split("async function loadTaxReport()")[1]?.split("async function loadAIStudio()")[0];
+  assert.ok(report?.includes("x.by_jurisdiction||[]"));
+  assert.ok(report?.includes("r.currency"));
+  assert.ok(report?.includes("India GST"));
+  assert.ok(report?.includes("UAE VAT"));
+  assert.doesNotMatch(report || "", /x\.currency\|\|'mixed'/);
+});
