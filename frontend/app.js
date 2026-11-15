@@ -31,7 +31,7 @@
   const vatCents = () => null;
   const checkoutTotalCents = () => totalCents();
   const setupMessage = () => state.market === 'IN'
-    ? 'India checkout is pending Razorpay credentials, verified INR prices, confirmed delivery fee and GST profile.'
+    ? 'India checkout is pending PayU merchant verification, verified INR prices, confirmed delivery fee and GST profile.'
     : 'UAE checkout is pending Binance Pay merchant enablement, verified AED prices, delivery fee and VAT profile.';
   const randomKey = () => Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   const productImage = product => {
@@ -192,7 +192,7 @@
 
     const delivery=$('#cart-delivery-fee');
     const guidance=$('#cart-market-guidance');
-    if(guidance) guidance.textContent = state.market === 'IN' ? 'India delivery is currently limited to PIN 500052. Checkout remains closed until verified INR pricing, delivery fee, GST and Razorpay setup are complete.' : 'UAE delivery fee, VAT and merchant gateway setup are not yet verified. Checkout remains closed; India PIN and payment instructions do not apply.';
+    if(guidance) guidance.textContent = state.market === 'IN' ? 'India delivery is currently limited to PIN 500052. Checkout remains closed until verified INR pricing, delivery fee, GST and PayU setup are complete.' : 'UAE delivery fee, VAT and merchant gateway setup are not yet verified. Checkout remains closed; India PIN and payment instructions do not apply.';
     if(delivery) delivery.textContent='Not configured';
     if($('#checkout-total')) $('#checkout-total').textContent = money(checkoutTotalCents(), activeCurrency);
 
@@ -369,7 +369,7 @@
     if (placeOrder) placeOrder.disabled = !state.checkoutReady;
     if ($('#checkout-readiness-note')) $('#checkout-readiness-note').textContent = state.checkoutReady
       ? "Checkout is ready only after this market's payment, delivery and tax settings are verified."
-      : state.market === 'AE' ? 'UAE shopping is available. UAE delivery, VAT and payment setup must be completed before checkout opens.' : 'Checkout opens after verified INR prices, delivery fee, GST profile and Razorpay merchant credentials are configured.';
+      : state.market === 'AE' ? 'UAE shopping is available. UAE delivery, VAT and payment setup must be completed before checkout opens.' : 'Checkout opens after verified INR prices, delivery fee, GST profile and PayU merchant credentials are configured.';
   }
 
   function updateCheckoutMarketForm() {
@@ -379,20 +379,20 @@
     $('#india-pin-field')?.classList.toggle('hidden', !isIndia);
     const pin = $('#shipping-pincode');
     if (pin) { pin.required = isIndia; pin.value = isIndia ? '500052' : ''; }
-    $('#payment-cod-option')?.classList.toggle('hidden', !isIndia);
-    $('#payment-card-option')?.classList.toggle('hidden', !isIndia);
-    $('#payment-upi-option')?.classList.toggle('hidden', !isIndia);
+    $('#payment-payu-option')?.classList.toggle('hidden', !isIndia);
+    $('#payment-card-option')?.classList.add('hidden');
+    $('#payment-upi-option')?.classList.add('hidden');
     $('#payment-binance-option')?.classList.toggle('hidden', isIndia);
     const binance = $('#payment-binance-option input');
-    const cod = $('#payment-cod-option input');
-    if (isIndia && cod) cod.checked = true;
+    const payu = $('#payment-payu-option input');
+    if (isIndia && payu) payu.checked = true;
     if (!isIndia && binance) binance.checked = true;
     const note = $('#checkout-payment-note');
     if (note) note.textContent = isIndia
-      ? 'Cash on Delivery only. Delivery PIN: 500052. Delivery charges are listed in our Shipping Policy.'
+      ? 'Pay securely with PayU hosted checkout using supported cards, UPI and net banking. Delivery PIN: 500052.'
       : 'Binance Pay hosted checkout. Payment is confirmed by a verified Binance notification; AED price and VAT are shown before payment.';
     const submit = $('#place-order');
-    if (submit) submit.innerHTML = isIndia ? 'Place COD order <span>↗</span>' : 'Continue to Binance Pay <span>↗</span>';
+    if (submit) submit.innerHTML = isIndia ? 'Continue to PayU <span>↗</span>' : 'Continue to Binance Pay <span>↗</span>';
     const cartNote = $('#cart-delivery-note');
     if (cartNote) cartNote.innerHTML = isIndia
       ? 'Delivery is available only for PIN code 500052. See our <a href="/policies.html#shipping">Shipping Policy</a> for delivery charges.'
@@ -457,7 +457,7 @@
       shipping_address: String(formData.get('shipping_address') || '').trim(),
       shipping_country: String(formData.get('shipping_country') || state.market),
       shipping_pincode: state.market === 'IN' ? String(formData.get('shipping_pincode') || '') : '',
-      payment_method: state.market === 'AE' ? 'binance' : 'cod',
+      payment_method: state.market === 'AE' ? 'binance' : 'payu',
       items: state.cart.map(item => ({ sku: item.variant.sku, quantity: item.quantity }))
     };
 
@@ -467,7 +467,7 @@
     }
 
     try {
-      if (!state.checkoutReady) throw new Error(state.market === 'IN' ? 'India checkout is disabled until Razorpay credentials, verified prices, delivery fee and GST are configured.' : 'UAE checkout is disabled until Binance Pay merchant enablement, verified AED prices, delivery fee and VAT are configured.');
+      if (!state.checkoutReady) throw new Error(state.market === 'IN' ? 'India checkout is disabled until PayU merchant credentials, verified prices, delivery fee and GST are configured.' : 'UAE checkout is disabled until Binance Pay merchant enablement, verified AED prices, delivery fee and VAT are configured.');
       if (state.market === 'AE') {
         const result = await request(API_BASE + '/orders/binance', {
           method: 'POST',
@@ -479,7 +479,31 @@
         window.location.assign(checkoutUrl);
         return;
       }
-      throw new Error('India online payments are not yet connected.');
+      const result = await request(API_BASE + '/orders/payu', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': state.pendingCheckout.key },
+        body: JSON.stringify(payload)
+      });
+      const checkout = result?.data?.checkout;
+      const allowedPayUActions = ['https://test.payu.in/_payment', 'https://secure.payu.in/_payment'];
+      if (!checkout || checkout.method !== 'POST' || !allowedPayUActions.includes(checkout.action) || !checkout.fields || typeof checkout.fields !== 'object' || !checkout.fields.hash || !checkout.fields.txnid) {
+        throw new Error('PayU did not return a valid secure checkout request.');
+      }
+      const payuForm = document.createElement('form');
+      payuForm.method = 'POST';
+      payuForm.action = checkout.action;
+      payuForm.acceptCharset = 'UTF-8';
+      for (const [name, value] of Object.entries(checkout.fields)) {
+        if (value === undefined || value === null) continue;
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = String(value);
+        payuForm.append(input);
+      }
+      document.body.append(payuForm);
+      payuForm.submit();
+      return;
 
     } catch (error) {
       showCheckoutError(error.message || 'Failed to place order. Please try again.');
@@ -487,7 +511,7 @@
       state.busy = false;
       if(submit) {
         submit.disabled = !state.checkoutReady;
-        submit.innerHTML = state.market === 'AE' ? 'Continue to Binance Pay <span>↗</span>' : 'Place COD order <span>↗</span>';
+        submit.innerHTML = state.market === 'AE' ? 'Continue to Binance Pay <span>↗</span>' : 'Continue to PayU <span>↗</span>';
       }
     }
   });
