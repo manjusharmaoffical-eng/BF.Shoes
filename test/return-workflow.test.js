@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { canTransitionReturnStatus, validateReturnItems } from '../src/return-workflow.js';
+import { canTransitionReturnStatus, isWithinReturnWindow, validateReturnItems } from '../src/return-workflow.js';
 
 const orderItems = [
   { id: 'item-1', quantity: 2 },
@@ -48,4 +48,14 @@ test('return workflow does not initiate a refund, fee or inventory mutation', as
   const source = await readFile(new URL('../src/returns.js', import.meta.url), 'utf8');
   assert.match(source, /No refund, fee or stock change/);
   assert.doesNotMatch(source, /UPDATE variants|INSERT INTO inventory_movements|refund_payment|createRefund/i);
+});
+
+test('return and exchange requests are accepted only within 24 hours after delivery', () => {
+  const delivered = Date.parse('2026-11-14T10:00:00.000Z');
+  const hour = 60 * 60 * 1000;
+  assert.equal(isWithinReturnWindow(delivered, delivered + 23 * hour), true);
+  assert.equal(isWithinReturnWindow(delivered, delivered + 24 * hour), true);
+  assert.equal(isWithinReturnWindow(delivered, delivered + 24 * hour + 1), false);
+  assert.equal(isWithinReturnWindow(delivered, delivered - 1), false);
+  assert.equal(isWithinReturnWindow('invalid-date', delivered), false);
 });
