@@ -24,7 +24,7 @@ if (!process.env.JWT_SECRET || Buffer.byteLength(process.env.JWT_SECRET) < 32) {
 
 const app = express();
 app.disable("x-powered-by");
-const trustProxyHops = Number(process.env.TRUST_PROXY_HOPS || 0);
+// Vercel runs this app behind its trusted platform proxy. Trust the single\n// platform hop by default so express-rate-limit can use the real client IP.\n// Keep an explicit override for self-hosted deployments and unusual proxy chains.\nconst trustProxyHops = Number(process.env.TRUST_PROXY_HOPS || (process.env.VERCEL ? 1 : 0));
 if (!Number.isInteger(trustProxyHops) || trustProxyHops < 0 || trustProxyHops > 10) {
   throw new Error("TRUST_PROXY_HOPS must be an integer between 0 and 10");
 }
