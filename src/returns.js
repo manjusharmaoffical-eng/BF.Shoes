@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { pool } from './db.js';
 import { authenticate, requireScope } from './auth.js';
 import { getCustomerSession } from './customer-auth.js';
-import { canTransitionReturnStatus, RETURN_STATUSES, validateReturnItems } from './return-workflow.js';
+import { canTransitionReturnStatus, isWithinReturnWindow, RETURN_STATUSES, validateReturnItems } from './return-workflow.js';
 
 export const returnsRouter = express.Router();
 
@@ -28,7 +28,7 @@ returnsRouter.post('/', async (req, res, next) => {
     client = await pool.connect();
     await client.query('BEGIN');
     const orderResult = await client.query(
-      `SELECT o.id,o.order_number,o.status,o.currency,o.shipping_country
+      `SELECT o.id,o.order_number,o.status,o.currency,o.shipping_country,COALESCE(o.delivered_at,o.updated_at) AS delivered_at
        FROM orders o JOIN customer_accounts c ON lower(c.email)=lower(o.customer_email)
        WHERE o.order_number=$1 AND c.id=$2 AND c.active=true FOR UPDATE OF o`,
       [parsed.data.order_number, session.row.id]
@@ -36,6 +36,7 @@ returnsRouter.post('/', async (req, res, next) => {
     const order = orderResult.rows[0];
     if (!order) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Order not found in your account.' }); }
     if (order.status !== 'delivered') { await client.query('ROLLBACK'); return res.status(409).json({ error: 'A return or exchange request can be submitted after the order is marked delivered.' }); }
+    if (!isWithinReturnWindow(order.delivered_at)) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'Return or exchange requests must be submitted within 12 hours after delivery.' }); }
     const existing = await client.query("SELECT id FROM return_requests WHERE order_id=$1 AND status NOT IN ('rejected','cancelled')", [order.id]);
     if (existing.rowCount) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'A return or exchange request already exists for this order.' }); }
     const orderItems = await client.query('SELECT id,quantity FROM order_items WHERE order_id=$1', [order.id]);

@@ -37,7 +37,7 @@ export function payuRequestHash(fields, salt) {
 
 export function payuResponseHash(fields, salt) {
   const values = [
-    ...(fields.additionalCharges ? [String(fields.additionalCharges)] : []),
+    ...((fields.additionalCharges || fields.additional_charges) ? [String(fields.additionalCharges || fields.additional_charges)] : []),
     salt, fields.status || "", "", "", "", "", "",
     fields.udf5 || "", fields.udf4 || "", fields.udf3 || "",
     fields.udf2 || "", fields.udf1 || "", fields.email || "",

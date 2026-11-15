@@ -43,7 +43,7 @@ test("Binance Pay webhook verifies RSA-SHA256 over the exact raw body", () => {
   assert.equal(verifyBinanceWebhookSignature({ timestamp, nonce, rawBody, signature: "bad", publicKey }), false);
 });
 
-test("UAE storefront keeps PayTabs as the selected but gated merchant provider", async () => {
+test("UAE storefront routes hosted checkout through PayTabs and keeps it gated", async () => {
   const [storefront, frontend, html, schema, helper] = await Promise.all([
     readFile(new URL("../src/storefront.js", import.meta.url), "utf8"),
     readFile(new URL("../frontend/app.js", import.meta.url), "utf8"),
@@ -51,16 +51,16 @@ test("UAE storefront keeps PayTabs as the selected but gated merchant provider",
     readFile(new URL("../schema.sql", import.meta.url), "utf8"),
     readFile(new URL("../src/binance-pay.js", import.meta.url), "utf8")
   ]);
-  assert.match(storefront, /storefrontRouter\.post\("\/orders\/binance"/);
-  assert.match(storefront, /storefrontRouter\.post\("\/payments\/binance\/webhook"/);
+  assert.match(storefront, /storefrontRouter\.post\("\/orders\/paytabs"/);
+  assert.match(storefront, /storefrontRouter\.post\("\/payments\/paytabs\/callback"/);
   assert.match(helper, /BINANCE_PAY_ENABLED/);
   assert.match(helper, /\/binancepay\/openapi\/v2\/order/);
   assert.match(helper, /fiatAmount: Number\(amount\)/);
   assert.match(helper, /fiatCurrency: "AED"/);
   assert.doesNotMatch(helper, /orderAmount: Number\(amount\),\s*currency: "AED"/);
-  assert.match(frontend, /API_BASE \+ '\/orders\/binance'/);
-  assert.match(frontend, /https:\/\/pay\.binance\.com\//);
-  assert.match(html, /id="payment-binance-option"/);
+  assert.match(frontend, /API_BASE \+ '\/orders\/paytabs'/);
+  assert.match(frontend, /parsed\.hostname === 'secure\.paytabs\.com'/);
+  assert.match(html, /id="payment-paytabs-option"/);
   assert.match(schema, /razorpay/);
 });
 

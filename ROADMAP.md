@@ -10,17 +10,17 @@ This roadmap records the owner's current direction: finish the website and all n
 - Do not invent purchase costs, stock quantities, warehouse locations/addresses, delivery charges, tax rates, legal identity, customer records, or order records.
 - Never request passwords, OTPs, API secrets, or payment credentials in chat. Use secure provider environment-variable settings.
 - Keep existing UAE/India market and currency separation. Do not mix AED and INR in finance or reporting.
-- Do not activate checkout or change payment/tax configuration as part of this roadmap.
+- PayU integration is owner-approved for India; keep live checkout disabled until merchant verification, credentials, GST profile and commercial settings are verified.
 - Test each feature and review its migration before production. Preserve existing records and use additive, reversible changes where practical.
 
 ## Deferred by owner — leave untouched for now
 
 - India GST number verification and GST profile.
 - UAE VAT profile and tax setup.
-- Payment gateways, including Paytm / Razorpay / PayU / PayTabs merchant onboarding or credential configuration.
+- PayU merchant onboarding, credentials and merchant-dashboard webhook registration.
 - Checkout activation, payment callbacks, and live order/payment testing.
 
-These items are intentionally deferred until the owner is in India, verifies the GST number, and gives a fresh instruction. Existing checkout safeguards must remain in place.
+The owner has now selected PayU for India. Implement and test the PayU integration on a feature branch, but keep live checkout disabled until the merchant account, credentials, GST profile and commercial settings are verified. Existing checkout safeguards must remain in place.
 
 ## Existing implemented modules — still require appropriate end-to-end verification
 
