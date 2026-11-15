@@ -209,3 +209,14 @@ test("finance expenses and funding support INR and AED without combining currenc
   assert.match(finance, /f\.currency=\$1/);
   assert.match(finance, /currency,sales:s/);
 });
+
+
+test("tax invoice numbering serializes concurrent issuance per jurisdiction and year", async () => {
+  const invoices = await readFile(new URL("../src/invoices.js", import.meta.url), "utf8");
+  const lock = invoices.indexOf("pg_advisory_xact_lock(hashtext($1),hashtext('bf-shoes-tax-invoice-number'))");
+  const count = invoices.indexOf("SELECT COUNT(*)::int n FROM tax_invoices WHERE invoice_number LIKE $1");
+  const insert = invoices.indexOf("INSERT INTO tax_invoices(order_id,profile_id,invoice_number");
+  assert.ok(lock >= 0, "Invoice issuance must acquire a transaction-scoped numbering lock");
+  assert.ok(count > lock, "The invoice count must run after the lock is acquired");
+  assert.ok(insert > count, "The invoice insert must run after the locked count");
+});
