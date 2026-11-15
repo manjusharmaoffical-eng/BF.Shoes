@@ -18,6 +18,6 @@ test("storefront fingerprints include phone, address, and quantity", () => {
   assert.notEqual(storefrontRequestFingerprint(checkout), storefrontRequestFingerprint({ ...checkout, items: [{ sku: "BF-001", quantity: 2 }, { sku: "BF-002", quantity: 2 }] }));
 });
 
-test("storefront aggregates duplicate SKU lines", () => {
+test("storefront fingerprints distinguish payment methods", () => {\n  assert.notEqual(storefrontRequestFingerprint({ ...checkout, payment_method: "cod" }), storefrontRequestFingerprint({ ...checkout, payment_method: "razorpay" }));\n});\n\ntest("storefront aggregates duplicate SKU lines", () => {
   assert.deepEqual([...aggregateStorefrontItems([{ sku: "BF-001", quantity: 1 }, { sku: "BF-001", quantity: 2 }]).entries()], [["BF-001", 3]]);
 });
