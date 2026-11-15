@@ -397,7 +397,7 @@
     if (cartNote) cartNote.innerHTML = isIndia
       ? 'Delivery is available only for PIN code 500052. See our <a href="/policies.html#shipping">Shipping Policy</a> for delivery charges.'
       : 'UAE delivery is subject to verified delivery coverage and the fee shown before payment.';
-    $('#cart-cod-note')?.classList.toggle('hidden', !isIndia);
+    $('#cart-payu-note')?.classList.toggle('hidden', !isIndia);
   }
 
   if (countrySelect) {
