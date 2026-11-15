@@ -18,3 +18,28 @@ test("profit input rejects malformed amounts and missing cost counts", () => {
   assert.throws(() => calculateProfit({ revenueCents: "10.5", cogsCents: "1", expensesCents: "1", missingCostUnits: 0 }), TypeError);
   assert.throws(() => calculateProfit({ revenueCents: "10", cogsCents: "1", expensesCents: "1", missingCostUnits: -1 }), TypeError);
 });
+
+
+test("finance expense ledger uses the same selected currency and date range as the P/L report", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const source = await readFile(new URL("../src/finance.js", import.meta.url), "utf8");
+  const start = source.indexOf('financeRouter.get("/expenses"');
+  const end = source.indexOf('financeRouter.post("/expenses"', start);
+  const route = source.slice(start, end);
+  assert.ok(start >= 0 && end > start, "expense list route exists");
+  assert.match(route, /dateQuery\.safeParse\(req\.query\)/);
+  assert.match(route, /expense_date >= \$1/);
+  assert.match(route, /expense_date <= \$2/);
+  assert.match(route, /currency=\$3/);
+});
+
+test("finance admin shows revenue components and period expense categories", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const html = await readFile(new URL("../frontend/admin.html", import.meta.url), "utf8");
+  const js = await readFile(new URL("../frontend/admin.js", import.meta.url), "utf8");
+  assert.match(html, /id="finance-category-breakdown"/);
+  assert.match(js, /Product revenue/);
+  assert.match(js, /Delivery fee revenue/);
+  assert.ok(js.includes("req('/finance/expenses?'+params.toString())"));
+  assert.match(js, /expenses_by_category/);
+});
