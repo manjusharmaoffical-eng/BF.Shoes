@@ -11,8 +11,10 @@ import { allocateOrderWarehouseStock } from "./warehouse-stock.js";
 import { calculateUaeTotals } from "./uae-market-policy.js";
 import { binancePayConfigured, createBinancePayOrder, getBinancePayCertificate, queryBinancePayOrder, verifyBinanceWebhookSignature } from "./binance-pay.js";
 import { razorpayConfigured, razorpayPublicKey } from "./razorpay.js";
+import { razorpayStorefrontRouter } from "./razorpay-storefront.js";
 
 export const storefrontRouter = express.Router();
+storefrontRouter.use(razorpayStorefrontRouter);
 
 function amountToCents(value) {
   const match = /^(0|[1-9]\d*)(?:\.(\d{1,2}))?$/.exec(String(value || ""));
