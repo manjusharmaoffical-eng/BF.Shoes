@@ -215,7 +215,7 @@ test("UAE PayTabs checkout applies a single valid AED VAT profile to the stored 
   const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
   const paytabs = storefront.split('storefrontRouter.post("/orders/paytabs"')[1]?.split('storefrontRouter.post("/payments/paytabs/callback"')[0];
   assert.ok(paytabs, "PayTabs checkout route must exist");
-  assert.ok(storefront.includes("count(*) = 1 AND COALESCE(bool_and(currency = 'AED' AND tax_rate_bps BETWEEN 1 AND 10000)"));
+  assert.ok(storefront.includes("count(*) = 1 AND COALESCE(bool_and(currency = 'AED' AND tax_rate_bps = 500 AND trim(registration_number) <> '')"));
   assert.ok(paytabs.includes("tax.rowCount !== 1"));
   assert.ok(paytabs.includes("calculateUaeTotals(subtotal, deliveryFeeCents, Number(tax.rows[0].tax_rate_bps))"));
   assert.ok(paytabs.includes("vat_cents,tax_rate_bps,total_cents,shipping_country"));
