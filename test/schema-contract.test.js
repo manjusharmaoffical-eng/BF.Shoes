@@ -39,9 +39,9 @@ test("schema.sql contains the required business tables and columns", () => {
   }
 });
 
-test("checkout schema accepts PayU and keeps India checkout behind verification gates", async () => {
+test("checkout schema accepts PayU and PayTabs behind market behind verification gates", async () => {
   const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
-  assert.match(storefront, /payment_method:\s*z\.enum\(\["cod", "payu"\]\)/, "Checkout schema must accept COD or PayU");
+  assert.match(storefront, /payment_method:\s*z\.enum\(\["cod", "payu", "paytabs"\]\)/, "Checkout schema must accept COD, PayU or PayTabs");
   assert.match(storefront, /India online checkout is configured for PayU only/);
   assert.match(storefront, /paymentProvider: "PayU"/);
   assert.match(storefront, /payuConfigured\(\)/);
@@ -177,8 +177,8 @@ test("storefront exposes separate UAE and India market configuration with owner-
   assert.match(storefront, /checkoutEnabled: indiaCheckoutEnabled/);
   assert.match(storefront, /checkoutEnabled: uaeCheckoutEnabled/);
   assert.match(storefront, /UAE_DELIVERY_FEE_FILS/);
-  assert.match(storefront, /storefrontRouter\.post\("\/orders\/binance"/);
-  assert.match(storefront, /storefrontRouter\.post\("\/payments\/binance\/webhook"/);
+  assert.match(storefront, /storefrontRouter\.post\("\/orders\/paytabs"/);
+  assert.match(storefront, /storefrontRouter\.post\("\/payments\/paytabs\/callback"/);
   assert.match(storefront, /const indiaCheckoutEnabled = process\.env\.INDIA_CHECKOUT_VERIFIED === "true"/);
   assert.match(storefront, /const uaeCheckoutEnabled = process\.env\.UAE_CHECKOUT_VERIFIED === "true"/);
   assert.doesNotMatch(storefront, /const (?:india|uae)CheckoutEnabled = true/);
