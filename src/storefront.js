@@ -27,7 +27,7 @@ const checkoutSchema = z.object({
   shipping_address: z.string().trim().min(10).max(1000),
   shipping_country: z.enum(["IN", "AE"]).default("IN"),
   shipping_pincode: z.string().trim().optional().default(""),
-  payment_method: z.enum(["cod", "payu"]).optional().default("cod"),
+  payment_method: z.enum(["cod", "payu", "paytabs"]).optional().default("cod"),
   items: z.array(z.object({ sku: z.string().trim().min(2).max(80), quantity: z.number().int().min(1).max(10) })).min(1).max(20)
 }).strict();
 const binanceCheckoutSchema = checkoutSchema.extend({ payment_method: z.literal("binance").default("binance") });
@@ -571,7 +571,8 @@ storefrontRouter.post("/orders/paytabs", async (req, res, next) => {
   const suppliedKey = req.get("idempotency-key");
   if (!suppliedKey || suppliedKey.length < 16 || suppliedKey.length > 120 || !/^[a-zA-Z0-9._:-]+$/.test(suppliedKey)) return res.status(400).json({ error: "A valid Idempotency-Key is required" });
   const d = parsed.data;
-  return res.status(503).json({ error: "UAE online checkout is disabled until the merchant gateway and credentials are confirmed." });
+  if (process.env.UAE_CHECKOUT_VERIFIED !== "true") return res.status(503).json({ error: "UAE online checkout remains disabled until the owner verifies PayTabs, VAT, AED pricing and delivery settings." });
+  if (d.payment_method !== "paytabs") return res.status(400).json({ error: "Select PayTabs for UAE online checkout." });
   if (d.shipping_country !== "AE") return res.status(400).json({ error: "PayTabs checkout is only for the UAE market." });
   if (process.env.UAE_PRICING_VERIFIED !== "true") return res.status(503).json({ error: "UAE product pricing has not been owner-verified." });
   if (process.env.UAE_DELIVERY_FEE_VERIFIED !== "true") return res.status(503).json({ error: "UAE delivery fee has not been owner-verified." });
