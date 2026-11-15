@@ -60,5 +60,13 @@ git diff --check
 ````
 
 
-### Online payments (India)
-Razorpay online payments are not live in this build. Do not accept or mark an order paid until the merchant credentials are configured securely and the server-side order creation, signature verification, webhook verification, idempotency and refund handling have been implemented and tested. COD can remain an intended option, but checkout is gated until market configuration and verified INR prices are complete.
+### Online payments (India — PayU)
+India's selected gateway is PayU Hosted Checkout. The server creates a transaction with a SHA-512 request hash, posts the customer to PayU's hosted payment page, validates the reverse response hash, and confirms successful transactions server-side through PayU's Verify Payment API. The transaction is protected with order idempotency and stock reservations. Do not mark an order paid from a browser redirect alone.
+
+Keep `PAYU_ENABLED=false`, `INDIA_CHECKOUT_VERIFIED=false`, and checkout disabled until the PayU merchant account is verified, Test Key/Salt are stored in Vercel Environment Variables, and a successful test transaction plus callback/verification checks have passed. Use `PAYU_ENV=test` for testing; switch to `production` only after PayU approves the merchant account and live credentials are issued. Never put the merchant Salt in frontend code or a URL. Register the public HTTPS callback/webhook URLs in the PayU dashboard when merchant access is available.
+
+PayU references:
+- Hosted Checkout: https://docs.payu.in/docs/prebuilt-checkout-page-integration
+- Hashing and reverse-hash validation: https://docs.payu.in/docs/hashing-request-and-response
+- Test integration: https://docs.payu.in/docs/test-integration
+- Production checklist: https://docs.payu.in/docs/integration-checklist-merchant-hosted-checkout
