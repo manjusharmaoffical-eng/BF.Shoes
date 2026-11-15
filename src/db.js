@@ -5,10 +5,12 @@ dotenv.config();
 const { Pool } = pg;
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
 
-// Keep TLS certificate verification explicit. node-postgres warns about sslmode=require
-// on newer versions; normalize it to verify-full when DATABASE_SSL=true.
+// Keep TLS certificate verification explicit and silence pg-connection-string's
+// compatibility warning. These legacy modes currently map to verify-full, so
+// normalize them now before pg v9 changes their semantics.
 const connectionUrl = new URL(process.env.DATABASE_URL);
-if (process.env.DATABASE_SSL === "true") {
+const sslMode = (connectionUrl.searchParams.get("sslmode") || "").toLowerCase();
+if (process.env.DATABASE_SSL === "true" || ["prefer", "require", "verify-ca"].includes(sslMode)) {
   connectionUrl.searchParams.set("sslmode", "verify-full");
 }
 

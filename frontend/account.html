@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#111111">
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/styles.css">
+  <title>My Account · BF SHOES</title>
+  <style>
+    .account-shell{max-width:1040px;margin:0 auto;padding:48px 22px 80px}
+    .account-top{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:28px}
+    .account-top h1{font:800 clamp(32px,5vw,54px)/1.05 var(--display);margin:6px 0}
+    .account-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+    .account-card{background:#fff;border:1px solid var(--line);padding:24px}
+    .account-card h2{font:700 20px var(--display);margin:0 0 8px}
+    .account-card p{color:var(--muted);line-height:1.6}
+    .account-card label{display:block;font-size:12px;font-weight:700;margin:14px 0 6px}
+    .account-card input{width:100%;padding:13px;border:1px solid var(--line);background:#fff;color:var(--ink)}
+    .account-card button,.account-button{display:inline-flex;align-items:center;justify-content:center;background:#111;color:#fff;border:0;padding:13px 18px;margin-top:16px;cursor:pointer;font-weight:700}
+    .account-card button:disabled{opacity:.55;cursor:wait}
+    .account-status{margin:16px 0;padding:12px 14px;background:#efeee9;color:#111;white-space:pre-wrap}
+    .account-status.error{background:#fff0f0;color:#8a1515}
+    .account-profile{background:#fff;border:1px solid var(--line);padding:22px;margin-bottom:20px}
+    .account-profile strong{font-size:18px}
+    .account-orders{background:#fff;border:1px solid var(--line);padding:22px;margin-top:20px}
+    .order-card{border-top:1px solid var(--line);padding:18px 0}
+    .order-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .order-items{color:#555;margin:10px 0;line-height:1.6}
+    .order-total{font-weight:800}
+    .account-muted{color:var(--muted);font-size:13px}
+    .hidden{display:none!important}
+    @media(max-width:680px){.account-shell{padding:28px 16px 56px}.account-grid{grid-template-columns:1fr}.account-top{align-items:flex-start;flex-direction:column}.account-card,.account-orders,.account-profile{padding:18px}}
+  </style>
+  <script defer src="/account.js"></script>
+</head>
+<body>
+  <div class="announcement">BF SHOES <span>STEP INTO BETTER</span></div>
+  <header class="site-header">
+    <a class="wordmark" href="/" aria-label="BF Shoes home"><span class="bf-logo-mark">BF</span><span class="bf-logo-copy">SHOES<small>STEP INTO BETTER</small></span></a>
+    <nav class="main-nav" aria-label="Main navigation"><a href="/">Home</a><a href="/#shop">Shop</a><a href="/#story">About</a></nav>
+    <a class="account-button" href="/">Back to store</a>
+  </header>
+  <main class="account-shell">
+    <div class="account-top"><div><p class="eyebrow">BF SHOES / CUSTOMER SPACE</p><h1>Your account.</h1><p class="account-muted">Manage your profile and view orders placed with this email address.</p></div></div>
+    <div id="account-status" class="account-status" role="status" aria-live="polite">Sign in or create an account to continue.</div>
+    <section id="auth-panels" class="account-grid">
+      <div class="account-card">
+        <h2>Sign in</h2><p>Welcome back. Use your BF SHOES account details.</p>
+        <form id="login-form">
+          <label for="login-email">Email</label><input id="login-email" name="email" type="email" required autocomplete="email" maxlength="254">
+          <label for="login-password">Password</label><input id="login-password" name="password" type="password" required autocomplete="current-password" maxlength="200">
+          <button type="submit">Sign in</button>
+        </form>
+      </div>
+      <div class="account-card">
+        <h2>Create account</h2><p>Create a secure account to keep your order history together.</p>
+        <form id="register-form">
+          <label for="register-name">Full name</label><input id="register-name" name="name" type="text" required minlength="2" maxlength="160" autocomplete="name">
+          <label for="register-email">Email</label><input id="register-email" name="email" type="email" required maxlength="254" autocomplete="email">
+          <label for="register-password">Password</label><input id="register-password" name="password" type="password" required minlength="12" maxlength="200" autocomplete="new-password" aria-describedby="password-help">
+          <p id="password-help" class="account-muted">At least 12 characters, including uppercase, lowercase and a number.</p>
+          <button type="submit">Create account</button>
+        </form>
+      </div>
+    </section>
+    <section id="account-workspace" class="hidden">
+      <div class="account-profile"><div class="order-head"><div><p class="eyebrow">SIGNED IN AS</p><strong id="customer-name"></strong><div id="customer-email" class="account-muted"></div></div><button id="signout-button" class="account-button" type="button">Sign out</button></div></div>
+      <div class="account-orders"><h2>Order history</h2><p class="account-muted">Only orders matching your signed-in account email are shown here.</p><div id="orders-list"><p class="account-muted">Loading orders…</p></div></div>
+    </section>
+    <p class="account-muted" style="margin-top:28px">Your account session is stored only in this browser tab and expires after two hours.</p>
+  </main>
+</body>
+</html>

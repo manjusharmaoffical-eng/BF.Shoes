@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS products (
   brand TEXT NOT NULL DEFAULT 'BF SHOES',
   image_url TEXT,
   price_cents INTEGER NOT NULL CHECK (price_cents >= 0),
-  currency CHAR(3) NOT NULL DEFAULT 'INR',
+  currency CHAR(3) NOT NULL DEFAULT 'AED',
   active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -53,6 +53,8 @@ CREATE TABLE IF NOT EXISTS variants (
   UNIQUE(product_id, size_label, color_name)
 );
 ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url TEXT;
+-- New products default to the primary UAE storefront; existing product currencies and prices are unchanged.
+ALTER TABLE products ALTER COLUMN currency SET DEFAULT 'AED';
 -- Costs remain NULL until the owner records actual purchase cost; reports must not invent profit.
 ALTER TABLE products ADD COLUMN IF NOT EXISTS unit_cost_cents INTEGER CHECK (unit_cost_cents IS NULL OR unit_cost_cents >= 0);
 ALTER TABLE products ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'shoes' CHECK (category IN ('shoes','watches','eyewear'));
@@ -69,7 +71,7 @@ CREATE TABLE IF NOT EXISTS orders (
   customer_email TEXT NOT NULL,
   currency CHAR(3) NOT NULL DEFAULT 'INR',
   subtotal_cents INTEGER NOT NULL CHECK (subtotal_cents >= 0),
-  delivery_fee_cents INTEGER NOT NULL DEFAULT 5000 CHECK (delivery_fee_cents >= 0),
+  delivery_fee_cents INTEGER NOT NULL CHECK (delivery_fee_cents >= 0),
   vat_cents INTEGER NOT NULL DEFAULT 0 CHECK (vat_cents >= 0),
   tax_rate_bps INTEGER NOT NULL DEFAULT 0 CHECK (tax_rate_bps BETWEEN 0 AND 10000),
   shipping_country CHAR(2) NOT NULL DEFAULT 'IN' CHECK (shipping_country IN ('IN','AE')),
@@ -87,7 +89,9 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS request_fingerprint TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_phone TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_address TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT 'cod';
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_fee_cents INTEGER NOT NULL DEFAULT 5000 CHECK (delivery_fee_cents >= 0);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_fee_cents INTEGER CHECK (delivery_fee_cents IS NULL OR delivery_fee_cents >= 0);
+-- Never assume a delivery fee: preserve historical values but require explicit values for future orders.
+ALTER TABLE orders ALTER COLUMN delivery_fee_cents DROP DEFAULT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_cents INTEGER NOT NULL DEFAULT 0 CHECK (total_cents >= 0);
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS vat_cents INTEGER NOT NULL DEFAULT 0 CHECK (vat_cents >= 0);
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS tax_rate_bps INTEGER NOT NULL DEFAULT 0 CHECK (tax_rate_bps BETWEEN 0 AND 10000);
@@ -192,7 +196,9 @@ CREATE TABLE IF NOT EXISTS finance_expenses (
  created_by UUID REFERENCES admins(id) ON DELETE SET NULL,
  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS finance_expenses_date_idx ON finance_expenses(expense_date DESC);
+ALTER TABLE finance_expenses DROP CONSTRAINT IF EXISTS finance_expenses_currency_check;
+ALTER TABLE finance_expenses ADD CONSTRAINT finance_expenses_currency_check CHECK (currency IN ('INR','AED'));
+CREATE INDEX IF NOT EXISTS finance_expenses_currency_date_idx ON finance_expenses(currency, expense_date DESC);
 CREATE TABLE IF NOT EXISTS finance_funding (
  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
  kind TEXT NOT NULL CHECK (kind IN ('owner_capital','loan','investor')),
@@ -212,6 +218,7 @@ ALTER TABLE finance_funding DROP CONSTRAINT IF EXISTS finance_funding_currency_c
 ALTER TABLE finance_funding ADD CONSTRAINT finance_funding_currency_check CHECK (currency IN ('INR','AED'));
 ALTER TABLE finance_expenses DROP CONSTRAINT IF EXISTS finance_expenses_currency_check;
 ALTER TABLE finance_expenses ADD CONSTRAINT finance_expenses_currency_check CHECK (currency IN ('INR','AED'));
+CREATE INDEX IF NOT EXISTS finance_funding_currency_idx ON finance_funding(currency, start_date DESC);
 CREATE TABLE IF NOT EXISTS finance_repayments (
  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
  funding_id UUID NOT NULL REFERENCES finance_funding(id) ON DELETE RESTRICT,
@@ -297,3 +304,175 @@ CREATE TABLE IF NOT EXISTS public.customer_sessions (
 );
 CREATE INDEX IF NOT EXISTS customer_sessions_customer_idx ON public.customer_sessions(customer_id, expires_at DESC);
 CREATE INDEX IF NOT EXISTS customer_sessions_active_idx ON public.customer_sessions(id, expires_at) WHERE revoked_at IS NULL;
+
+-- Cover foreign-key columns used in joins and referential checks.
+CREATE INDEX IF NOT EXISTS api_keys_created_by_idx ON api_keys(created_by);
+CREATE INDEX IF NOT EXISTS campaigns_created_by_idx ON campaigns(created_by);
+CREATE INDEX IF NOT EXISTS finance_expenses_created_by_idx ON finance_expenses(created_by);
+CREATE INDEX IF NOT EXISTS finance_funding_created_by_idx ON finance_funding(created_by);
+CREATE INDEX IF NOT EXISTS finance_repayments_created_by_idx ON finance_repayments(created_by);
+CREATE INDEX IF NOT EXISTS inventory_movements_actor_admin_id_idx ON inventory_movements(actor_admin_id);
+CREATE INDEX IF NOT EXISTS inventory_movements_reference_order_id_idx ON inventory_movements(reference_order_id);
+CREATE INDEX IF NOT EXISTS inventory_movements_variant_id_idx ON inventory_movements(variant_id);
+CREATE INDEX IF NOT EXISTS order_items_variant_id_idx ON order_items(variant_id);
+CREATE INDEX IF NOT EXISTS product_images_created_by_idx ON product_images(created_by);
+CREATE INDEX IF NOT EXISTS tax_credit_notes_created_by_idx ON tax_credit_notes(created_by);
+CREATE INDEX IF NOT EXISTS tax_credit_notes_invoice_id_idx ON tax_credit_notes(invoice_id);
+CREATE INDEX IF NOT EXISTS tax_invoices_created_by_idx ON tax_invoices(created_by);
+CREATE INDEX IF NOT EXISTS tax_invoices_profile_id_idx ON tax_invoices(profile_id);
+CREATE INDEX IF NOT EXISTS tax_profiles_created_by_idx ON tax_profiles(created_by);
+
+
+-- Warehouse locations, stock ledgers, transfers, and production batches.
+CREATE TABLE IF NOT EXISTS warehouses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL CHECK (length(trim(name)) BETWEEN 2 AND 120),
+  code TEXT NOT NULL UNIQUE CHECK (code ~ '^[A-Z0-9_-]{2,24}$'),
+  address TEXT NOT NULL DEFAULT '',
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_by UUID REFERENCES admins(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS warehouse_inventory (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  warehouse_id UUID NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
+  variant_id UUID NOT NULL REFERENCES variants(id) ON DELETE RESTRICT,
+  quantity INTEGER NOT NULL DEFAULT 0 CHECK (quantity >= 0),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (warehouse_id, variant_id)
+);
+
+CREATE TABLE IF NOT EXISTS warehouse_stock_movements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  warehouse_id UUID NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
+  variant_id UUID NOT NULL REFERENCES variants(id) ON DELETE RESTRICT,
+  delta INTEGER NOT NULL CHECK (delta <> 0),
+  reason TEXT NOT NULL,
+  reference_type TEXT,
+  reference_id UUID,
+  actor_admin_id UUID REFERENCES admins(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS production_batches (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  batch_number BIGINT GENERATED ALWAYS AS IDENTITY UNIQUE,
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+  variant_id UUID NOT NULL REFERENCES variants(id) ON DELETE RESTRICT,
+  planned_qty INTEGER NOT NULL CHECK (planned_qty > 0),
+  good_qty INTEGER NOT NULL DEFAULT 0 CHECK (good_qty >= 0),
+  rejected_qty INTEGER NOT NULL DEFAULT 0 CHECK (rejected_qty >= 0),
+  status TEXT NOT NULL DEFAULT 'planned' CHECK (status IN ('planned','in_progress','completed','cancelled')),
+  planned_for DATE,
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  notes TEXT NOT NULL DEFAULT '',
+  created_by UUID REFERENCES admins(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (good_qty + rejected_qty <= planned_qty)
+);
+
+CREATE TABLE IF NOT EXISTS stock_transfers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  from_warehouse_id UUID NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
+  to_warehouse_id UUID NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
+  variant_id UUID NOT NULL REFERENCES variants(id) ON DELETE RESTRICT,
+  quantity INTEGER NOT NULL CHECK (quantity > 0),
+  status TEXT NOT NULL DEFAULT 'completed' CHECK (status IN ('completed','cancelled')),
+  created_by UUID REFERENCES admins(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (from_warehouse_id <> to_warehouse_id)
+);
+
+CREATE TABLE IF NOT EXISTS order_warehouse_allocations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE RESTRICT,
+  warehouse_id UUID NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
+  variant_id UUID NOT NULL REFERENCES variants(id) ON DELETE RESTRICT,
+  quantity INTEGER NOT NULL CHECK (quantity > 0),
+  restored_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (order_id, warehouse_id, variant_id)
+);
+CREATE INDEX IF NOT EXISTS order_warehouse_allocations_order_idx
+  ON order_warehouse_allocations(order_id, restored_at);
+CREATE INDEX IF NOT EXISTS order_warehouse_allocations_variant_idx
+  ON order_warehouse_allocations(variant_id, warehouse_id);
+ALTER TABLE order_warehouse_allocations ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS warehouse_inventory_variant_idx ON warehouse_inventory(variant_id);
+CREATE INDEX IF NOT EXISTS warehouse_stock_movements_date_idx ON warehouse_stock_movements(created_at DESC);
+CREATE INDEX IF NOT EXISTS warehouse_stock_movements_warehouse_date_idx ON warehouse_stock_movements(warehouse_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS production_batches_completed_idx ON production_batches(completed_at DESC) WHERE status='completed';
+CREATE INDEX IF NOT EXISTS production_batches_variant_idx ON production_batches(variant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS stock_transfers_created_idx ON stock_transfers(created_at DESC);
+
+ALTER TABLE warehouses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE warehouse_inventory ENABLE ROW LEVEL SECURITY;
+ALTER TABLE warehouse_stock_movements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE production_batches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stock_transfers ENABLE ROW LEVEL SECURITY;
+
+
+-- PayU hosted checkout with pending orders and time-limited stock reservations.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'unpaid';
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_status_check;
+ALTER TABLE orders ADD CONSTRAINT orders_status_check
+  CHECK (status IN ('pending_payment','confirmed','processing','shipped','delivered','cancelled'));
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_payment_status_check;
+ALTER TABLE orders ADD CONSTRAINT orders_payment_status_check
+  CHECK (payment_status IN ('unpaid','pending','paid','failed','refunded','review'));
+
+CREATE TABLE IF NOT EXISTS payment_attempts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE RESTRICT,
+  provider TEXT NOT NULL CHECK (provider IN ('payu','paytabs')),
+  txnid TEXT NOT NULL UNIQUE,
+  amount_cents INTEGER NOT NULL CHECK (amount_cents > 0),
+  currency CHAR(3) NOT NULL CHECK (currency IN ('INR','AED')),
+  status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending','paid','failed','review','paid_stock_review')),
+  provider_payment_id TEXT,
+  checkout_params JSONB NOT NULL,
+  callback_payload JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  verified_at TIMESTAMPTZ
+);
+-- Upgrade existing PayU-only installations without dropping payment history.
+ALTER TABLE payment_attempts DROP CONSTRAINT IF EXISTS payment_attempts_provider_check;
+ALTER TABLE payment_attempts ADD CONSTRAINT payment_attempts_provider_check CHECK (provider IN ('payu','paytabs'));
+ALTER TABLE payment_attempts DROP CONSTRAINT IF EXISTS payment_attempts_currency_check;
+ALTER TABLE payment_attempts ADD CONSTRAINT payment_attempts_currency_check CHECK (currency IN ('INR','AED'));
+
+CREATE TABLE IF NOT EXISTS order_reservations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE RESTRICT,
+  variant_id UUID NOT NULL REFERENCES variants(id) ON DELETE RESTRICT,
+  quantity INTEGER NOT NULL CHECK (quantity > 0),
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(order_id, variant_id)
+);
+
+CREATE INDEX IF NOT EXISTS payment_attempts_order_created_idx ON payment_attempts(order_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS order_reservations_variant_expiry_idx ON order_reservations(variant_id, expires_at);
+CREATE INDEX IF NOT EXISTS order_reservations_order_idx ON order_reservations(order_id);
+CREATE INDEX IF NOT EXISTS payment_attempts_provider_status_idx ON payment_attempts(provider, status, created_at DESC);
+
+ALTER TABLE payment_attempts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_reservations ENABLE ROW LEVEL SECURITY;
+
+
+-- Covering indexes for warehouse and production foreign keys.
+CREATE INDEX IF NOT EXISTS production_batches_created_by_idx ON production_batches(created_by);
+CREATE INDEX IF NOT EXISTS production_batches_product_id_idx ON production_batches(product_id);
+CREATE INDEX IF NOT EXISTS stock_transfers_created_by_idx ON stock_transfers(created_by);
+CREATE INDEX IF NOT EXISTS stock_transfers_from_warehouse_idx ON stock_transfers(from_warehouse_id);
+CREATE INDEX IF NOT EXISTS stock_transfers_to_warehouse_idx ON stock_transfers(to_warehouse_id);
+CREATE INDEX IF NOT EXISTS stock_transfers_variant_id_idx ON stock_transfers(variant_id);
+CREATE INDEX IF NOT EXISTS warehouse_stock_movements_actor_idx ON warehouse_stock_movements(actor_admin_id);
+CREATE INDEX IF NOT EXISTS warehouse_stock_movements_variant_id_idx ON warehouse_stock_movements(variant_id);
+CREATE INDEX IF NOT EXISTS warehouses_created_by_idx ON warehouses(created_by);

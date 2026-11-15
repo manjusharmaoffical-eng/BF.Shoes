@@ -40,7 +40,9 @@ test("checkout schema keeps India COD delivery disabled until prices are configu
   const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
   assert.match(storefront, /payment_method:\s*z\.literal\(["']cod["']\)/, "Checkout schema must accept COD only");
   assert.doesNotMatch(storefront, /payment_method:\s*z\.enum\([^)]*online/, "Online payment must not be accepted by checkout schema");
-  assert.match(storefront, /Verify INR product prices, delivery fee and the active GST profile first/);
+  assert.match(storefront, /India online checkout is disabled until Razorpay integration/);
+  assert.match(storefront, /payment_method: z\.literal\("cod"\)/, "Storefront orders must remain COD-only");
+  assert.match(storefront, /paymentProvider: "Razorpay"/);
 });
 
 
@@ -85,7 +87,7 @@ test("admin product creation supports explicit AED and INR pricing", async () =>
   const adminJs = await readFile(new URL("../frontend/admin.js", import.meta.url), "utf8");
   assert.match(routes, /currency: z\.enum\(\["AED", "INR"\]\)/);
   assert.match(adminHtml, /name="currency"[\s\S]*value="AED"[\s\S]*value="INR"/);
-  assert.match(adminJs, /currency:String\(f\.get\('currency'\)\|\|'AED'\)/);
+  assert.match(adminJs, /currency:String\(f\.get\('currency'\)\|\|'INR'\)/);
   assert.match(adminJs, /money\(p\.price_cents,p\.currency\)/);
 });
 
@@ -114,7 +116,7 @@ test("public catalog remains readable before optional category columns are migra
 
 test("CSP allows secure HTTPS product images without weakening script sources", async () => {
   const server = await readFile(new URL("../src/server.js", import.meta.url), "utf8");
-  assert.match(server, /"img-src":\s*\["'self'", "data:", "https:"\]/);
+  assert.match(server, /"img-src":\s*\["\x27self\x27", "data:", "https:", "https:\/\/res\.cloudinary\.com"\]/);
   assert.match(server, /getDefaultDirectives\(\)/);
   assert.doesNotMatch(server, /scriptSrc:\s*\[[^\]]*https:/);
 });
@@ -134,7 +136,60 @@ test("homepage product cards use local BF artwork when catalog image URLs are mi
 
 test("storefront catalog respects the active market currency", async () => {
   const app = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8");
-  assert.match(app, /const marketCurrency = state\.marketConfig\?\.currency \|\| 'INR'/);
+  assert.ok(app.includes("const marketCurrency = state.market === 'AE' ? 'AED' : 'INR'"));
   assert.match(app, /const marketProducts = state\.products\.filter\(product => product\.currency === marketCurrency\)/);
-  assert.match(app, /finally \{ renderCart\(\); renderProducts\(\); \}/);
+  assert.match(app, /state\.checkoutReady = Boolean\(indiaReady \|\| uaeReady\)/);
+});
+
+
+test("delivery fee has no implicit default and legacy migrations drop it", () => {
+  assert.match(schema, /delivery_fee_cents INTEGER NOT NULL CHECK \(delivery_fee_cents >= 0\)/);
+  assert.match(schema, /ALTER COLUMN delivery_fee_cents DROP DEFAULT/);
+  assert.doesNotMatch(schema, /delivery_fee_cents INTEGER NOT NULL DEFAULT 5000/);
+});
+
+test("storefront never assumes a delivery fee amount", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  assert.match(storefront, /INDIA_DELIVERY_FEE_PAISE/);
+  assert.match(storefront, /Number\.isSafeInteger\(deliveryFeeCents\)/);
+  assert.match(storefront, /currency !== "INR"/);
+  assert.doesNotMatch(storefront, /,\s*5000\s*,/);
+});
+
+test("storefront exposes separate UAE and India market configuration", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  assert.match(storefront, /storefrontRouter\.get\("\/market-config"/);
+  assert.match(storefront, /currency: "INR"/);
+  assert.match(storefront, /currency: "AED"/);
+  assert.match(storefront, /PAYU_MERCHANT_KEY/);
+  assert.match(storefront, /paymentProvider: "Razorpay"/);
+  assert.match(storefront, /UAE_DELIVERY_FEE_FILS/);
+  assert.match(storefront, /const indiaCheckoutEnabled = indiaPricingVerified && indiaFeeConfigured && row\.india_tax_profile_configured && indiaPayuConfigured/);
+  assert.match(storefront, /const uaeCheckoutEnabled = uaePricingVerified && uaeFeeVerified && row\.uae_tax_profile_configured && uaePaytabsConfigured/);
+});
+
+test("public product catalog selects currency by explicit market", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  assert.match(storefront, /req\.query\.market \|\| "IN"/);
+  assert.match(storefront, /market === "IN" \? "INR" : market === "AE" \? "AED"/);
+  assert.match(storefront, /p\.currency = \$1/);
+  assert.match(storefront, /shipping_country: z\.enum\(\["IN", "AE"\]\)\.default\("IN"\)/);
+});
+
+test("new product records default to AED without rewriting existing prices", () => {
+  assert.match(schema, /currency CHAR\(3\) NOT NULL DEFAULT 'AED'/);
+  assert.match(schema, /ALTER TABLE products ALTER COLUMN currency SET DEFAULT 'AED'/);
+});
+
+
+test("finance expenses and funding support INR and AED without combining currencies", async () => {
+  const finance = await readFile(new URL("../src/finance.js", import.meta.url), "utf8");
+  assert.match(schema, /currency CHAR\(3\) NOT NULL DEFAULT 'INR' CHECK \(currency IN \('INR','AED'\)\)/);
+  assert.match(schema, /finance_expenses_currency_check CHECK \(currency IN \('INR','AED'\)\)/);
+  assert.match(schema, /ALTER TABLE finance_funding ADD COLUMN IF NOT EXISTS currency CHAR\(3\) NOT NULL DEFAULT 'INR'/);
+  assert.match(finance, /currency:z.enum\(\["INR","AED"\]\).default\("INR"\)/);
+  assert.match(finance, /o\.currency=\$3/);
+  assert.match(finance, /finance_expenses WHERE currency=\$3/);
+  assert.match(finance, /f\.currency=\$1/);
+  assert.match(finance, /currency,sales:s/);
 });

@@ -1,24 +1,46 @@
 (() => {
   'use strict';
+
   const API_BASE = (window.BF_SHOES_CONFIG && window.BF_SHOES_CONFIG.API_BASE_URL) || '/api/v1/store';
   const FALLBACK_IMAGE = '/assets/bf-speed-run-product.jpeg';
   const PLACEHOLDER_IMAGE = '/assets/bf-product-placeholder.svg';
-  const state = { products: [], cart: [], selectedSizes: {}, filter: 'all', search: '', categories: [], colors: [], sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null, marketConfig: null };
+  const FALLBACK_IMAGES = [FALLBACK_IMAGE, PLACEHOLDER_IMAGE, '/bf-shoes-hero.svg'];
+  let savedMarket = 'IN'; try { savedMarket = localStorage.getItem('bf-market') === 'AE' ? 'AE' : 'IN'; } catch {}
+  const state = { market: savedMarket, maxPriceCents: savedMarket === 'AE' ? 50000 : 499900, checkoutReady: false, products: [], cart: [], cartByMarket: { IN: [], AE: [] }, selectedSizes: {}, filter: 'all', search: '', categories: [], colors: [], sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null, marketConfig: null };
+  state.cart = state.cartByMarket[state.market];
   try { state.wishlist = new Set(JSON.parse(localStorage.getItem('bf-shoes-wishlist') || '[]').map(String)); } catch { state.wishlist = new Set(); }
+
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+
+  // Handle broken product/content images without inline handlers, which CSP blocks.
+  document.addEventListener('error', event => {
+    const image = event.target;
+    if (!(image instanceof HTMLImageElement)) return;
+    if (image.dataset.bfFallbackApplied === 'true') {
+      image.hidden = true;
+      return;
+    }
+    image.dataset.bfFallbackApplied = 'true';
+    image.src = FALLBACK_IMAGES[0];
+  }, true);
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  const money = (minorUnits, currency = 'INR') => new Intl.NumberFormat('en-IN', { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(minorUnits || 0) / 100);
-  const deliveryFeeCents = () => state.marketConfig && Number.isSafeInteger(state.marketConfig.delivery_fee_paise) ? state.marketConfig.delivery_fee_paise : null;
-  const vatCents = () => 0;
-  const checkoutTotalCents = () => totalCents() + (deliveryFeeCents() || 0) + vatCents();
-  const setupMessage = () => { const messages = { delivery_fee_not_configured: 'Delivery fee for PIN 500052 has not been confirmed.', pin_500052_not_configured: 'Delivery PIN 500052 is not enabled in the store configuration.', product_price_conversion_required: 'Existing AED product prices need verified conversion to INR before checkout.', no_inr_priced_products: 'No products with verified INR prices are available yet.', gst_status_not_confirmed: 'The seller GST registration status has not been confirmed.', valid_in_gst_profile_required: 'A valid India GST tax profile is required before checkout.', payment_method_not_confirmed: 'Cash on Delivery must be confirmed in the store configuration.' }; return (state.marketConfig?.setup_required || []).map(code => messages[code] || 'Store setup is incomplete.').join(' ') || 'India delivery and pricing settings are configured.'; };
+  const money = (cents, currency = 'INR') => { const locale = currency === 'AED' ? 'en-AE' : 'en-IN'; const amount = (Number(cents || 0) / 100).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return currency === 'AED' ? 'AED ' + amount : '₹' + amount; };
+  // Delivery and tax amounts are never guessed; public config exposes readiness only.
+  const deliveryFeeCents = () => null;
+  const vatCents = () => null;
+  const checkoutTotalCents = () => totalCents();
+  const setupMessage = () => state.market === 'IN'
+    ? 'India checkout is pending Razorpay credentials, verified INR prices, confirmed delivery fee and GST profile.'
+    : 'UAE checkout is pending a confirmed merchant gateway, verified AED prices, delivery fee and VAT profile.';
+  const randomKey = () => Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   const productImage = product => {
     const candidate = typeof product.image_url === 'string' && product.image_url.startsWith('https://') ? product.image_url : '';
     return candidate || productFallback(product);
   };
-  const productFallback = product => /speed[- ]run/i.test(`${product.slug || ''} ${product.name || ''}`) ? FALLBACK_IMAGE : PLACEHOLDER_IMAGE;
-  function toast(message) { const el = $('#toast'); el.textContent = message; el.classList.add('show'); clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.remove('show'), 2600); }
+  const productFallback = product => /speed[- ]run/i.test((product.slug || '') + ' ' + (product.name || '')) ? FALLBACK_IMAGE : PLACEHOLDER_IMAGE;
+  function hashCode(value) { let hash = 0; for (let i = 0; i < value.length; i++) hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0; return hash; }
+  function toast(message) { const el = $('#toast'); if (!el) return; el.textContent = message; el.classList.add('show'); clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.remove('show'), 2600); }
   async function request(url, options = {}) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 9000);
@@ -33,21 +55,107 @@
     if (!response.ok) { const error = new Error(data.error || 'Something went wrong. Please try again.'); error.status = response.status; throw error; }
     return data;
   }
+
+  async function loadActiveCampaign() {
+    const strip = $('#campaign-strip');
+    if (!strip) return;
+    try {
+      const result = await request(`${API_BASE}/campaigns/active`);
+      const campaign = (result.data || [])[0];
+      if (!campaign) { strip.classList.add('hidden'); return; }
+      try {
+        if (localStorage.getItem('bf-campaign-dismissed:' + campaign.id) === '1') {
+          strip.classList.add('hidden');
+          return;
+        }
+      } catch {}
+
+      const inner = document.createElement('div');
+      inner.className = 'campaign-inner';
+      const content = document.createElement(campaign.target_url && campaign.target_url.startsWith('https://') ? 'a' : 'div');
+      content.className = 'campaign-content';
+      if (content.tagName === 'A') content.href = campaign.target_url;
+      if (campaign.image_url && campaign.image_url.startsWith('https://')) {
+        const image = document.createElement('img');
+        image.src = campaign.image_url;
+        image.alt = campaign.headline || campaign.name || 'BF SHOES campaign';
+        image.loading = 'lazy';
+        content.append(image);
+      }
+      const copy = document.createElement('div');
+      const headline = document.createElement('strong');
+      headline.textContent = campaign.headline || campaign.name || 'BF SHOES';
+      copy.append(headline);
+      const details = [];
+      if (Number(campaign.discount_percent) > 0) details.push(String(campaign.discount_percent) + '% OFF');
+      if (campaign.coupon_code) details.push('Code: ' + campaign.coupon_code);
+      if (details.length) {
+        const detail = document.createElement('span');
+        detail.textContent = details.join(' · ');
+        copy.append(detail);
+      }
+      content.append(copy);
+      inner.append(content);
+      const dismiss = document.createElement('button');
+      dismiss.type = 'button';
+      dismiss.className = 'campaign-dismiss';
+      dismiss.setAttribute('aria-label', 'Dismiss campaign banner');
+      dismiss.textContent = '×';
+      dismiss.addEventListener('click', () => {
+        try { localStorage.setItem('bf-campaign-dismissed:' + campaign.id, '1'); } catch {}
+        strip.classList.add('hidden');
+      });
+      inner.append(dismiss);
+      strip.replaceChildren(inner);
+      strip.classList.remove('hidden');
+    } catch {
+      strip.classList.add('hidden');
+    }
+  }
+
   function totalItems() { return state.cart.reduce((sum, item) => sum + item.quantity, 0); }
   function totalCents() { return state.cart.reduce((sum, item) => sum + Number(item.product.price_cents) * item.quantity, 0); }
   function availableVariants(product) { return (product.variants || []).filter(v => Number(v.stock_qty) > 0); }
+
   function renderProducts() {
     const grid = $('#product-grid');
-    const marketCurrency = state.marketConfig?.currency || 'INR';
+    if (!grid) return;
+
+    const marketCurrency = state.market === 'AE' ? 'AED' : 'INR';
     const marketProducts = state.products.filter(product => product.currency === marketCurrency);
-    let products = marketProducts.filter(product => { const inStock = availableVariants(product).length > 0; const query = state.search.trim().toLowerCase(); const matchesSearch = !query || [product.name, product.brand, product.description, product.slug].some(value => String(value || '').toLowerCase().includes(query)); const family=String(product.category || '').toLowerCase(), audience=String(product.audience || '').toLowerCase(), type=String(product.product_type || product.category_name || '').toLowerCase(); const matchesCategory=!state.categories.length || state.categories.some(value=>value===family || value===audience || type.includes(value)); const productColors=(product.variants||[]).map(v=>String(v.color_name||'').toLowerCase()); const matchesColor=!state.colors.length || state.colors.some(value=>productColors.some(color=>color.includes(value))); const priceLimit=Number($('#price-range')?.value || 100000); return (state.filter !== 'available' || inStock) && (state.filter !== 'saved' || state.wishlist.has(String(product.id))) && (product.price_pending_conversion || Number(product.price_cents)<=priceLimit) && matchesSearch && matchesCategory && matchesColor; });
-    if (state.sort === 'price-low') products.sort((a,b) => Number(a.price_cents)-Number(b.price_cents)); else if (state.sort === 'price-high') products.sort((a,b) => Number(b.price_cents)-Number(a.price_cents)); else if (state.sort === 'name') products.sort((a,b) => String(a.name).localeCompare(String(b.name)));
-    $('#catalog-status').textContent = state.loading ? 'Finding your next pair…' : marketProducts.length ? `${products.length} ${products.length === 1 ? 'style' : 'styles'} shown` : 'The catalog is connected, but no active products have been added yet.';
-    const countLabel = $('#catalog-count'); if (countLabel) countLabel.textContent = state.loading ? 'Loading products…' : `Showing ${products.length} of ${marketProducts.length} products` ;
-    const wishlistCount = $('#wishlist-count'); if (wishlistCount) wishlistCount.textContent = String(state.wishlist.size);
-    $('#empty-state').classList.toggle('hidden', state.loading || products.length > 0);
+    let products = marketProducts.filter(product => {
+      const inStock = availableVariants(product).length > 0;
+      const query = state.search.trim().toLowerCase();
+      const matchesSearch = !query || [product.name, product.brand, product.description, product.slug].some(value => String(value || '').toLowerCase().includes(query));
+      const category=String(product.category || product.category_name || '').toLowerCase();
+      const audience=String(product.audience || '').toLowerCase();
+      const productType=String(product.product_type || '').toLowerCase();
+      const matchesCategory=!state.categories.length || state.categories.some(value=>value===category || value===audience || productType.includes(value));
+      const productColors=(product.variants||[]).map(v=>String(v.color_name||'').toLowerCase());
+      const matchesColor=!state.colors.length || state.colors.some(value=>productColors.some(color=>color.includes(value)));
+      const matchesPrice = Number(product.price_cents) <= state.maxPriceCents;
+      return (state.filter !== 'available' || inStock) && (state.filter !== 'saved' || state.wishlist.has(String(product.id))) && matchesSearch && matchesCategory && matchesColor && matchesPrice;
+    });
+
+    if (state.sort === 'price-low') products.sort((a,b) => Number(a.price_cents)-Number(b.price_cents));
+    else if (state.sort === 'price-high') products.sort((a,b) => Number(b.price_cents)-Number(a.price_cents));
+    else if (state.sort === 'name') products.sort((a,b) => String(a.name).localeCompare(String(b.name)));
+
+    const statusEl = $('#catalog-status');
+    if(statusEl) statusEl.textContent = state.loading ? 'Finding your next pair…' : marketProducts.length ? `${products.length} ${products.length === 1 ? 'style' : 'styles'} shown` : 'The catalog is connected, but no active products have been added yet.';
+
+    const countLabel = $('#catalog-count');
+    if (countLabel) countLabel.textContent = state.loading ? 'Loading products…' : `Showing ${products.length} of ${marketProducts.length} products`;
+
+    const wishlistCount = $('#wishlist-count');
+    if (wishlistCount) wishlistCount.textContent = String(state.wishlist.size);
+
+    const emptyState = $('#empty-state');
+    if(emptyState) emptyState.classList.toggle('hidden', state.loading || products.length > 0);
+
     if (state.loading) { grid.innerHTML = ''; return; }
     if (!products.length) { grid.innerHTML = ''; return; }
+
     grid.innerHTML = products.map((product, index) => {
       const variants = product.variants || [];
       const available = availableVariants(product);
@@ -55,32 +163,40 @@
       const selectedVariant = variants.find(v => v.sku === selected && Number(v.stock_qty) > 0);
       const sizes = variants.map(v => `<button class="size-option ${v.sku === selected ? 'selected' : ''}" type="button" data-size-product="${escapeHtml(product.id)}" data-sku="${escapeHtml(v.sku)}" aria-pressed="${v.sku === selected}" ${Number(v.stock_qty) <= 0 ? 'disabled title="Out of stock"' : ''}>${escapeHtml(v.size_label)}</button>`).join('');
       const status = !available.length ? 'Sold out' : (available.length <= 2 ? 'Limited run' : 'Everyday essential');
+
       return `<article class="product-card" data-product="${escapeHtml(product.id)}">
-        <div class="product-image"><img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(product.name)} sneaker" loading="${index < 3 ? 'eager' : 'lazy'}" onerror="this.onerror=null;this.src='${escapeHtml(productFallback(product))}'" /><span class="product-tag">${status}</span><button class="wishlist-toggle ${state.wishlist.has(String(product.id)) ? 'saved' : ''}" type="button" data-wishlist="${escapeHtml(product.id)}" aria-label="${state.wishlist.has(String(product.id)) ? 'Remove from wishlist' : 'Save to wishlist'}" aria-pressed="${state.wishlist.has(String(product.id))}">${state.wishlist.has(String(product.id)) ? '♥' : '♡'}</button><button class="quick-add" type="button" data-quick-add="${escapeHtml(product.id)}" aria-label="Quick add ${escapeHtml(product.name)}" ${!available.length || product.price_pending_conversion ? 'disabled title="INR price conversion pending"' : ''}>+</button></div>
-        <div class="product-info"><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.brand || 'BF SHOES')} · ${escapeHtml(product.short_description || product.description || 'Everyday sneaker').slice(0, 58)}</p></div><strong class="product-price">${product.price_pending_conversion ? `INR price pending verification (source ${escapeHtml(product.currency)})` : money(product.price_cents, 'INR')}</strong></div>
+        <div class="product-image"><img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(product.name)} sneaker" loading="${index < 3 ? 'eager' : 'lazy'}" /><span class="product-tag">${status}</span><button class="wishlist-toggle ${state.wishlist.has(String(product.id)) ? 'saved' : ''}" type="button" data-wishlist="${escapeHtml(product.id)}" aria-label="${state.wishlist.has(String(product.id)) ? 'Remove from wishlist' : 'Save to wishlist'}" aria-pressed="${state.wishlist.has(String(product.id))}">${state.wishlist.has(String(product.id)) ? '♥' : '♡'}</button><button class="quick-add" type="button" data-quick-add="${escapeHtml(product.id)}" aria-label="Quick add ${escapeHtml(product.name)}" ${!available.length || product.price_pending_conversion ? 'disabled title="Price verification pending"' : ''}>+</button></div>
+        <div class="product-info"><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.brand || 'BF SHOES')} · ${escapeHtml(product.short_description || product.description || 'Everyday sneaker').slice(0, 58)}</p></div><strong class="product-price">${product.price_pending_conversion ? 'Price verification pending' : money(product.price_cents, product.currency)}</strong></div>
         <div class="product-sizes" aria-label="Choose size for ${escapeHtml(product.name)}">${sizes || '<span class="product-info"><p>No sizes listed</p></span>'}</div>
         <div class="add-row"><button class="button button-dark" type="button" data-add="${escapeHtml(product.id)}" ${!selectedVariant || product.price_pending_conversion ? 'disabled' : ''}>${product.price_pending_conversion ? 'Price pending' : selectedVariant ? 'Add to bag' : 'Out of stock'} <span>+</span></button></div>
       </article>`;
     }).join('');
   }
+
   function renderCart() {
     const count = totalItems();
-    $('#cart-count').textContent = String(count);
-    $('#drawer-count').textContent = `(${count})`;
-    $('#cart-empty').classList.toggle('hidden', count > 0);
-    $('#drawer-foot').classList.toggle('hidden', count === 0);
-    $('#cart-items').classList.toggle('hidden', count === 0);
-    $('#cart-subtotal').textContent = money(totalCents(), 'INR'); const delivery=$('#cart-delivery-fee'); if(delivery) delivery.textContent = !state.cart.length ? money(0,'INR') : deliveryFeeCents() === null ? 'To be confirmed' : money(deliveryFeeCents(),'INR');
-    const total=$('#checkout-total'); if(total) total.textContent=state.marketConfig?.checkout_ready?money(checkoutTotalCents(),'INR'):'To be confirmed';
-    const sub=$('#checkout-subtotal'); if(sub)sub.textContent=money(totalCents(),'INR'); const fee=$('#checkout-delivery'); if(fee)fee.textContent=deliveryFeeCents()===null?'To be confirmed':money(deliveryFeeCents(),'INR');
-    const cvrow=$('#checkout-vat-row'); if(cvrow)cvrow.classList.toggle('hidden',!(state.marketConfig?.checkout_ready&&Number(state.marketConfig.gst_rate_bps)>0)); const cvat=$('#checkout-vat'); if(cvat)cvat.textContent=money(vatCents(),'INR');
-    const checkoutButton=$('#checkout-button'); if(checkoutButton){checkoutButton.disabled=!state.marketConfig?.checkout_ready;checkoutButton.textContent=state.marketConfig?.checkout_ready?'Continue to checkout ↗':'Checkout setup pending';}
-    const note=$('#market-setup-note'); if(note)note.textContent=(state.marketConfig?.checkout_ready?'Delivery, payment and tax settings are configured.':setupMessage()) + (state.marketConfig?.online_payment_ready?' Online payment is available.':' Online payment remains disabled until gateway integration and merchant credentials are verified.');
-    const submit=$('#place-order'); if(submit){submit.disabled=!state.marketConfig?.checkout_ready;submit.textContent=state.marketConfig?.checkout_ready?'Place India order ↗':'Checkout setup pending';}
-    $('#cart-items').innerHTML = state.cart.map(item => `<div class="cart-line"><img src="${escapeHtml(productImage(item.product))}" alt="" /><div><h3>${escapeHtml(item.product.name)}</h3><p>Size ${escapeHtml(item.variant.size_label)} · ${escapeHtml(item.variant.color_name || 'Classic')}</p><div class="qty-control"><button type="button" data-qty="-1" data-sku="${escapeHtml(item.variant.sku)}" aria-label="Decrease quantity">−</button><span>${item.quantity}</span><button type="button" data-qty="1" data-sku="${escapeHtml(item.variant.sku)}" aria-label="Increase quantity" ${item.quantity >= 10 ? 'disabled' : ''}>+</button></div></div><strong class="cart-line-price">${money(Number(item.product.price_cents) * item.quantity, item.product.currency)}</strong></div>`).join('');
+    if($('#cart-count')) $('#cart-count').textContent = String(count);
+    if($('#drawer-count')) $('#drawer-count').textContent = `(${count})`;
+    if($('#cart-empty')) $('#cart-empty').classList.toggle('hidden', count > 0);
+    if($('#drawer-foot')) $('#drawer-foot').classList.toggle('hidden', count === 0);
+    if($('#cart-items')) $('#cart-items').classList.toggle('hidden', count === 0);
+    const activeCurrency = state.market === 'AE' ? 'AED' : 'INR';
+    if($('#cart-subtotal')) $('#cart-subtotal').textContent = money(totalCents(), activeCurrency);
+
+    const delivery=$('#cart-delivery-fee');
+    const guidance=$('#cart-market-guidance');
+    if(guidance) guidance.textContent = state.market === 'IN' ? 'India delivery is currently limited to PIN 500052. Checkout remains closed until verified INR pricing, delivery fee, GST and Razorpay setup are complete.' : 'UAE delivery fee, VAT and merchant gateway setup are not yet verified. Checkout remains closed; India PIN and payment instructions do not apply.';
+    if(delivery) delivery.textContent='Not configured';
+    if($('#checkout-total')) $('#checkout-total').textContent = money(checkoutTotalCents(), activeCurrency);
+
+    if($('#cart-items')) {
+      $('#cart-items').innerHTML = state.cart.map(item => `<div class="cart-line"><img src="${escapeHtml(productImage(item.product))}" alt="" /><div><h3>${escapeHtml(item.product.name)}</h3><p>Size ${escapeHtml(item.variant.size_label)} · ${escapeHtml(item.variant.color_name || 'Classic')}</p><div class="qty-control"><button type="button" data-qty="-1" data-sku="${escapeHtml(item.variant.sku)}" aria-label="Decrease quantity">−</button><span>${item.quantity}</span><button type="button" data-qty="1" data-sku="${escapeHtml(item.variant.sku)}" aria-label="Increase quantity" ${item.quantity >= 10 ? 'disabled' : ''}>+</button></div></div><strong class="cart-line-price">${money(Number(item.product.price_cents) * item.quantity, item.product.currency)}</strong></div>`).join('');
+    }
   }
+
   function addToCart(product, variant) {
-    if (product?.price_pending_conversion || product?.currency !== 'INR') return toast('This product needs a verified INR price before it can be ordered.');
+    const activeCurrency = state.market === 'AE' ? 'AED' : 'INR';
+    if (product?.price_pending_conversion || product?.currency !== activeCurrency) return toast('This product needs a verified price for the selected market before it can be ordered.');
     if (!variant || Number(variant.stock_qty) <= 0) return toast('That size is out of stock.');
     const current = state.cart.find(item => item.variant.sku === variant.sku);
     const already = current?.quantity || 0;
@@ -88,69 +204,111 @@
     if (current) current.quantity += 1; else state.cart.push({ product, variant, quantity: 1 });
     renderCart(); toast(`${product.name} · size ${variant.size_label} added to your bag.`);
   }
+
   function setDrawer(open) {
-    $('#cart-drawer').classList.toggle('open', open); $('#cart-drawer').setAttribute('aria-hidden', String(!open)); $('#scrim').classList.toggle('visible', open); document.body.classList.toggle('locked', open || $('#checkout-backdrop').classList.contains('visible') || $('#success-backdrop').classList.contains('visible'));
+    if($('#cart-drawer')) $('#cart-drawer').classList.toggle('open', open);
+    if($('#cart-drawer')) { $('#cart-drawer').setAttribute('aria-hidden', String(!open)); $('#cart-drawer').toggleAttribute('inert', !open); }
+    if($('#scrim')) $('#scrim').classList.toggle('visible', open);
+    document.body.classList.toggle('locked', open || $('#checkout-backdrop')?.classList.contains('visible') || $('#success-backdrop')?.classList.contains('visible'));
   }
+
   function setCheckout(open) {
-    $('#checkout-backdrop').classList.toggle('visible', open); $('#checkout-backdrop').setAttribute('aria-hidden', String(!open)); document.body.classList.toggle('locked', open || $('#cart-drawer').classList.contains('open') || $('#success-backdrop').classList.contains('visible'));
-    if (open) { $('#checkout-error').classList.add('hidden'); const total=$('#checkout-total'); if(total)total.textContent=state.marketConfig?.checkout_ready?money(checkoutTotalCents(),'INR'):'To be confirmed'; setTimeout(() => $('input[name="customer_name"]')?.focus(), 80); }
+    if($('#checkout-backdrop')) $('#checkout-backdrop').classList.toggle('visible', open);
+    if($('#checkout-backdrop')) $('#checkout-backdrop').setAttribute('aria-hidden', String(!open));
+    document.body.classList.toggle('locked', open || $('#cart-drawer')?.classList.contains('open') || $('#success-backdrop')?.classList.contains('visible'));
+    if (open) {
+      if($('#checkout-error')) $('#checkout-error').classList.add('hidden');
+      if($('#checkout-total')) $('#checkout-total').textContent = money(checkoutTotalCents(), state.market === 'AE' ? 'AED' : 'INR');
+      setTimeout(() => $('input[name="customer_name"]')?.focus(), 80);
+    }
   }
+
   function setSuccess(open, order = null) {
-    $('#success-backdrop').classList.toggle('visible', open); $('#success-backdrop').setAttribute('aria-hidden', String(!open));
-    if (order) { $('#success-order-number').textContent = order.order_number ? `BF-${String(order.order_number).padStart(6, '0')}` : 'Confirmed'; const total=$('#success-total'); if(total)total.textContent=money(order.total_cents,'INR'); }
+    if($('#success-backdrop')) $('#success-backdrop').classList.toggle('visible', open);
+    if($('#success-backdrop')) $('#success-backdrop').setAttribute('aria-hidden', String(!open));
+    if (order && $('#success-order-number')) $('#success-order-number').textContent = order.order_number ? `BF-${String(order.order_number).padStart(6, '0')}` : 'Confirmed';
+    if (order && $('#success-total')) $('#success-total').textContent = money(order.total_cents, order.currency || (state.market === 'AE' ? 'AED' : 'INR'));
     document.body.classList.toggle('locked', open);
   }
-  function showCheckoutError(message) { $('#checkout-error').textContent = message; $('#checkout-error').classList.remove('hidden'); }
 
-  $('#product-grid').addEventListener('click', event => {
-    const wishlistButton = event.target.closest('[data-wishlist]');
-    if (wishlistButton) { const id = String(wishlistButton.dataset.wishlist); if (state.wishlist.has(id)) state.wishlist.delete(id); else state.wishlist.add(id); try { localStorage.setItem('bf-shoes-wishlist', JSON.stringify([...state.wishlist])); } catch {} renderProducts(); return; }
-    const sizeButton = event.target.closest('[data-size-product]');
-    if (sizeButton) { state.selectedSizes[sizeButton.dataset.sizeProduct] = sizeButton.dataset.sku; renderProducts(); return; }
-    const addButton = event.target.closest('[data-add]');
-    const quickButton = event.target.closest('[data-quick-add]');
-    if (addButton || quickButton) {
-      const id = (addButton || quickButton).dataset[addButton ? 'add' : 'quickAdd'];
-      const product = state.products.find(p => String(p.id) === String(id)); if (!product) return;
-      const variants = availableVariants(product);
-      const selectedSku = state.selectedSizes[product.id];
-      const variant = variants.find(v => v.sku === selectedSku) || variants[0];
-      if (!variant) return toast('This style is currently sold out.');
-      state.selectedSizes[product.id] = variant.sku;
-      addToCart(product, variant); renderProducts();
+  function showCheckoutError(message) {
+    if($('#checkout-error')) {
+      $('#checkout-error').textContent = message;
+      $('#checkout-error').classList.remove('hidden');
     }
-  });
-  $('#product-grid').addEventListener('error', () => {}, true);
-  $('#cart-items').addEventListener('click', event => {
-    const button = event.target.closest('[data-qty]'); if (!button) return;
-    const item = state.cart.find(row => row.variant.sku === button.dataset.sku); if (!item) return;
-    const next = item.quantity + Number(button.dataset.qty); const stock = Number(item.variant.stock_qty);
-    if (next <= 0) state.cart = state.cart.filter(row => row !== item);
-    else if (next <= Math.min(10, stock)) item.quantity = next;
-    else toast('Maximum available quantity reached.');
-    renderCart();
-  });
-  $('#open-cart').addEventListener('click', () => setDrawer(true));
-  $('#close-cart').addEventListener('click', () => setDrawer(false));
-  $('#scrim').addEventListener('click', () => setDrawer(false));
-  $('#continue-shopping').addEventListener('click', () => setDrawer(false));
-  $('#checkout-button').addEventListener('click', () => { if (!state.cart.length) return; setDrawer(false); setCheckout(true); });
-  $('#close-checkout').addEventListener('click', () => setCheckout(false));
-  $('#checkout-backdrop').addEventListener('click', event => { if (event.target === $('#checkout-backdrop')) setCheckout(false); });
-  $('#finish-order').addEventListener('click', () => { setSuccess(false); state.cart = []; renderCart(); renderProducts(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
-  $('#success-backdrop').addEventListener('click', event => { if (event.target === $('#success-backdrop')) setSuccess(false); });
-  $$('.filter').forEach(button => button.addEventListener('click', () => { state.filter = button.dataset.filter; $$('.filter').forEach(b => b.classList.toggle('active', b === button)); renderProducts(); }));
-  $('#product-search').addEventListener('input', event => { state.search = event.target.value; const headerSearch=$('#header-product-search'); if(headerSearch) headerSearch.value=event.target.value; renderProducts(); });
-  $('#header-product-search')?.addEventListener('input', event => { $('#product-search').value=event.target.value; state.search=event.target.value; renderProducts(); if(event.target.value) $('#shop').scrollIntoView({behavior:'smooth',block:'start'}); });
-  $('#header-wishlist')?.addEventListener('click', () => { state.filter='saved'; $$('.filter').forEach(b=>b.classList.toggle('active',b.dataset.filter==='saved')); renderProducts(); $('#shop').scrollIntoView({behavior:'smooth',block:'start'}); });
+  }
 
-  $('#price-range')?.addEventListener('input', event => { $('#price-range-value').textContent=money(Number(event.target.value),'INR'); renderProducts(); });
+  async function loadProducts() {
+    state.loading = true;
+    renderProducts();
+    try {
+      const response = await request(`${API_BASE}/products?market=${encodeURIComponent(state.market)}`);
+      state.products = Array.isArray(response) ? response : (response.data || response.products || []);
+      if (!Array.isArray(state.products)) state.products = [];
+    } catch (error) {
+      console.error("Error loading products:", error);
+      toast(error.message || 'Failed to load products.');
+      state.products = [];
+    } finally {
+      state.loading = false;
+      renderProducts();
+    }
+  }
+
+  if($('#product-grid')) {
+    $('#product-grid').addEventListener('click', event => {
+      const wishlistButton = event.target.closest('[data-wishlist]');
+      if (wishlistButton) { const id = String(wishlistButton.dataset.wishlist); if (state.wishlist.has(id)) state.wishlist.delete(id); else state.wishlist.add(id); try { localStorage.setItem('bf-shoes-wishlist', JSON.stringify([...state.wishlist])); } catch {} renderProducts(); return; }
+      const sizeButton = event.target.closest('[data-size-product]');
+      if (sizeButton) { state.selectedSizes[sizeButton.dataset.sizeProduct] = sizeButton.dataset.sku; renderProducts(); return; }
+      const addButton = event.target.closest('[data-add]');
+      const quickButton = event.target.closest('[data-quick-add]');
+      if (addButton || quickButton) {
+        const id = (addButton || quickButton).dataset[addButton ? 'add' : 'quickAdd'];
+        const product = state.products.find(p => String(p.id) === String(id)); if (!product) return;
+        const variants = availableVariants(product);
+        const selectedSku = state.selectedSizes[product.id];
+        const variant = variants.find(v => v.sku === selectedSku) || variants[0];
+        if (!variant) return toast('This style is currently sold out.');
+        state.selectedSizes[product.id] = variant.sku;
+        addToCart(product, variant); renderProducts();
+      }
+    });
+    $('#product-grid').addEventListener('error', () => {}, true);
+  }
+
+  if($('#cart-items')) {
+    $('#cart-items').addEventListener('click', event => {
+      const button = event.target.closest('[data-qty]'); if (!button) return;
+      const item = state.cart.find(row => row.variant.sku === button.dataset.sku); if (!item) return;
+      const next = item.quantity + Number(button.dataset.qty); const stock = Number(item.variant.stock_qty);
+      if (next <= 0) state.cart = state.cart.filter(row => row !== item);
+      else if (next <= Math.min(10, stock)) item.quantity = next;
+      else toast('Maximum available quantity reached.');
+      renderCart();
+    });
+  }
+
+  $('#open-cart')?.addEventListener('click', () => setDrawer(true));
+  $('#close-cart')?.addEventListener('click', () => setDrawer(false));
+  $('#scrim')?.addEventListener('click', () => setDrawer(false));
+  $('#continue-shopping')?.addEventListener('click', () => setDrawer(false));
+  $('#checkout-button')?.addEventListener('click', () => { if (!state.cart.length) return; setDrawer(false); setCheckout(true); });
+  $('#close-checkout')?.addEventListener('click', () => setCheckout(false));
+  $('#checkout-backdrop')?.addEventListener('click', event => { if (event.target === $('#checkout-backdrop')) setCheckout(false); });
+  $('#finish-order')?.addEventListener('click', () => { setSuccess(false); state.cart = []; renderCart(); renderProducts(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  $('#success-backdrop')?.addEventListener('click', event => { if (event.target === $('#success-backdrop')) setSuccess(false); });
+
+  $$('.filter').forEach(button => button.addEventListener('click', () => { state.filter = button.dataset.filter; $$('.filter').forEach(b => b.classList.toggle('active', b === button)); renderProducts(); }));
+  $('#product-search')?.addEventListener('input', event => { state.search = event.target.value; const headerSearch=$('#header-product-search'); if(headerSearch) headerSearch.value=event.target.value; renderProducts(); });
+  $('#header-product-search')?.addEventListener('input', event => { if($('#product-search')) $('#product-search').value=event.target.value; state.search=event.target.value; renderProducts(); if(event.target.value) $('#shop')?.scrollIntoView({behavior:'smooth',block:'start'}); });
+  $('#header-wishlist')?.addEventListener('click', () => { state.filter='saved'; $$('.filter').forEach(b=>b.classList.toggle('active',b.dataset.filter==='saved')); renderProducts(); $('#shop')?.scrollIntoView({behavior:'smooth',block:'start'}); });
+  $('#price-range')?.addEventListener('input', event => { state.maxPriceCents = Number(event.target.value) * 100; if($('#price-range-value')) $('#price-range-value').textContent=money(state.maxPriceCents,state.market === 'AE' ? 'AED' : 'INR'); renderProducts(); });
   $$('.catalog-sidebar [data-category]').forEach(input => input.addEventListener('change', () => { state.categories=$$('.catalog-sidebar [data-category]:checked').map(x=>x.dataset.category.toLowerCase()); renderProducts(); }));
   $$('.catalog-sidebar [data-color]').forEach(input => input.addEventListener('change', () => { state.colors=$$('.catalog-sidebar [data-color]:checked').map(x=>x.dataset.color.toLowerCase()); renderProducts(); }));
-  $$('.view-mode').forEach(button=>button.addEventListener('click',()=>{$$('.view-mode').forEach(b=>b.classList.toggle('active',b===button));$('#product-grid').classList.toggle('list-view',button.textContent.trim()==='☷');}));
-  $('#product-sort').addEventListener('change', event => { state.sort = event.target.value; renderProducts(); });
+  $$('.view-mode').forEach(button=>button.addEventListener('click',()=>{$$('.view-mode').forEach(b=>b.classList.toggle('active',b===button));$('#product-grid')?.classList.toggle('list-view',button.textContent.trim()==='☷');}));
+  $('#product-sort')?.addEventListener('change', event => { state.sort = event.target.value; renderProducts(); });
 
-  // Keep the catalog filter controls in a slide-out panel on smaller screens.
   const catalogLayout = $('.catalog-layout');
   const mobileFilterTrigger = $('#mobile-filter-trigger');
   const closeMobileFilters = $('#close-mobile-filters');
@@ -170,71 +328,152 @@
   }));
   document.addEventListener('keydown', event => { if (event.key === 'Escape') setMobileFilters(false); });
 
-  $('#newsletter-form').addEventListener('submit', async event => { event.preventDefault(); const form=event.currentTarget, button=form.querySelector('button[type=submit],button:not([type])'); if(button)button.disabled=true; $('#newsletter-message').textContent='Submitting…'; try { const email=String(new FormData(form).get('email')||'').trim(); const result=await request('/api/v1/newsletter/subscribe',{method:'POST',body:JSON.stringify({email})}); $('#newsletter-message').textContent=result.message+(result.email_status==='sent'?' Email confirmation sent.': ' Your signup is saved; email delivery may need configuration.'); form.reset(); } catch(error) { $('#newsletter-message').textContent=error.message||'Signup failed. Please try again.'; } finally { if(button)button.disabled=false; } });
+  const countrySelect = $('#shipping-country');
+
+  async function loadCheckoutReadiness() {
+    try {
+      const config = await request('/api/v1/store/market-config');
+      const selected = (config.data || []).find(market => market.country === state.market);
+      state.marketConfig = selected || null;
+      const indiaReady = state.market === 'IN' && selected && selected.checkoutEnabled && (!countrySelect || countrySelect.value === 'IN');
+      const uaeReady = state.market === 'AE' && selected && selected.checkoutEnabled && (!countrySelect || countrySelect.value === 'AE');
+      state.checkoutReady = Boolean(indiaReady || uaeReady);
+    } catch { state.checkoutReady = false; }
+    const checkoutButton = $('#checkout-button');
+    const placeOrder = $('#place-order');
+    if (checkoutButton) { checkoutButton.disabled = !state.checkoutReady; checkoutButton.textContent = state.checkoutReady ? 'Continue to checkout' : 'Checkout temporarily unavailable'; }
+    if (placeOrder) placeOrder.disabled = !state.checkoutReady;
+    if ($('#checkout-readiness-note')) $('#checkout-readiness-note').textContent = state.checkoutReady
+      ? "Checkout is ready only after this market's payment, delivery and tax settings are verified."
+      : state.market === 'AE' ? 'UAE shopping is available. UAE delivery, VAT and payment setup must be completed before checkout opens.' : 'Checkout opens after verified INR prices, delivery fee, GST profile and Razorpay merchant credentials are configured.';
+  }
+
+  if (countrySelect) {
+    countrySelect.addEventListener('change', () => {
+      const phone = $('input[name="customer_phone"]'); if (phone) phone.placeholder = countrySelect.value === 'IN' ? '+91 98765 43210' : '+971 50 000 0000';
+    });
+  }
+
+  $('#newsletter-form')?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const form=event.currentTarget, button=form.querySelector('button[type=submit],button:not([type])');
+    if(button)button.disabled=true;
+    if($('#newsletter-message')) $('#newsletter-message').textContent='Submitting…';
+    try {
+      const email=String(new FormData(form).get('email')||'').trim();
+      const result=await request('/api/v1/newsletter/subscribe',{method:'POST',body:JSON.stringify({email})});
+      if($('#newsletter-message')) $('#newsletter-message').textContent=result.message+(result.email_status==='sent'?' Email confirmation sent.': ' Your signup is saved; email delivery may need configuration.');
+      form.reset();
+    } catch(error) {
+      if($('#newsletter-message')) $('#newsletter-message').textContent=error.message||'Signup failed. Please try again.';
+    } finally {
+      if(button)button.disabled=false;
+    }
+  });
+
   document.addEventListener('keydown', event => { if (event.key === 'Escape') { setCheckout(false); setSuccess(false); setDrawer(false); } });
 
-  $('#checkout-form').addEventListener('submit', async event => {
-    event.preventDefault(); if (state.busy || !state.cart.length) return;
-    const form = event.currentTarget; if (!form.reportValidity()) return;
-    state.busy = true; const submit = $('#place-order'); submit.disabled = true; submit.innerHTML = 'Placing your order…'; $('#checkout-error').classList.add('hidden');
+  $('#shipping-country')?.addEventListener('change', event => {
+    const isIndia = event.target.value === 'IN';
+    $('#india-pin-field')?.classList.toggle('hidden', !isIndia);
+    const pin = $('#shipping-pincode');
+    if (pin) { pin.required = isIndia; if (!isIndia) pin.value = ''; }
+    const phone = $('input[name="customer_phone"]');
+    if (phone) phone.placeholder = isIndia ? '+91 98765 43210' : '+971 50 000 0000';
+    loadCheckoutReadiness();
+  });
+
+  $('#checkout-form')?.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (state.busy || !state.cart.length) return;
+    const form = event.currentTarget;
+    if (!form.reportValidity()) return;
+
+    state.busy = true;
+    const submit = $('#place-order');
+    if(submit) {
+      submit.disabled = true;
+      submit.innerHTML = 'Placing your order…';
+    }
+    if($('#checkout-error')) $('#checkout-error').classList.add('hidden');
+
     const formData = new FormData(form);
     const payload = {
       customer_name: String(formData.get('customer_name') || '').trim(),
       customer_email: String(formData.get('customer_email') || '').trim(),
       customer_phone: String(formData.get('customer_phone') || '').trim(),
       shipping_address: String(formData.get('shipping_address') || '').trim(),
-      shipping_country: 'IN',
-      shipping_pincode: '500052',
+      shipping_country: String(formData.get('shipping_country') || state.market),
+      shipping_pincode: state.market === 'IN' ? String(formData.get('shipping_pincode') || '') : '',
       payment_method: String(formData.get('payment_method') || 'cod'),
       items: state.cart.map(item => ({ sku: item.variant.sku, quantity: item.quantity }))
     };
+
     const body = JSON.stringify(payload);
-    if (!state.pendingCheckout || state.pendingCheckout.body !== body) state.pendingCheckout = { body, key: `web-${randomKey()}` };
+    if (!state.pendingCheckout || state.pendingCheckout.body !== body) {
+      state.pendingCheckout = { body, key: `web-${randomKey()}` };
+    }
+
     try {
-      const response = await request(`${API_BASE}/orders`, { method: 'POST', headers: { 'Idempotency-Key': state.pendingCheckout.key }, body });
-      state.pendingCheckout = null; setCheckout(false); setSuccess(true, response.data || {}); form.reset();
+      if (!state.checkoutReady) throw new Error(state.market === 'IN' ? 'India checkout is disabled until Razorpay credentials, verified prices, delivery fee and GST are configured.' : 'UAE checkout is disabled until its merchant gateway, verified prices, delivery fee and VAT are configured.');
+      throw new Error('The selected payment gateway has not been activated for this market.');
+
     } catch (error) {
-      showCheckoutError(error.message || 'Could not place the order. Please try again.');
-      if (error.status === 409) toast('Stock or cart details changed. Please review your bag.');
-    } finally { state.busy = false; submit.disabled = false; submit.innerHTML = 'Place India order <span>↗</span>'; submit.disabled=!state.marketConfig?.checkout_ready; }
+      showCheckoutError(error.message || 'Failed to place order. Please try again.');
+    } finally {
+      state.busy = false;
+      if(submit) {
+        submit.disabled = !state.checkoutReady;
+        submit.innerHTML = 'Place order';
+      }
+    }
   });
-  function randomKey() {
-    if (window.crypto?.randomUUID) return window.crypto.randomUUID();
-    const bytes = new Uint8Array(18); if (window.crypto?.getRandomValues) window.crypto.getRandomValues(bytes); else for (let i=0;i<bytes.length;i++) bytes[i] = Math.floor(Math.random()*256);
-    return [...bytes].map(b => b.toString(16).padStart(2, '0')).join('');
+
+  $('#account-link')?.addEventListener('click', () => { window.location.href = '/account.html'; });
+
+  $('#market-selector')?.addEventListener('change', event => {
+    const nextMarket = event.target.value === 'AE' ? 'AE' : 'IN';
+    if (nextMarket === state.market) return;
+    state.cartByMarket[state.market] = state.cart;
+    state.market = nextMarket;
+    state.cart = state.cartByMarket[state.market] || [];
+    state.pendingCheckout = null;
+    state.selectedSizes = {};
+    try { localStorage.setItem('bf-market', state.market); } catch {}
+    const deliveryNote = $('#market-delivery-note');
+    if (deliveryNote) deliveryNote.textContent = state.market === 'IN' ? 'Delivery to PIN 500052' : 'UAE delivery setup pending';
+    const range = $('#price-range');
+    const rangeValue = $('#price-range-value');
+    if (range && rangeValue) {
+      range.min = state.market === 'IN' ? '699' : '10';
+      range.max = state.market === 'IN' ? '4999' : '500';
+      range.value = range.max;
+      state.maxPriceCents = Number(range.value) * 100;
+      rangeValue.textContent = money(state.maxPriceCents, state.market === 'IN' ? 'INR' : 'AED');
+      const minValue = $('#price-range-min-value'); if (minValue) minValue.textContent = money(Number(range.min) * 100, state.market === 'IN' ? 'INR' : 'AED');
+    }
+    const selectedCountry = $('#shipping-country');
+    if (selectedCountry) selectedCountry.value = state.market;
+    loadProducts();
+    loadCheckoutReadiness();
+    renderCart();
+    toast(state.market === 'IN' ? 'India market selected.' : 'UAE market selected. Checkout is not available yet.');
+  });
+  if ($('#market-selector')) $('#market-selector').value = state.market;
+  const initialDeliveryNote = $('#market-delivery-note');
+  if (initialDeliveryNote) initialDeliveryNote.textContent = state.market === 'IN' ? 'Delivery to PIN 500052' : 'UAE delivery setup pending';
+  const initialRange = $('#price-range'), initialRangeValue = $('#price-range-value');
+  if (initialRange && initialRangeValue) {
+    initialRange.min = state.market === 'IN' ? '699' : '10';
+    initialRange.max = state.market === 'IN' ? '4999' : '500';
+    initialRange.value = initialRange.max;
+    state.maxPriceCents = Number(initialRange.value) * 100;
+    initialRangeValue.textContent = money(state.maxPriceCents, state.market === 'IN' ? 'INR' : 'AED');
+    const minValue = $('#price-range-min-value'); if (minValue) minValue.textContent = money(Number(initialRange.min) * 100, state.market === 'IN' ? 'INR' : 'AED');
   }
-  async function loadProducts() {
-    state.loading = true; renderProducts();
-    try {
-      const response = await request(`${API_BASE}/products`);
-      state.products = Array.isArray(response.data) ? response.data : []; const pendingPrices=state.products.some(product=>product.price_pending_conversion); const range=$('#price-range'); if(range)range.disabled=pendingPrices; const rangeValue=$('#price-range-value'); if(rangeValue&&pendingPrices)rangeValue.textContent='Available after INR price verification';
-      state.products.forEach(product => { if (!state.selectedSizes[product.id]) { const first = availableVariants(product)[0]; if (first) state.selectedSizes[product.id] = first.sku; } });
-      $('#catalog-status').textContent = state.products.length ? '' : 'The catalog is connected, but no active products have been added yet.';
-    } catch (error) {
-      $('#catalog-status').textContent = '';
-      $('#catalog-count').textContent = 'Collection temporarily unavailable';
-      $('#empty-state').classList.remove('hidden');
-      $('#empty-state').innerHTML = `<p class="eyebrow">CONNECTION NEEDED</p><h3>We’re preparing your collection.</h3><p>${escapeHtml(error.message)} Please refresh shortly. We won’t show fake products or incorrect prices.</p><button class="button button-dark" type="button" id="retry-products">Try again ↻</button>`;
-      $('#retry-products')?.addEventListener('click', loadProducts, { once: true });
-    } finally { state.loading = false; renderProducts(); }
-  }
-  async function loadActiveCampaigns() {
-    try {
-      const response = await request('/api/v1/store/campaigns/active');
-      const campaigns = Array.isArray(response.data) ? response.data : [];
-      const banner = $('#campaign-strip');
-      if (!banner || !campaigns.length) return;
-      const campaign = campaigns[0];
-      const link = document.createElement('a');
-      link.href = campaign.target_url || '#shop';
-      if (campaign.target_url) { link.target = '_blank'; link.rel = 'noopener noreferrer'; }
-      if (campaign.image_url) { const image = document.createElement('img'); image.src = campaign.image_url; image.alt = ''; image.loading = 'lazy'; link.append(image); }
-      const headline = document.createElement('strong'); headline.textContent = campaign.headline || campaign.name || 'Discover the latest BF SHOES drop'; link.append(headline);
-      if (Number(campaign.discount_percent) > 0) { const discount = document.createElement('span'); discount.textContent = `${campaign.discount_percent}% offer`; link.append(discount); }
-      banner.replaceChildren(link); banner.classList.remove('hidden');
-    } catch { /* Homepage stays usable when no campaign has been configured. */ }
-  }
-  async function loadMarketConfig() { try { const r=await request('/api/v1/store/config'); state.marketConfig=r.data||null; } catch { state.marketConfig={checkout_ready:false,online_payment_ready:false,setup_required:['delivery_fee_not_configured','gst_status_not_confirmed','no_inr_priced_products']}; } finally { renderCart(); renderProducts(); } }
-  $('#year').textContent = String(new Date().getFullYear());
-  renderCart(); loadMarketConfig(); loadProducts(); loadActiveCampaigns();
+
+  renderCart();
+  loadProducts();
+  loadCheckoutReadiness();
+  loadActiveCampaign();
 })();

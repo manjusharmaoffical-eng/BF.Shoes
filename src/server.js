@@ -13,6 +13,7 @@ import { financeRouter } from "./finance.js";
 import { aiStudioRouter } from "./ai-studio.js";
 import { ultronRouter } from "./ultron.js";
 import { invoicesRouter } from "./invoices.js";
+import { warehouseRouter } from "./warehouse.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -33,7 +34,8 @@ app.use(helmet({
       ...helmet.contentSecurityPolicy.getDefaultDirectives(),
       // Product and campaign artwork is HTTPS-only at the API boundary.
       // Permit secure remote images while keeping scripts and connections same-origin.
-      "img-src": ["'self'", "data:", "https:"]
+      "img-src": ["'self'", "data:", "https:", "https://res.cloudinary.com"],
+      "connect-src": ["'self'", "https://api.cloudinary.com"]
     }
   }
 }));
@@ -49,20 +51,23 @@ app.use(cors({
     if (!origin || allowedOrigins.has(origin)) return callback(null, true);
     return callback(new Error("Origin not allowed by CORS"));
   },
-  methods: ["GET", "POST", "PATCH", "OPTIONS"],
+  methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-API-Key", "Idempotency-Key"]
 }));
-app.use(express.json({ limit: "100kb" }));
+app.use(express.json({ limit: "100kb", verify(req, _res, buffer) { req.rawBody = Buffer.from(buffer); } }));
+app.use(express.urlencoded({ extended: false, limit: "10kb" }));
 app.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: "draft-7", legacyHeaders: false }));
 
-app.get("/health", async (_req, res) => {
+async function healthCheck(_req, res) {
   try {
     await pool.query("SELECT 1");
     res.json({ status: "ok", service: "bf-shoes-api" });
   } catch {
     res.status(503).json({ status: "unavailable" });
   }
-});
+}
+app.get("/health", healthCheck);
+app.get("/api/v1/health", healthCheck);
 
 app.use("/api/v1/auth/login", rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false }));
 // Public storefront endpoints are deliberately separated from admin/integration routes.
@@ -79,8 +84,10 @@ app.use("/api/v1/ai", aiStudioRouter);
 app.use("/api/v1/ai-studio", aiStudioRouter);
 app.use("/api/v1/ultron", ultronRouter);
 app.use("/api/v1/invoices", invoicesRouter);
+app.use("/api/v1/warehouse", warehouseRouter);
 app.use("/api/v1", router);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+app.get("/favicon.ico", (_req, res) => res.redirect(302, "/favicon.svg"));
 app.use(express.static(path.resolve(__dirname, "../frontend"), { index: "index.html", maxAge: process.env.NODE_ENV === "production" ? "1h" : 0 }));
 app.use((_req, res) => res.status(404).json({ error: "Not found" }));
 app.use((err, _req, res, _next) => {

@@ -53,6 +53,7 @@ async function createCustomerSession(customer, res, req) {
     issuer: "bf-shoes-api", audience: "bf-shoes-customer"
   });
   res.cookie(COOKIE_NAME, token, cookieOptions(req));
+  return token;
 }
 function clearCustomerCookie(res, req) {
   const options = cookieOptions(req);
@@ -60,7 +61,9 @@ function clearCustomerCookie(res, req) {
   res.clearCookie(COOKIE_NAME, options);
 }
 async function getSession(req) {
-  const token = readCookie(req, COOKIE_NAME);
+  const authorization = req.get("authorization") || "";
+  const bearer = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
+  const token = bearer || readCookie(req, COOKIE_NAME);
   if (!token) return null;
   const claims = jwt.verify(token, process.env.JWT_SECRET, { issuer: "bf-shoes-api", audience: "bf-shoes-customer" });
   if (claims.typ !== "customer" || !claims.sub || !claims.jti) return null;
@@ -87,8 +90,8 @@ customerAuthRouter.post("/register", async (req, res, next) => {
       [parsed.data.name, email, passwordHash]
     );
     const customer = result.rows[0];
-    await createCustomerSession(customer, res, req);
-    return res.status(201).json({ customer: publicCustomer(customer), expires_in: SESSION_SECONDS });
+    const accessToken = await createCustomerSession(customer, res, req);
+    return res.status(201).json({ customer: publicCustomer(customer), access_token: accessToken, expires_in: SESSION_SECONDS });
   } catch (err) {
     if (err.code === "23505") return res.status(409).json({ error: "An account with this email already exists. Sign in instead." });
     next(err);
@@ -107,8 +110,8 @@ customerAuthRouter.post("/login", async (req, res, next) => {
     const row = result.rows[0];
     const valid = await bcrypt.compare(parsed.data.password, row?.password_hash || DUMMY_HASH);
     if (!row || !valid || !row.active) return res.status(401).json({ error: "Invalid email or password." });
-    await createCustomerSession(row, res, req);
-    return res.json({ customer: publicCustomer(row), expires_in: SESSION_SECONDS });
+    const accessToken = await createCustomerSession(row, res, req);
+    return res.json({ customer: publicCustomer(row), access_token: accessToken, expires_in: SESSION_SECONDS });
   } catch (err) { next(err); }
 });
 
@@ -139,4 +142,31 @@ customerAuthRouter.post("/logout", async (req, res, next) => {
     clearCustomerCookie(res, req);
     return res.status(204).end();
   } catch (err) { next(err); }
+});
+
+customerAuthRouter.get("/orders", async (req, res, next) => {
+  try {
+    const session = await getSession(req);
+    if (!session) return res.status(401).json({ error: "Sign in to view your orders." });
+    const result = await pool.query(
+      `SELECT o.order_number,o.status,o.payment_status,o.currency,o.subtotal_cents,
+        o.delivery_fee_cents,o.vat_cents,o.total_cents,o.created_at,
+        COALESCE(json_agg(json_build_object(
+          'product_name',oi.product_name,'sku',oi.sku,'size',oi.size_label,
+          'color',oi.color_name,'quantity',oi.quantity,'line_total_cents',oi.line_total_cents
+        )) FILTER (WHERE oi.id IS NOT NULL),'[]'::json) AS items
+       FROM orders o
+       JOIN customer_accounts c ON lower(c.email)=lower(o.customer_email)
+       LEFT JOIN order_items oi ON oi.order_id=o.id
+       WHERE c.id=$1 AND c.active=true
+       GROUP BY o.id
+       ORDER BY o.created_at DESC
+       LIMIT 50`,
+      [session.row.id]
+    );
+    return res.json({ data: result.rows });
+  } catch (err) {
+    if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") return res.status(401).json({ error: "Your session expired. Please sign in again." });
+    next(err);
+  }
 });
