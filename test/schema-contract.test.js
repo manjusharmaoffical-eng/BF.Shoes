@@ -234,3 +234,15 @@ test("UAE VAT requires the registered 5% AED profile and Binance cannot bypass c
   const binance = storefront.split('storefrontRouter.post("/orders/binance"')[1]?.split('storefrontRouter.post("/payments/binance/webhook"')[0];
   assert.ok(binance?.includes("UAE_CHECKOUT_VERIFIED !== \"true\" || process.env.UAE_PAYMENT_PROVIDER !== \"binance\""));
 });
+
+
+test("India PayU checkout applies the active GST rate to the order and gateway amount", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  const payu = storefront.split('storefrontRouter.post("/orders/payu"')[1]?.split("async function handlePayuCallback")[0];
+  assert.ok(payu, "PayU checkout route must exist");
+  assert.ok(payu.includes("tax.rowCount !== 1"));
+  assert.ok(payu.includes("calculateIndiaTotals(subtotal, deliveryFeeCents, Number(tax.rows[0].tax_rate_bps))"));
+  assert.ok(payu.includes("vat_cents,tax_rate_bps,total_cents,shipping_country,shipping_emirate"));
+  assert.ok(payu.includes("'IN','',$10,$11"));
+  assert.ok(payu.includes("const amount=(totalCents/100).toFixed(2)"));
+});
