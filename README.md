@@ -41,7 +41,7 @@ The Docker image copies both `src/` and `frontend/`; without the frontend assets
 - Storefront is configured for INR and delivery PIN 500052 only. No other PIN is accepted.
 - Existing catalog rows priced in AED are not modified or silently relabelled as INR. The catalog flags these products as requiring price conversion, and checkout stays disabled until active product prices are verified and entered in INR.
 - Set `INDIA_DELIVERY_FEE_PAISE` only to the actual confirmed fee (100 paise = INR 1). Keep it blank until confirmed; zero means explicitly free delivery, not an unknown fee.
-- Cash on Delivery and online payment are shown as intended choices. COD order creation is available only after market configuration is complete. Online payment stays disabled and the API rejects it until a real gateway integration, merchant credentials, and payment verification are implemented and tested.
+- India online checkout is configured for PayU Hosted Checkout only. Do not use Razorpay or silently fall back to COD. PayU remains disabled until merchant credentials, verified INR pricing, the confirmed delivery fee, the active GST profile and end-to-end payment verification are complete.
 - Set `INDIA_GST_STATUS=registered` only after confirming the seller is GST-registered and creating exactly one active `IN_GST` profile with the correct GSTIN, seller state, INR currency and legally applicable rate; use `not_registered` only when verified. The app does not invent a GST rate or tax profile.
 
 ## Feature configuration
@@ -50,7 +50,7 @@ The Docker image copies both `src/` and `frontend/`; without the frontend assets
 - Email delivery requires a Resend API key and a verified `EMAIL_FROM` sender. Without these, notification messages are queued but not sent.
 - Finance & P/L reports are scoped to INR orders, INR expenses and INR funding. AED amounts are not converted or mixed into the India report. Funding records now carry an explicit currency. Reports are estimates from recorded product costs, delivered orders, expenses, and paid interest; missing product costs mean final profit is intentionally marked incomplete. If there are no delivered INR orders, the dashboard says so instead of implying historical AED sales are INR.
 - Tax invoice profiles require correct legal seller details and jurisdiction-specific rates; validate statutory compliance before issuing invoices.
-- **Live India checkout remains gated off until all catalog prices are verified in INR, the actual delivery fee for PIN 500052 is configured, COD support is confirmed, and the seller GST status plus the active GST profile (real GSTIN, seller state and applicable rate) are verified.** Do not accept live orders until `/api/v1/store/config` reports `checkout_ready: true` and an end-to-end test has been completed.
+- **Live India checkout remains gated off until all catalog prices are verified in INR, the actual delivery fee for PIN 500052 is configured, the seller GST status and active GST profile (real GSTIN, seller state and applicable rate) are verified, and GST is correctly calculated and invoiced.** Do not accept live orders until `/api/v1/store/config` reports `checkout_ready: true` and PayU sandbox callback, Verify Payment, duplicate-callback and stock-reservation tests have passed.
 
 ## Development checks
 
