@@ -218,6 +218,8 @@ test("admin UI follows the authenticated role and avoids exposing forbidden writ
   const ai = await readFile(new URL("../src/ai-studio.js", import.meta.url), "utf8");
   assert.match(admin, /req\('\/auth\/me'\)/);
   assert.match(admin, /actor\.role==='staff'/);
+  assert.match(admin, /adminActor\?\.role==='staff'.*read-only/s);
+  assert.match(admin, /data-production-start/);
   assert.match(admin, /const readOnlyForms=/);
   assert.match(admin, /const ownerOnly=new Set\(\['team','activity','communications','finance','invoices','ai-studio','ultron'\]\)/);
   assert.match(policies, /MANAGER_SCOPES[\s\S]*campaigns:write/);
