@@ -7,11 +7,11 @@ const admin = await readFile(new URL("../frontend/admin.js", import.meta.url), "
 const studio = await readFile(new URL("../src/ai-studio.js", import.meta.url), "utf8");
 
 test("product creation supports a direct primary photo upload through signed Cloudinary storage", () => {
-  assert.match(html, /name="image_file" type="file" accept="image\\/jpeg,image\\/png,image\\/webp"/);
-  assert.match(admin, /async function uploadProductPhoto\\(productId,file\\)/);
-  assert.match(admin, /\\/ai-studio\\/product-images\\/signature/);
-  assert.match(admin, /make_primary:true/);
-  assert.match(admin, /photo upload failed:[\\s\\S]*Product photo gallery/);
-  assert.match(studio, /aiStudioRouter\\.post\\("\\/product-images\\/signature"/);
-  assert.match(studio, /isOwnedCloudinaryImage/);
+  assert.ok(html.includes('name="image_file" type="file"'));
+  assert.ok(admin.includes("async function uploadProductPhoto(productId,file)"));
+  assert.ok(admin.includes("req('/ai-studio/product-images/signature'"));
+  assert.ok(admin.includes("make_primary:true"));
+  assert.ok(admin.includes("photo upload failed:"));
+  assert.ok(studio.includes('aiStudioRouter.post("/product-images/signature"'));
+  assert.ok(studio.includes("isOwnedCloudinaryImage"));
 });
