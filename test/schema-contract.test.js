@@ -45,9 +45,9 @@ test("checkout schema accepts PayU and keeps India checkout behind verification 
   assert.match(storefront, /India online checkout is configured for PayU only/);
   assert.match(storefront, /paymentProvider: "PayU"/);
   assert.match(storefront, /payuConfigured\(\)/);
-  assert.match(storefront, /storefrontRouter\.post\("\\/payments\\/payu\\/callback"/);
-  assert.match(storefront, /storefrontRouter\.post\("\\/payments\\/payu\\/webhook"/);
-  assert.match(storefront, /Verify Payment API/);
+  assert.ok(storefront.includes('storefrontRouter.post("/payments/payu/callback"'));
+  assert.ok(storefront.includes('storefrontRouter.post("/payments/payu/webhook"'));
+  assert.match(storefront, /verifyPayuPayment\(txnid/);
 });
 
 
