@@ -172,8 +172,9 @@ test("storefront exposes separate UAE and India market configuration with owner-
   assert.match(storefront, /UAE_DELIVERY_FEE_FILS/);
   assert.match(storefront, /storefrontRouter\.post\("\/orders\/binance"/);
   assert.match(storefront, /storefrontRouter\.post\("\/payments\/binance\/webhook"/);
-  assert.match(storefront, /const indiaCheckoutEnabled = true; \/\/ UI preview for owner testing/);
-  assert.match(storefront, /const uaeCheckoutEnabled = true; \/\/ UI preview for owner testing/);
+  assert.match(storefront, /const indiaCheckoutEnabled = process\.env\.INDIA_CHECKOUT_VERIFIED === "true"/);
+  assert.match(storefront, /const uaeCheckoutEnabled = process\.env\.UAE_CHECKOUT_VERIFIED === "true"/);
+  assert.doesNotMatch(storefront, /const (?:india|uae)CheckoutEnabled = true/);
 });
 
 test("public product catalog selects currency by explicit market", async () => {
