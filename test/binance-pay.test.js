@@ -51,15 +51,15 @@ test("UAE storefront routes hosted checkout through PayTabs and keeps it gated",
     readFile(new URL("../schema.sql", import.meta.url), "utf8"),
     readFile(new URL("../src/binance-pay.js", import.meta.url), "utf8")
   ]);
-  assert.match(storefront, /storefrontRouter\.post\("\/orders\/binance"/);
-  assert.match(storefront, /storefrontRouter\.post\("\/payments\/binance\/webhook"/);
+  assert.match(storefront, /storefrontRouter\.post\("\/orders\/paytabs"/);
+  assert.match(storefront, /storefrontRouter\.post\("\/payments\/paytabs\/callback"/);
   assert.match(helper, /BINANCE_PAY_ENABLED/);
   assert.match(helper, /\/binancepay\/openapi\/v2\/order/);
   assert.match(helper, /fiatAmount: Number\(amount\)/);
   assert.match(helper, /fiatCurrency: "AED"/);
   assert.doesNotMatch(helper, /orderAmount: Number\(amount\),\s*currency: "AED"/);
   assert.match(frontend, /API_BASE \+ '\/orders\/paytabs'/);
-  assert.match(frontend, /https:\/\/pay\.binance\.com\//);
+  assert.match(frontend, /parsed\.hostname === 'secure\.paytabs\.com'/);
   assert.match(html, /id="payment-paytabs-option"/);
   assert.match(schema, /razorpay/);
 });
