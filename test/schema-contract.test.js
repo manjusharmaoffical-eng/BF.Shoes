@@ -246,3 +246,13 @@ test("India PayU checkout applies the active GST rate to the order and gateway a
   assert.ok(payu.includes("'IN','',$10,$11"));
   assert.ok(payu.includes("const amount=(totalCents/100).toFixed(2)"));
 });
+
+
+test("GST and VAT invoices include delivery and must match the order tax snapshot", async () => {
+  const invoices = await readFile(new URL("../src/invoices.js", import.meta.url), "utf8");
+  assert.ok(invoices.includes("taxBase=sub+delivery"));
+  assert.ok(invoices.includes("total=sub+delivery+cg+sg+ig+vat"));
+  assert.ok(invoices.includes("t.jurisdiction===\"IN_GST\"&&(Number(o.vat_cents)!==tx||Number(o.total_cents)!==total)"));
+  assert.ok(invoices.includes("t.jurisdiction===\"AE_VAT\"&&(Number(o.vat_cents)!==vat||Number(o.total_cents)!==total)"));
+  assert.ok(invoices.includes("delivery,t.tax_rate_bps"));
+});
