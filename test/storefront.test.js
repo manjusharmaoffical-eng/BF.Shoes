@@ -4,7 +4,8 @@ import { aggregateStorefrontItems, storefrontRequestFingerprint } from "../src/s
 
 const checkout = {
   customer_name: " Buyer ", customer_email: "BUYER@example.com", customer_phone: "+971 50 123 4567",
-  shipping_address: "  12 Main Street\nAbu Dhabi  ", items: [{ sku: "BF-001", quantity: 1 }, { sku: "BF-002", quantity: 2 }]
+  shipping_address: "  12 Main Street
+Abu Dhabi  ", items: [{ sku: "BF-001", quantity: 1 }, { sku: "BF-002", quantity: 2 }]
 };
 
 test("storefront fingerprints normalize email/address and item ordering", () => {
@@ -18,6 +19,10 @@ test("storefront fingerprints include phone, address, and quantity", () => {
   assert.notEqual(storefrontRequestFingerprint(checkout), storefrontRequestFingerprint({ ...checkout, items: [{ sku: "BF-001", quantity: 2 }, { sku: "BF-002", quantity: 2 }] }));
 });
 
-test("storefront fingerprints distinguish payment methods", () => {\n  assert.notEqual(storefrontRequestFingerprint({ ...checkout, payment_method: "cod" }), storefrontRequestFingerprint({ ...checkout, payment_method: "razorpay" }));\n});\n\ntest("storefront aggregates duplicate SKU lines", () => {
+test("storefront fingerprints distinguish payment methods", () => {
+  assert.notEqual(storefrontRequestFingerprint({ ...checkout, payment_method: "cod" }), storefrontRequestFingerprint({ ...checkout, payment_method: "razorpay" }));
+});
+
+test("storefront aggregates duplicate SKU lines", () => {
   assert.deepEqual([...aggregateStorefrontItems([{ sku: "BF-001", quantity: 1 }, { sku: "BF-001", quantity: 2 }]).entries()], [["BF-001", 3]]);
 });
