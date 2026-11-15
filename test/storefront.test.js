@@ -4,7 +4,7 @@ import { aggregateStorefrontItems, storefrontRequestFingerprint } from "../src/s
 
 const checkout = {
   customer_name: " Buyer ", customer_email: "BUYER@example.com", customer_phone: "+971 50 123 4567",
-  shipping_address: "  12 Main Street\\nAbu Dhabi  ", items: [{ sku: "BF-001", quantity: 1 }, { sku: "BF-002", quantity: 2 }]
+  shipping_address: "  12 Main Street\nAbu Dhabi  ", items: [{ sku: "BF-001", quantity: 1 }, { sku: "BF-002", quantity: 2 }]
 };
 
 test("storefront fingerprints normalize email/address and item ordering", () => {
