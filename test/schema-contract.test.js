@@ -209,3 +209,50 @@ test("finance expenses and funding support INR and AED without combining currenc
   assert.match(finance, /f\.currency=\$1/);
   assert.match(finance, /currency,sales:s/);
 });
+
+
+test("UAE PayTabs checkout applies a single valid AED VAT profile to the stored order and gateway amount", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  const paytabs = storefront.split('storefrontRouter.post("/orders/paytabs"')[1]?.split('storefrontRouter.post("/payments/paytabs/callback"')[0];
+  assert.ok(paytabs, "PayTabs checkout route must exist");
+  assert.ok(storefront.includes("count(*) = 1 AND COALESCE(bool_and(currency = 'AED' AND tax_rate_bps = 500 AND trim(registration_number) <> '')"));
+  assert.ok(paytabs.includes("tax.rowCount !== 1"));
+  assert.ok(paytabs.includes("calculateUaeTotals(subtotal, deliveryFeeCents, Number(tax.rows[0].tax_rate_bps))"));
+  assert.ok(paytabs.includes("vat_cents,tax_rate_bps,total_cents,shipping_country"));
+  assert.ok(paytabs.includes("'AE',$10,$11"));
+  assert.ok(paytabs.includes("cart_amount: (Number(order.total_cents) / 100).toFixed(2)"));
+  assert.ok(paytabs.includes("Number(order.total_cents),JSON.stringify"));
+});
+
+
+test("UAE VAT requires the registered 5% AED profile and Binance cannot bypass checkout verification", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  assert.ok(storefront.includes("tax_rate_bps = 500 AND trim(registration_number) <> ''"));
+  const paytabs = storefront.split('storefrontRouter.post("/orders/paytabs"')[1]?.split('storefrontRouter.post("/payments/paytabs/callback"')[0];
+  assert.ok(paytabs?.includes("Number(tax.rows[0].tax_rate_bps) !== 500"));
+  assert.ok(paytabs?.includes("registration_number || \"\""));
+  const binance = storefront.split('storefrontRouter.post("/orders/binance"')[1]?.split('storefrontRouter.post("/payments/binance/webhook"')[0];
+  assert.ok(binance?.includes("UAE_CHECKOUT_VERIFIED !== \"true\" || process.env.UAE_PAYMENT_PROVIDER !== \"binance\""));
+});
+
+
+test("India PayU checkout applies the active GST rate to the order and gateway amount", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  const payu = storefront.split('storefrontRouter.post("/orders/payu"')[1]?.split("async function handlePayuCallback")[0];
+  assert.ok(payu, "PayU checkout route must exist");
+  assert.ok(payu.includes("tax.rowCount !== 1"));
+  assert.ok(payu.includes("calculateIndiaTotals(subtotal, deliveryFeeCents, Number(tax.rows[0].tax_rate_bps))"));
+  assert.ok(payu.includes("vat_cents,tax_rate_bps,total_cents,shipping_country,shipping_emirate"));
+  assert.ok(payu.includes("'IN','',$10,$11"));
+  assert.ok(payu.includes("const amount=(totalCents/100).toFixed(2)"));
+});
+
+
+test("GST and VAT invoices include delivery and must match the order tax snapshot", async () => {
+  const invoices = await readFile(new URL("../src/invoices.js", import.meta.url), "utf8");
+  assert.ok(invoices.includes("taxBase=sub+delivery"));
+  assert.ok(invoices.includes("total=sub+delivery+cg+sg+ig+vat"));
+  assert.ok(invoices.includes("t.jurisdiction===\"IN_GST\"&&(Number(o.vat_cents)!==tx||Number(o.total_cents)!==total)"));
+  assert.ok(invoices.includes("t.jurisdiction===\"AE_VAT\"&&(Number(o.vat_cents)!==vat||Number(o.total_cents)!==total)"));
+  assert.ok(invoices.includes("delivery,t.tax_rate_bps"));
+});

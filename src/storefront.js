@@ -64,7 +64,7 @@ storefrontRouter.get("/market-config", async (_req, res, next) => {
          EXISTS (SELECT 1 FROM products WHERE active = true AND currency = 'INR') AS india_pricing_configured,
          EXISTS (SELECT 1 FROM products WHERE active = true AND currency = 'AED') AS uae_pricing_configured,
          (SELECT count(*) = 1 AND COALESCE(bool_and(currency = 'INR' AND trim(registration_number) <> '' AND trim(seller_state) <> '' AND tax_rate_bps BETWEEN 1 AND 10000), false) FROM tax_profiles WHERE active = true AND jurisdiction = 'IN_GST') AS india_tax_profile_configured,
-         EXISTS (SELECT 1 FROM tax_profiles WHERE active = true AND jurisdiction = 'AE_VAT') AS uae_tax_profile_configured`
+         (SELECT count(*) = 1 AND COALESCE(bool_and(currency = 'AED' AND tax_rate_bps = 500 AND trim(registration_number) <> ''), false) FROM tax_profiles WHERE active = true AND jurisdiction = 'AE_VAT') AS uae_tax_profile_configured`
     );
     const row = result.rows[0];
     const feeConfigured = value => value !== undefined && /^\d+$/.test(value) && Number.isSafeInteger(Number(value));
@@ -243,10 +243,10 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
       return res.status(409).json({ error: "A previous payment attempt is no longer pending. Start a fresh checkout session." });
     }
     await client.query("DELETE FROM order_reservations WHERE expires_at<=now()");
-    const tax = await client.query("SELECT count(*) = 1 AND COALESCE(bool_and(currency='INR' AND trim(registration_number)<>'' AND trim(seller_state)<>'' AND tax_rate_bps BETWEEN 1 AND 10000),false) AS configured FROM tax_profiles WHERE active=true AND jurisdiction='IN_GST'");
-    if (!tax.rows[0].configured) {
+    const tax = await client.query("SELECT id,currency,tax_rate_bps,registration_number,seller_state FROM tax_profiles WHERE active=true AND jurisdiction='IN_GST' ORDER BY created_at DESC LIMIT 2");
+    if (tax.rowCount !== 1 || tax.rows[0].currency !== "INR" || !String(tax.rows[0].registration_number || "").trim() || !String(tax.rows[0].seller_state || "").trim() || !Number.isSafeInteger(Number(tax.rows[0].tax_rate_bps)) || Number(tax.rows[0].tax_rate_bps) <= 0 || Number(tax.rows[0].tax_rate_bps) > 10000) {
       await client.query("ROLLBACK");
-      return res.status(503).json({ error: "An active India GST tax profile is required before checkout." });
+      return res.status(503).json({ error: "A single valid active India GST profile in INR is required before checkout." });
     }
     const skus = [...quantities.keys()].sort();
     const found = await client.query(
@@ -268,14 +268,17 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
       if(!Number.isSafeInteger(subtotal)||subtotal>2000000000){await client.query("ROLLBACK");return res.status(400).json({error:"Order total exceeds limit"});}
     }
     if(found.rows.some(v=>v.currency!=="INR")){await client.query("ROLLBACK");return res.status(503).json({error:"PayU India checkout requires INR product prices only."});}
-    const totalCents=subtotal+deliveryFeeCents;
-    if(!Number.isSafeInteger(totalCents)||totalCents<=0||totalCents>2000000000){await client.query("ROLLBACK");return res.status(400).json({error:"Order total is invalid."});}
+    let totals;
+    try { totals = calculateIndiaTotals(subtotal, deliveryFeeCents, Number(tax.rows[0].tax_rate_bps)); }
+    catch { await client.query("ROLLBACK"); return res.status(400).json({error:"Order total is invalid."}); }
+    const vatCents = totals.tax_paise;
+    const totalCents = totals.total_paise;
     const inserted=await client.query(
       `INSERT INTO orders(customer_name,customer_email,customer_phone,shipping_address,payment_method,payment_status,status,
-        currency,subtotal_cents,delivery_fee_cents,total_cents,idempotency_key,request_fingerprint)
-       VALUES($1,$2,$3,$4,'payu','pending','pending_payment','INR',$5,$6,$7,$8,$9)
-       RETURNING id,order_number,status,payment_status,subtotal_cents,delivery_fee_cents,total_cents,currency,created_at`,
-      [d.customer_name,d.customer_email.toLowerCase(),d.customer_phone,d.shipping_address+", India PIN: "+d.shipping_pincode,subtotal,deliveryFeeCents,totalCents,idempotencyKey,requestFingerprint]
+        currency,subtotal_cents,delivery_fee_cents,vat_cents,tax_rate_bps,total_cents,shipping_country,shipping_emirate,idempotency_key,request_fingerprint)
+       VALUES($1,$2,$3,$4,'payu','pending','pending_payment','INR',$5,$6,$7,$8,$9,'IN','',$10,$11)
+       RETURNING id,order_number,status,payment_status,subtotal_cents,delivery_fee_cents,vat_cents,tax_rate_bps,total_cents,currency,shipping_country,created_at`,
+      [d.customer_name,d.customer_email.toLowerCase(),d.customer_phone,d.shipping_address+", India PIN: "+d.shipping_pincode,subtotal,deliveryFeeCents,vatCents,Number(tax.rows[0].tax_rate_bps),totalCents,idempotencyKey,requestFingerprint]
     );
     const order=inserted.rows[0];
     for(const [sku,qty] of quantities){
@@ -406,6 +409,7 @@ storefrontRouter.post("/orders/binance", async (req, res, next) => {
   const suppliedKey = req.get("idempotency-key");
   if (!suppliedKey || suppliedKey.length < 16 || suppliedKey.length > 120 || !/^[a-zA-Z0-9._:-]+$/.test(suppliedKey)) return res.status(400).json({ error: "A valid Idempotency-Key is required" });
   const d = parsed.data;
+  if (process.env.UAE_CHECKOUT_VERIFIED !== "true" || process.env.UAE_PAYMENT_PROVIDER !== "binance") return res.status(503).json({ error: "Binance Pay is not the verified UAE checkout provider." });
   if (d.shipping_country !== "AE") return res.status(400).json({ error: "Binance Pay checkout is currently for UAE orders only." });
   if (process.env.UAE_PRICING_VERIFIED !== "true") return res.status(503).json({ error: "UAE product pricing has not been owner-verified." });
   if (process.env.UAE_DELIVERY_FEE_VERIFIED !== "true") return res.status(503).json({ error: "UAE delivery fee has not been owner-verified." });
@@ -623,8 +627,11 @@ storefrontRouter.post("/orders/paytabs", async (req, res, next) => {
       await client.query("COMMIT");
       return res.status(409).json({ error: "This checkout key was already used. Start a fresh checkout session." });
     }
-    const tax = await client.query("SELECT EXISTS (SELECT 1 FROM tax_profiles WHERE active=true AND jurisdiction='AE_VAT') AS configured");
-    if (!tax.rows[0].configured) { await client.query("ROLLBACK"); return res.status(503).json({ error: "An active UAE VAT tax profile is required before checkout." }); }
+    const tax = await client.query("SELECT id,currency,tax_rate_bps,registration_number FROM tax_profiles WHERE active=true AND jurisdiction='AE_VAT' ORDER BY created_at DESC LIMIT 2");
+    if (tax.rowCount !== 1 || tax.rows[0].currency !== "AED" || Number(tax.rows[0].tax_rate_bps) !== 500 || !String(tax.rows[0].registration_number || "").trim()) {
+      await client.query("ROLLBACK");
+      return res.status(503).json({ error: "A single valid active UAE VAT profile in AED is required before checkout." });
+    }
     const skus = [...quantities.keys()].sort();
     const found = await client.query(
       `SELECT v.id AS variant_id,v.sku,v.size_label,v.color_name,v.stock_qty,
@@ -640,13 +647,16 @@ storefrontRouter.post("/orders/paytabs", async (req, res, next) => {
       if (Number(v.stock_qty)-Number(v.reserved_qty)<qty) { await client.query("ROLLBACK"); return res.status(409).json({error:"Insufficient available stock for "+v.product_name+" size "+v.size_label}); }
       subtotal += Number(v.price_cents)*qty;
     }
-    const total=subtotal+deliveryFeeCents;
-    if (!Number.isSafeInteger(total)||total<=0||total>2000000000) { await client.query("ROLLBACK"); return res.status(400).json({error:"Order total is invalid."}); }
+    let totals;
+    try { totals = calculateUaeTotals(subtotal, deliveryFeeCents, Number(tax.rows[0].tax_rate_bps)); }
+    catch { await client.query("ROLLBACK"); return res.status(400).json({error:"Order total is invalid."}); }
+    const vatCents = totals.vat_fils;
+    const total = totals.total_fils;
     const inserted=await client.query(
-      `INSERT INTO orders(customer_name,customer_email,customer_phone,shipping_address,payment_method,payment_status,status,currency,subtotal_cents,delivery_fee_cents,total_cents,idempotency_key,request_fingerprint)
-       VALUES($1,$2,$3,$4,'paytabs','pending','pending_payment','AED',$5,$6,$7,$8,$9)
-       RETURNING id,order_number`,
-      [d.customer_name,d.customer_email.toLowerCase(),d.customer_phone,d.shipping_address+", UAE",subtotal,deliveryFeeCents,total,idempotencyKey,fingerprint]);
+      `INSERT INTO orders(customer_name,customer_email,customer_phone,shipping_address,payment_method,payment_status,status,currency,subtotal_cents,delivery_fee_cents,vat_cents,tax_rate_bps,total_cents,shipping_country,idempotency_key,request_fingerprint)
+       VALUES($1,$2,$3,$4,'paytabs','pending','pending_payment','AED',$5,$6,$7,$8,$9,'AE',$10,$11)
+       RETURNING id,order_number,total_cents`,
+      [d.customer_name,d.customer_email.toLowerCase(),d.customer_phone,d.shipping_address+", UAE",subtotal,deliveryFeeCents,vatCents,Number(tax.rows[0].tax_rate_bps),total,idempotencyKey,fingerprint]);
     order=inserted.rows[0];
     for (const [sku,qty] of quantities) {
       const v=found.rows.find(row=>row.sku===sku);
@@ -662,7 +672,7 @@ storefrontRouter.post("/orders/paytabs", async (req, res, next) => {
     const cartId = "BF-" + String(order.order_number);
     const payment = await createPaytabsPayment({
       tran_type: "sale", tran_class: "ecom", cart_id: cartId,
-      cart_currency: "AED", cart_amount: Number((Number(deliveryFeeCents) + Number((await pool.query("SELECT subtotal_cents FROM orders WHERE id=$1",[order.id])).rows[0].subtotal_cents))/100).toFixed(2),
+      cart_currency: "AED", cart_amount: (Number(order.total_cents) / 100).toFixed(2),
       cart_description: "BF SHOES order #" + order.order_number,
       return: baseUrl + "/payment-result.html?provider=paytabs",
       callback: baseUrl + "/api/v1/store/payments/paytabs/callback",
@@ -670,7 +680,7 @@ storefrontRouter.post("/orders/paytabs", async (req, res, next) => {
       shipping_details: { name:d.customer_name, email:d.customer_email.toLowerCase(), phone:d.customer_phone, street1:d.shipping_address, city:"UAE", state:"UAE", country:"AE" }
     });
     await pool.query("INSERT INTO payment_attempts(order_id,provider,txnid,provider_payment_id,amount_cents,currency,status,checkout_params) VALUES($1,'paytabs',$2,$3,$4,'AED','pending',$5::jsonb)",
-      [order.id,cartId,payment.tran_ref,deliveryFeeCents + Number((await pool.query("SELECT subtotal_cents FROM orders WHERE id=$1",[order.id])).rows[0].subtotal_cents),JSON.stringify({redirect_url:payment.redirect_url,tran_ref:payment.tran_ref})]);
+      [order.id,cartId,payment.tran_ref,Number(order.total_cents),JSON.stringify({redirect_url:payment.redirect_url,tran_ref:payment.tran_ref})]);
     return res.status(201).json({data:{order_number:order.order_number,checkout:{redirect_url:payment.redirect_url}}});
   } catch(err) {
     await pool.query("UPDATE payment_attempts SET status='failed' WHERE order_id=$1 AND provider='paytabs' AND status='pending'",[order.id]).catch(()=>{});
