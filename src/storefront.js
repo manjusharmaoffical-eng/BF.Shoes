@@ -4,12 +4,12 @@ import { pool } from "./db.js";
 import { aggregateStorefrontItems, storefrontRequestFingerprint } from "./storefront-policies.js";
 import { deliverEmail } from "./email.js";
 import { parseIndiaMarketEnv, calculateIndiaTotals } from "./india-market-policy.js";
-import { randomBytes } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { payuConfigured, publicBaseUrl, payuPaymentUrl, payuRequestHash, payuResponseHash, safeHashEqual, verifyPayuPayment } from "./payu.js";
 import { paytabsConfigured, createPaytabsPayment, paytabsSignatureValid, verifyPaytabsPayment } from "./paytabs.js";
 import { allocateOrderWarehouseStock } from "./warehouse-stock.js";
 import { calculateUaeTotals } from "./uae-market-policy.js";
-import { binancePayConfigured, createBinancePayOrder, getBinancePayCertificate, queryBinancePayOrder, verifyBinanceWebhookSignature } from "./binance-pay.js";
+import { binancePayConfigured, binancePayRequest, createBinancePayOrder, getBinancePayCertificate, queryBinancePayOrder, verifyBinanceWebhookSignature } from "./binance-pay.js";
 
 export const storefrontRouter = express.Router();
 
@@ -30,6 +30,24 @@ const checkoutSchema = z.object({
   items: z.array(z.object({ sku: z.string().trim().min(2).max(80), quantity: z.number().int().min(1).max(10) })).min(1).max(20)
 }).strict();
 const binanceCheckoutSchema = checkoutSchema.extend({ payment_method: z.literal("binance").default("binance") });
+
+// Temporary one-time connectivity probe. Disabled automatically when its
+// deployment-only token is removed from the environment.
+storefrontRouter.get("/_diagnostics/binance", async (req, res) => {
+  const expected = process.env.BINANCE_DIAGNOSTIC_TOKEN || "";
+  const supplied = String(req.query.token || "");
+  const a = Buffer.from(expected);
+  const b = Buffer.from(supplied);
+  if (!expected || a.length !== b.length || !timingSafeEqual(a, b)) return res.status(404).end();
+  try {
+    const data = await binancePayRequest("/binancepay/openapi/certificates", {});
+    const certs = Array.isArray(data) ? data : Array.isArray(data.certificates) ? data.certificates : [];
+    return res.json({ connected: certs.length > 0, certificateCount: certs.length });
+  } catch (error) {
+    const code = String(error.message || "").match(/\((\d+)\)/)?.[1] || "NETWORK_OR_REGION";
+    return res.json({ connected: false, code });
+  }
+});
 
 storefrontRouter.get("/campaigns/active", async (_req, res, next) => {
   try {
