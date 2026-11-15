@@ -5,6 +5,7 @@ import { pool } from "./db.js";
 import { aggregateStorefrontItems, storefrontRequestFingerprint } from "./storefront-policies.js";
 import { allocateOrderWarehouseStock } from "./warehouse-stock.js";
 import { deliverEmail } from "./email.js";
+import { calculateIndiaTotals } from "./india-market-policy.js";
 import {
   createRazorpayOrder, fetchRazorpayPayment, razorpayConfigured,
   razorpayPaymentSignature, verifyRazorpayPaymentSignature,
@@ -111,10 +112,16 @@ razorpayStorefrontRouter.post("/orders/razorpay", async (req, res, next) => {
     }
 
     await client.query("DELETE FROM order_reservations WHERE expires_at<=now()");
-    const tax = await client.query("SELECT EXISTS (SELECT 1 FROM tax_profiles WHERE active=true AND jurisdiction='IN_GST') AS configured");
-    if (!tax.rows[0].configured) {
+    const tax = await client.query(
+      "SELECT id,currency,tax_rate_bps,registration_number,seller_state FROM tax_profiles WHERE active=true AND jurisdiction='IN_GST' ORDER BY created_at DESC LIMIT 2"
+    );
+    if (tax.rowCount !== 1 || tax.rows[0].currency !== "INR" ||
+        !String(tax.rows[0].registration_number || "").trim() ||
+        !String(tax.rows[0].seller_state || "").trim() ||
+        !Number.isSafeInteger(Number(tax.rows[0].tax_rate_bps)) ||
+        Number(tax.rows[0].tax_rate_bps) <= 0 || Number(tax.rows[0].tax_rate_bps) > 10000) {
       await client.query("ROLLBACK");
-      return res.status(503).json({ error: "An active India GST tax profile is required before checkout." });
+      return res.status(503).json({ error: "Exactly one valid active India GST profile with registration and seller state is required before checkout." });
     }
     const skus = [...quantities.keys()].sort();
     const found = await client.query(
@@ -152,17 +159,19 @@ razorpayStorefrontRouter.post("/orders/razorpay", async (req, res, next) => {
       await client.query("ROLLBACK");
       return res.status(503).json({ error: "Razorpay India checkout requires INR-priced products only." });
     }
-    const total = subtotal + deliveryFee;
+    const indiaTotals = calculateIndiaTotals(subtotal, deliveryFee, Number(tax.rows[0].tax_rate_bps));
+    const gst = indiaTotals.tax_paise;
+    const total = indiaTotals.total_paise;
     if (!Number.isSafeInteger(total) || total <= 0 || total > 2000000000) {
       await client.query("ROLLBACK");
       return res.status(400).json({ error: "Order total is invalid." });
     }
     const inserted = await client.query(
       `INSERT INTO orders(customer_name,customer_email,customer_phone,shipping_address,payment_method,payment_status,status,
-        currency,subtotal_cents,delivery_fee_cents,total_cents,idempotency_key,request_fingerprint)
-       VALUES($1,$2,$3,$4,'razorpay','pending','pending_payment','INR',$5,$6,$7,$8,$9)
+        currency,subtotal_cents,delivery_fee_cents,vat_cents,tax_rate_bps,total_cents,idempotency_key,request_fingerprint)
+       VALUES($1,$2,$3,$4,'razorpay','pending','pending_payment','INR',$5,$6,$7,$8,$9,$10,$11)
        RETURNING id,order_number,status,payment_status,subtotal_cents,delivery_fee_cents,total_cents,currency,created_at`,
-      [d.customer_name,d.customer_email.toLowerCase(),d.customer_phone,d.shipping_address + ", India PIN: " + d.shipping_pincode,subtotal,deliveryFee,total,idempotencyKey,fingerprint]
+      [d.customer_name,d.customer_email.toLowerCase(),d.customer_phone,d.shipping_address + ", India PIN: " + d.shipping_pincode,subtotal,deliveryFee,gst,Number(tax.rows[0].tax_rate_bps),total,idempotencyKey,fingerprint]
     );
     const order = inserted.rows[0];
     for (const [sku, quantity] of quantities) {
