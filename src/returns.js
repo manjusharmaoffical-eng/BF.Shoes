@@ -36,7 +36,7 @@ returnsRouter.post('/', async (req, res, next) => {
     const order = orderResult.rows[0];
     if (!order) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Order not found in your account.' }); }
     if (order.status !== 'delivered') { await client.query('ROLLBACK'); return res.status(409).json({ error: 'A return or exchange request can be submitted after the order is marked delivered.' }); }
-    if (!isWithinReturnWindow(order.delivered_at)) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'Return or exchange requests must be submitted within 24 hours after delivery.' }); }
+    if (!isWithinReturnWindow(order.delivered_at)) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'Return or exchange requests must be submitted within 12 hours after delivery.' }); }
     const existing = await client.query("SELECT id FROM return_requests WHERE order_id=$1 AND status NOT IN ('rejected','cancelled')", [order.id]);
     if (existing.rowCount) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'A return or exchange request already exists for this order.' }); }
     const orderItems = await client.query('SELECT id,quantity FROM order_items WHERE order_id=$1', [order.id]);
