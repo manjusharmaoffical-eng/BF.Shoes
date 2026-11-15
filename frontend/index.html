@@ -88,15 +88,11 @@
 
   <section class="newsletter section-wrap" aria-labelledby="newsletter-title"><div><p class="eyebrow">THE BF LETTER</p><h2 id="newsletter-title">Good things.<br /><em>Occasionally.</em></h2><p>Get collection updates and new-drop announcements. No spam.</p></div><form id="newsletter-form" class="newsletter-form"><label for="newsletter-email">EMAIL ADDRESS</label><div><input id="newsletter-email" name="email" type="email" autocomplete="email" required maxlength="254" placeholder="you@example.com"><button type="submit" aria-label="Subscribe to newsletter">Join ↗</button></div><small id="newsletter-message" role="status">Join for new-drop announcements and collection updates.</small></form></section>
 
-    <section class="trust-strip" aria-label="BF SHOES shopping benefits">
-      <div class="trust-item"><i class="fa-regular fa-gem" aria-hidden="true"></i><span><strong>PREMIUM QUALITY</strong><small>Quality-first footwear</small></span></div>
-      <div class="trust-item"><i class="fa-solid fa-bolt" aria-hidden="true"></i><span><strong>FAST DELIVERY</strong><small>India delivery service</small></span></div>
-      <div class="trust-item"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span><strong>TRUSTED BRAND</strong><small>BF SHOES — Move Different</small></span></div>
-      <div class="trust-item"><i class="fa-solid fa-headset" aria-hidden="true"></i><span><strong>24/7 SUPPORT</strong><small>Customer assistance</small></span></div>
-      <div class="trust-item"><i class="fa-solid fa-truck-fast" aria-hidden="true"></i><span><strong>INDIA DELIVERY</strong><small>Flat ₹55 for PIN 500052</small></span></div>
-      <div class="trust-item"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span><strong>SECURE PAYMENTS</strong><small>PayU setup in progress</small></span></div>
-      <div class="trust-item"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i><span><strong>EASY RETURNS</strong><small>Within 24 hours of delivery</small></span></div>
-      <div class="trust-item"><i class="fa-solid fa-tags" aria-hidden="true"></i><span><strong>BEST OFFERS</strong><small>Save more every day</small></span></div>
+    <section class="trust-strip" aria-label="BF SHOES delivery and store information">
+      <div class="trust-item"><i class="fa-solid fa-truck" aria-hidden="true"></i><span><strong>INDIA DELIVERY</strong><small>PIN 500052 · Flat ₹55</small></span></div>
+      <div class="trust-item"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i><span><strong>RETURNS & EXCHANGES</strong><small>Request within 12 hours after delivery</small></span></div>
+      <div class="trust-item"><i class="fa-regular fa-credit-card" aria-hidden="true"></i><span><strong>PAYMENT STATUS</strong><small>Checkout pending merchant verification</small></span></div>
+      <div class="trust-item"><i class="fa-solid fa-shoe-prints" aria-hidden="true"></i><span><strong>BF COLLECTION</strong><small>Explore available styles</small></span></div>
     </section>
 
   <footer class="site-footer" id="footer"><div class="footer-top"><a class="wordmark wordmark-footer" href="#top" aria-label="BF SHOES home"><span class="bf-logo-mark">BF</span><span class="bf-logo-copy">SHOES<small>STEP INTO BETTER</small></span></a><p>Be Bold.<br />Be Fast.</p><a href="#shop" class="footer-cta">Find your pair <span>↗</span></a></div><div class="footer-bottom"><span>© <span id="year"></span> BF SHOES</span><span>DESIGNED FOR THE EVERYDAY</span><a href="/track-order.html">TRACK ORDER</a><a href="/policies.html#shipping">SHIPPING</a><a href="/policies.html#returns">RETURNS</a><a href="/policies.html#privacy">PRIVACY</a><a href="/policies.html#terms">TERMS</a><a href="/admin.html" rel="nofollow">ADMIN</a></div></footer>
@@ -128,5 +124,12 @@
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script defer src="/customer-auth.js"></script>
+<section id="product-detail-modal" class="product-detail-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-label="BF SHOES product details">
+    <div class="product-detail-backdrop" data-detail-close></div>
+    <div class="product-detail-panel">
+      <button class="product-detail-close" type="button" data-detail-close aria-label="Close product details">×</button>
+      <div id="product-detail-content"></div>
+    </div>
+  </section>
 </body>
 </html>

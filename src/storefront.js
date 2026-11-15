@@ -88,6 +88,34 @@ storefrontRouter.get("/market-config", async (_req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// Public, read-only product gallery endpoint. The owner-only AI Studio API must never be used by shoppers.
+storefrontRouter.get("/products/:id/images", async (req, res, next) => {
+  const productId = z.string().uuid().safeParse(req.params.id);
+  if (!productId.success) return res.status(404).json({ data: [] });
+  try {
+    const result = await pool.query(
+      `SELECT pi.image_url, pi.alt_text
+       FROM product_images pi
+       JOIN products p ON p.id = pi.product_id
+       WHERE pi.product_id = $1 AND p.active = true
+       ORDER BY pi.sort_order, pi.created_at, pi.id`,
+      [productId.data]
+    );
+    res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+    return res.json({ data: result.rows });
+  } catch (err) {
+    // Older environments may not have the optional gallery migration yet.
+    if (err.code === "42P01" && /product_images/i.test(err.message || "")) {
+      try {
+        const fallback = await pool.query("SELECT image_url, name AS alt_text FROM products WHERE id=$1 AND active=true", [productId.data]);
+        res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+        return res.json({ data: fallback.rows.filter(row => row.image_url) });
+      } catch (fallbackError) { return next(fallbackError); }
+    }
+    return next(err);
+  }
+});
+
 storefrontRouter.get("/products", async (req, res, next) => {
   const market = String(req.query.market || "IN").toUpperCase();
   const currency = market === "IN" ? "INR" : market === "AE" ? "AED" : null;
