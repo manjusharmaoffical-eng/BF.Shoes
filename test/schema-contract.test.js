@@ -49,6 +49,10 @@ test("checkout schema accepts PayU and keeps India checkout behind verification 
   assert.ok(storefront.includes('storefrontRouter.post("/payments/payu/callback"'));
   assert.ok(storefront.includes('storefrontRouter.post("/payments/payu/webhook"'));
   assert.match(storefront, /verifyPayuPayment\(txnid/);
+  const app = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8");
+  assert.match(app, /\/orders\/payu/);
+  assert.match(app, /payuForm\.submit\(\)/);
+  assert.match(app, /https:\/\/secure\.payu\.in\/_payment/);
 });
 
 
