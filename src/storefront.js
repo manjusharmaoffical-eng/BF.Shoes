@@ -714,7 +714,7 @@ storefrontRouter.post("/orders", async (req, res, next) => {
   const d = parsed.data;
   if (d.shipping_country === "IN") {
     if (d.shipping_pincode !== "500052") return res.status(400).json({ error: "BF SHOES currently supports delivery only to PIN 500052, India." });
-    return res.status(503).json({ error: "India checkout is blocked until Razorpay credentials, verified INR prices, the confirmed delivery fee and the active GST profile are configured." });
+    return res.status(503).json({ error: "India checkout is blocked until PayU credentials, verified INR prices, the confirmed delivery fee and the active GST profile are configured." });
   }
   return res.status(503).json({ error: "UAE checkout is blocked until a merchant gateway, verified AED prices, delivery fee and active VAT profile are configured." });
   const idempotencyKey = `store:${suppliedKey}`;
