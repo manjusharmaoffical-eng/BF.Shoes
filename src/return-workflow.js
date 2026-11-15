@@ -40,7 +40,7 @@ export function validateReturnItems(requestedItems, orderItems, requestType) {
   });
 }
 
-export const RETURN_WINDOW_MS = 24 * 60 * 60 * 1000;
+export const RETURN_WINDOW_MS = 12 * 60 * 60 * 1000;
 
 export function isWithinReturnWindow(deliveredAt, now = Date.now()) {
   const deliveredTime = new Date(deliveredAt).getTime();
