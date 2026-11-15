@@ -223,3 +223,14 @@ test("UAE PayTabs checkout applies a single valid AED VAT profile to the stored 
   assert.ok(paytabs.includes("cart_amount: (Number(order.total_cents) / 100).toFixed(2)"));
   assert.ok(paytabs.includes("Number(order.total_cents),JSON.stringify"));
 });
+
+
+test("UAE VAT requires the registered 5% AED profile and Binance cannot bypass checkout verification", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  assert.ok(storefront.includes("tax_rate_bps = 500 AND trim(registration_number) <> ''"));
+  const paytabs = storefront.split('storefrontRouter.post("/orders/paytabs"')[1]?.split('storefrontRouter.post("/payments/paytabs/callback"')[0];
+  assert.ok(paytabs?.includes("Number(tax.rows[0].tax_rate_bps) !== 500"));
+  assert.ok(paytabs?.includes("registration_number || \"\""));
+  const binance = storefront.split('storefrontRouter.post("/orders/binance"')[1]?.split('storefrontRouter.post("/payments/binance/webhook"')[0];
+  assert.ok(binance?.includes("UAE_CHECKOUT_VERIFIED !== \"true\" || process.env.UAE_PAYMENT_PROVIDER !== \"binance\""));
+});
