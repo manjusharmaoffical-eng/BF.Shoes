@@ -64,7 +64,7 @@ storefrontRouter.get("/market-config", async (_req, res, next) => {
          EXISTS (SELECT 1 FROM products WHERE active = true AND currency = 'INR') AS india_pricing_configured,
          EXISTS (SELECT 1 FROM products WHERE active = true AND currency = 'AED') AS uae_pricing_configured,
          (SELECT count(*) = 1 AND COALESCE(bool_and(currency = 'INR' AND trim(registration_number) <> '' AND trim(seller_state) <> '' AND tax_rate_bps BETWEEN 1 AND 10000), false) FROM tax_profiles WHERE active = true AND jurisdiction = 'IN_GST') AS india_tax_profile_configured,
-         (SELECT count(*) = 1 AND COALESCE(bool_and(currency = 'AED' AND tax_rate_bps BETWEEN 1 AND 10000), false) FROM tax_profiles WHERE active = true AND jurisdiction = 'AE_VAT') AS uae_tax_profile_configured`
+         (SELECT count(*) = 1 AND COALESCE(bool_and(currency = 'AED' AND tax_rate_bps = 500 AND trim(registration_number) <> ''), false) FROM tax_profiles WHERE active = true AND jurisdiction = 'AE_VAT') AS uae_tax_profile_configured`
     );
     const row = result.rows[0];
     const feeConfigured = value => value !== undefined && /^\d+$/.test(value) && Number.isSafeInteger(Number(value));
@@ -406,6 +406,7 @@ storefrontRouter.post("/orders/binance", async (req, res, next) => {
   const suppliedKey = req.get("idempotency-key");
   if (!suppliedKey || suppliedKey.length < 16 || suppliedKey.length > 120 || !/^[a-zA-Z0-9._:-]+$/.test(suppliedKey)) return res.status(400).json({ error: "A valid Idempotency-Key is required" });
   const d = parsed.data;
+  if (process.env.UAE_CHECKOUT_VERIFIED !== "true" || process.env.UAE_PAYMENT_PROVIDER !== "binance") return res.status(503).json({ error: "Binance Pay is not the verified UAE checkout provider." });
   if (d.shipping_country !== "AE") return res.status(400).json({ error: "Binance Pay checkout is currently for UAE orders only." });
   if (process.env.UAE_PRICING_VERIFIED !== "true") return res.status(503).json({ error: "UAE product pricing has not been owner-verified." });
   if (process.env.UAE_DELIVERY_FEE_VERIFIED !== "true") return res.status(503).json({ error: "UAE delivery fee has not been owner-verified." });
@@ -623,8 +624,8 @@ storefrontRouter.post("/orders/paytabs", async (req, res, next) => {
       await client.query("COMMIT");
       return res.status(409).json({ error: "This checkout key was already used. Start a fresh checkout session." });
     }
-    const tax = await client.query("SELECT id,currency,tax_rate_bps FROM tax_profiles WHERE active=true AND jurisdiction='AE_VAT' ORDER BY created_at DESC LIMIT 2");
-    if (tax.rowCount !== 1 || tax.rows[0].currency !== "AED" || !Number.isSafeInteger(Number(tax.rows[0].tax_rate_bps)) || Number(tax.rows[0].tax_rate_bps) <= 0 || Number(tax.rows[0].tax_rate_bps) > 10000) {
+    const tax = await client.query("SELECT id,currency,tax_rate_bps,registration_number FROM tax_profiles WHERE active=true AND jurisdiction='AE_VAT' ORDER BY created_at DESC LIMIT 2");
+    if (tax.rowCount !== 1 || tax.rows[0].currency !== "AED" || Number(tax.rows[0].tax_rate_bps) !== 500 || !String(tax.rows[0].registration_number || "").trim()) {
       await client.query("ROLLBACK");
       return res.status(503).json({ error: "A single valid active UAE VAT profile in AED is required before checkout." });
     }
