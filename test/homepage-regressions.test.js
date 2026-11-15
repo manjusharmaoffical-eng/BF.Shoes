@@ -6,6 +6,7 @@ const app = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8
 const html = await readFile(new URL("../frontend/index.html", import.meta.url), "utf8");
 const css = await readFile(new URL("../frontend/styles.css", import.meta.url), "utf8");
 const server = await readFile(new URL("../src/server.js", import.meta.url), "utf8");
+const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
 
 test("homepage product images do not use CSP-blocked inline error handlers", () => {
   assert.doesNotMatch(app, /<img[^>]+onerror\s*=/i);
@@ -54,4 +55,11 @@ test("product cards expose an accessible persistent Font Awesome wishlist and re
   assert.match(css, /\.wishlist-toggle\.saved\{background:#fff;border-color:#ffd1d7;color:var\(--bf-red\)\}/);
   assert.match(css, /@media\(max-width:1024px\)\{\.product-grid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}\}/);
   assert.match(css, /@media\(max-width:480px\)\{\.product-grid\{grid-template-columns:minmax\(0,1fr\)/);
+});
+
+test("product detail gallery uses a public read-only endpoint, not owner-only AI Studio", () => {
+  assert.match(storefront, /storefrontRouter\.get\("\/products\/:id\/images"/);
+  assert.match(storefront, /SELECT pi\.image_url, pi\.alt_text[\s\S]*?FROM product_images pi[\s\S]*?p\.active = true/);
+  assert.match(app, /\/api\/v1\/store\/products\//);
+  assert.doesNotMatch(app, /\/api\/v1\/ai-studio\/products\//);
 });
