@@ -82,7 +82,6 @@ const productSchema = z.object({
   product_type: z.string().trim().min(1).max(80).optional().default("general"),
   attributes: z.record(z.string(), z.unknown()).optional().default({}),
   image_url: z.string().url().max(2000).refine(value => value.startsWith("https://"), "Image URL must use HTTPS").optional().nullable().default(null),
-  model_url: z.string().url().max(2000).refine(value => value.startsWith("https://"), "3D model URL must use HTTPS").optional().nullable().default(null),
   price_cents: z.number().int().min(0).max(100000000),
   mrp_cents: z.number().int().min(0).max(100000000).nullable().optional(),
   unit_cost_cents: z.number().int().min(0).max(100000000).optional().nullable(),
@@ -113,9 +112,9 @@ router.post("/products", authenticate, requireScope("products:write"), async (re
     client = await pool.connect();
     await client.query("BEGIN");
     const result = await client.query(
-      `INSERT INTO products(name, slug, description, short_description, seo_title, seo_description, brand, category, audience, product_type, attributes, image_url, model_url, price_cents, mrp_cents, unit_cost_cents, currency)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
-      [p.name, p.slug, p.description, p.short_description, p.seo_title, p.seo_description, p.brand, p.category, p.audience, p.product_type, JSON.stringify(p.attributes), p.image_url, p.model_url, p.price_cents, p.mrp_cents ?? null, p.unit_cost_cents ?? null, p.currency.toUpperCase()]
+      `INSERT INTO products(name, slug, description, short_description, seo_title, seo_description, brand, category, audience, product_type, attributes, image_url, price_cents, mrp_cents, unit_cost_cents, currency)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
+      [p.name, p.slug, p.description, p.short_description, p.seo_title, p.seo_description, p.brand, p.category, p.audience, p.product_type, JSON.stringify(p.attributes), p.image_url, p.price_cents, p.mrp_cents ?? null, p.unit_cost_cents ?? null, p.currency.toUpperCase()]
     );
     await client.query(
       "INSERT INTO audit_events(actor_type, actor_id, action, resource_type, resource_id) VALUES($1,$2,$3,$4,$5)",
@@ -144,7 +143,6 @@ const productUpdateSchema = z.object({
   mrp_cents: z.number().int().min(0).max(100000000).nullable().optional(),
   unit_cost_cents: z.number().int().min(0).max(100000000).nullable().optional(),
   image_url: z.string().url().max(2000).refine(v => v.startsWith("https://")).nullable().optional(),
-  model_url: z.string().url().max(2000).refine(v => v.startsWith("https://")).nullable().optional(),
   active: z.boolean().optional()
 }).strict().refine(v => Object.keys(v).length > 0);
 router.patch("/products/:id", authenticate, requireScope("products:write"), async (req,res,next) => {
@@ -152,7 +150,7 @@ router.patch("/products/:id", authenticate, requireScope("products:write"), asyn
  if(!parsed.success)return res.status(400).json({error:"Invalid product update",details:parsed.error.flatten()});
  const entries=Object.entries(parsed.data),values=entries.map(([,v])=>v),sets=entries.map(([k],i)=>`${k}=$${i+1}`);
  values.push(req.params.id);
- try{const result=await pool.query(`UPDATE products SET ${sets.join(", ")},updated_at=now() WHERE id=$${values.length} RETURNING id,name,slug,description,short_description,seo_title,seo_description,brand,image_url,model_url,price_cents,mrp_cents,unit_cost_cents,currency,active,updated_at`,values);if(!result.rowCount)return res.status(404).json({error:"Product not found"});await pool.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES($1,$2,'product.update','product',$3)",[req.actor.type,req.actor.id,result.rows[0].id]);res.json({data:result.rows[0]})}catch(err){next(err)}
+ try{const result=await pool.query(`UPDATE products SET ${sets.join(", ")},updated_at=now() WHERE id=$${values.length} RETURNING id,name,slug,description,short_description,seo_title,seo_description,brand,image_url,price_cents,mrp_cents,unit_cost_cents,currency,active,updated_at`,values);if(!result.rowCount)return res.status(404).json({error:"Product not found"});await pool.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES($1,$2,'product.update','product',$3)",[req.actor.type,req.actor.id,result.rows[0].id]);res.json({data:result.rows[0]})}catch(err){next(err)}
 });
 
 const variantSchema = z.object({
