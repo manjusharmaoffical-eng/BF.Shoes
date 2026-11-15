@@ -39,13 +39,12 @@ test("schema.sql contains the required business tables and columns", () => {
   }
 });
 
-test("checkout schema keeps India COD delivery disabled until prices are configured", async () => {
+test("checkout schema accepts PayU and keeps India checkout behind verification gates", async () => {
   const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
-  assert.match(storefront, /payment_method:\s*z\.literal\(["']cod["']\)/, "Checkout schema must accept COD only");
-  assert.doesNotMatch(storefront, /payment_method:\s*z\.enum\([^)]*online/, "Online payment must not be accepted by checkout schema");
-  assert.match(storefront, /India online checkout is disabled until Razorpay integration/);
-  assert.match(storefront, /payment_method: z\.literal\("cod"\)/, "Storefront orders must remain COD-only");
-  assert.match(storefront, /paymentProvider: "Razorpay"/);
+  assert.match(storefront, /payment_method:\s*z\.enum\(\["cod", "payu"\]\)/, "Checkout schema must accept COD or PayU");
+  assert.match(storefront, /India online checkout is configured for PayU only/);
+  assert.match(storefront, /paymentProvider: "PayU"/);
+  assert.match(storefront, /payuConfigured\(\)/);
 });
 
 
@@ -164,8 +163,8 @@ test("storefront exposes separate UAE and India market configuration with owner-
   assert.match(storefront, /storefrontRouter\.get\("\/market-config"/);
   assert.match(storefront, /currency: "INR"/);
   assert.match(storefront, /currency: "AED"/);
-  assert.match(storefront, /razorpayConfigured\(\)/);
-  assert.match(storefront, /paymentProvider: "Razorpay"/);
+  assert.match(storefront, /payuConfigured\(\)/);
+  assert.match(storefront, /paymentProvider: "PayU"/);
   assert.match(storefront, /paymentProvider: "PayTabs"/);
   assert.match(storefront, /checkoutEnabled: indiaCheckoutEnabled/);
   assert.match(storefront, /checkoutEnabled: uaeCheckoutEnabled/);
