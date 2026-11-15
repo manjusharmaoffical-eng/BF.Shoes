@@ -58,7 +58,7 @@ test("UAE storefront routes hosted checkout through PayTabs and keeps it gated",
   assert.match(helper, /fiatAmount: Number\(amount\)/);
   assert.match(helper, /fiatCurrency: "AED"/);
   assert.doesNotMatch(helper, /orderAmount: Number\(amount\),\s*currency: "AED"/);
-  assert.match(frontend, /API_BASE \\+ '\\/orders\\/paytabs'/);
+  assert.match(frontend, /API_BASE \+ '\/orders\/paytabs'/);
   assert.match(frontend, /https:\/\/pay\.binance\.com\//);
   assert.match(html, /id="payment-paytabs-option"/);
   assert.match(schema, /razorpay/);
@@ -73,7 +73,7 @@ test("Binance Pay AED order uses V2 fiatAmount/fiatCurrency and validates quote"
     return {
       ok: true,
       json: async () => ({ status: "SUCCESS", code: "000000", data: {
-        prepayId: "1234567890123456789", checkoutUrl: "https://pay.binance.com/checkout/test",
+  assert.match(frontend, /parsed\.hostname === 'secure\.paytabs\.com'/);
         currency: "USDT", totalFee: "27.12345678", fiatCurrency: "AED", fiatAmount: "100.00", expireTime: 1794719999999
       } })
     };
@@ -93,7 +93,7 @@ test("Binance Pay AED order uses V2 fiatAmount/fiatCurrency and validates quote"
     merchantTradeNo: "BF12346", amount: "100.00", description: "BF SHOES order",
     returnUrl: "https://bf-shoes.vercel.app/payment-result.html?order=12346", env,
     fetchImpl: async () => ({ ok: true, json: async () => ({ status: "SUCCESS", code: "000000", data: {
-      prepayId: "1234567890123456788", checkoutUrl: "https://pay.binance.com/checkout/test",
+  assert.match(frontend, /parsed\.hostname === 'secure\.paytabs\.com'/);
       currency: "USDT", totalFee: "27.12", fiatCurrency: "USD", fiatAmount: "100.00"
     } }) })
   }), /invalid or unverifiable AED checkout session/);
