@@ -59,7 +59,7 @@ test("UAE storefront routes hosted checkout through PayTabs and keeps it gated",
   assert.match(helper, /fiatCurrency: "AED"/);
   assert.doesNotMatch(helper, /orderAmount: Number\(amount\),\s*currency: "AED"/);
   assert.match(frontend, /API_BASE \+ '\/orders\/paytabs'/);
-  assert.match(frontend, /https:\/\/pay\.binance\.com\//);
+  assert.match(frontend, /parsed\.hostname === 'secure\.paytabs\.com'/);
   assert.match(html, /id="payment-paytabs-option"/);
   assert.match(schema, /razorpay/);
 });
