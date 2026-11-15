@@ -5,10 +5,10 @@ export function parseIndiaMarketEnv(env = {}) {
   const deliveryFeePaise = feeRaw !== undefined && String(feeRaw).trim() !== "" && /^\d+$/.test(String(feeRaw).trim()) ? Number(feeRaw) : null;
   const configured = String(env.INDIA_DELIVERY_PINCODES || "500052").split(",").map(x => x.trim()).filter(Boolean);
   const deliveryPincodes = [...new Set(configured.filter(pin => INDIA_PINCODES.includes(pin)))];
-  // Checkout is intentionally COD-only until online gateway order creation, signature verification, and webhooks are implemented.
-  const paymentMethods = String(env.INDIA_PAYMENT_METHODS || "").split(",").map(x => x.trim().toLowerCase()).includes("cod") ? ["cod"] : [];
   const gstStatus = ["registered", "not_registered"].includes(env.INDIA_GST_STATUS) ? env.INDIA_GST_STATUS : "unconfigured";
   const paymentGateway = env.INDIA_PAYMENT_GATEWAY === "razorpay" ? "razorpay" : "unconfigured";
+  const configuredMethods = String(env.INDIA_PAYMENT_METHODS || "").split(",").map(x => x.trim().toLowerCase());
+  const paymentMethods = [...new Set(configuredMethods.filter(method => method === "cod" || (method === "razorpay" && paymentGateway === "razorpay")))];
   return { deliveryFeePaise, deliveryPincodes, paymentMethods, gstStatus, paymentGateway };
 }
 

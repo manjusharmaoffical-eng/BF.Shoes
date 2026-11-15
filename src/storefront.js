@@ -129,6 +129,7 @@ async function getIndiaMarketConfig(db = pool) {
     else { taxProfile = r.rows[0]; taxRate = Number(r.rows[0].tax_rate_bps); }
   }
   const onlineReady = razorpayConfigured();
+  if (!onlineReady) reasons.push("razorpay_credentials_not_configured");
   return { currency: "INR", country: "IN", delivery_pincodes: env.deliveryPincodes, target_pincode: "500052", delivery_fee_paise: env.deliveryFeePaise, payment_methods: env.paymentMethods, payment_gateway: env.paymentGateway, online_payment_ready: onlineReady, online_payment_note: onlineReady ? "Razorpay credentials are configured; checkout remains closed until order, callback and webhook flows pass end-to-end verification." : "Razorpay merchant credentials are required before online payments can be accepted.", gst_status: env.gstStatus, gst_rate_bps: env.gstStatus === "registered" ? (taxProfile ? taxRate : null) : (env.gstStatus === "not_registered" ? 0 : null), checkout_ready: reasons.length === 0, setup_required: [...new Set(reasons)], tax_profile: taxProfile };
 }
 
