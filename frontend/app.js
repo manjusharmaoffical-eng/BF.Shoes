@@ -273,7 +273,7 @@
     content.innerHTML = '<p class="product-detail-loading">Loading BF product details…</p>';
     let images = [];
     try {
-      const response = await fetch('/api/v1/ai-studio/products/' + encodeURIComponent(product.id) + '/images');
+      const response = await fetch('/api/v1/store/products/' + encodeURIComponent(product.id) + '/images');
       if (response.ok) { const data = await response.json(); images = Array.isArray(data.data) ? data.data : []; }
     } catch {}
     if (!images.length && product.image_url) images = [{ image_url: product.image_url, alt_text: product.name }];
