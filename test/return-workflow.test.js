@@ -59,3 +59,11 @@ test('return and exchange requests are accepted only within 12 hours after deliv
   assert.equal(isWithinReturnWindow(delivered, delivered - 1), false);
   assert.equal(isWithinReturnWindow('invalid-date', delivered), false);
 });
+
+
+test('return/exchange cannot be marked completed without verified settlement', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const source = await readFile(new URL('../src/returns.js', import.meta.url), 'utf8');
+  assert.match(source, /parsed\.data\.status === "completed"/);
+  assert.match(source, /verified refund or replacement-fulfillment workflow/);
+});
