@@ -262,7 +262,7 @@
     }
   }
 
-  async function openProductDetails(productId) {
+  async async function openProductDetails(productId) {
     const product = state.products.find(item => String(item.id) === String(productId));
     const modal = $('#product-detail-modal');
     const content = $('#product-detail-content');
@@ -278,7 +278,6 @@
     } catch {}
     if (!images.length && product.image_url) images = [{ image_url: product.image_url, alt_text: product.name }];
     if (!images.length) images = [{ image_url: productImage(product), alt_text: product.name }];
-    const modelUrl = typeof product.model_url === 'string' && /^https:\/\/res\.cloudinary\.com\//i.test(product.model_url) ? product.model_url : '';
     const variants = product.variants || [];
     const available = availableVariants(product);
     const selectedSku = state.selectedSizes[product.id] || (available[0] && available[0].sku) || '';
@@ -286,15 +285,15 @@
     const galleryMarkup = images.map((image, index) => '<button type="button" class="detail-thumb ' + (index === 0 ? 'active' : '') + '" data-detail-image="' + index + '" aria-label="View product angle ' + (index + 1) + '"><img src="' + escapeHtml(image.image_url) + '" alt="' + escapeHtml(image.alt_text || product.name) + '"></button>').join('');
     const sizeMarkup = variants.map(v => '<button type="button" class="size-option ' + (v.sku === selectedSku ? 'selected' : '') + '" data-detail-size="' + escapeHtml(v.sku) + '" ' + (Number(v.stock_qty) <= 0 ? 'disabled' : '') + '>' + escapeHtml(v.size_label) + '</button>').join('');
     content.innerHTML = '<div class="product-detail-layout"><div class="product-detail-gallery"><div class="product-detail-stage" id="detail-stage">' +
-      (modelUrl ? '<model-viewer src="' + escapeHtml(modelUrl) + '" alt="' + escapeHtml(product.name) + ' 3D model" camera-controls auto-rotate rotation-per-second="18deg" shadow-intensity="1" exposure="1" ar></model-viewer>' : '<img id="detail-main-image" src="' + escapeHtml(images[0].image_url) + '" alt="' + escapeHtml(images[0].alt_text || product.name) + '">') +
+      '<img id="detail-main-image" src="' + escapeHtml(images[0].image_url) + '" alt="' + escapeHtml(images[0].alt_text || product.name) + '">' +
       '</div><div class="detail-thumbnails">' + galleryMarkup + '</div>' +
-      (modelUrl ? '<p class="detail-viewer-note">Live 3D model · Drag to rotate · Pinch to zoom</p>' : '<p class="detail-viewer-note">Multiple-angle photos · A true 3D model can be enabled when its BF model file is added in Admin</p>') +
+      '<p class="detail-viewer-note">Product photos · Select a thumbnail to view another angle</p>' +
       '</div><div class="product-detail-copy"><p class="eyebrow">BF SHOES · PRODUCT DETAILS</p><h2>' + escapeHtml(product.name) + '</h2><p class="detail-price">' + (product.price_pending_conversion ? 'Price verification pending' : money(product.price_cents, product.currency)) + '</p><p class="detail-description">' + escapeHtml(product.description || product.short_description || 'BF SHOES footwear') + '</p><h3>Select UK size</h3><div class="product-sizes detail-sizes">' + (sizeMarkup || '<span>No sizes listed</span>') + '</div><p class="detail-stock" id="detail-stock">' + (selectedVariant ? Number(selectedVariant.stock_qty) + ' in stock' : 'Select an available size') + '</p><button type="button" class="button button-dark detail-add" id="detail-add" ' + (!selectedVariant || product.price_pending_conversion ? 'disabled' : '') + '>Add to bag</button><div class="detail-benefits"><span>Secure payments</span><span>Fast delivery</span><span>12-hour return request window after delivery</span></div></div></div>';
     content.querySelectorAll('[data-detail-image]').forEach(button => button.addEventListener('click', () => {
       const index = Number(button.dataset.detailImage);
       const image = images[index];
       const stage = $('#detail-stage', content);
-      if (stage && !modelUrl && image) stage.innerHTML = '<img id="detail-main-image" src="' + escapeHtml(image.image_url) + '" alt="' + escapeHtml(image.alt_text || product.name) + '">';
+      if (stage && image) stage.innerHTML = '<img id="detail-main-image" src="' + escapeHtml(image.image_url) + '" alt="' + escapeHtml(image.alt_text || product.name) + '">';
       content.querySelectorAll('[data-detail-image]').forEach(item => item.classList.toggle('active', item === button));
     }));
     content.querySelectorAll('[data-detail-size]').forEach(button => button.addEventListener('click', () => {
