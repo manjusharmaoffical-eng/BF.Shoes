@@ -209,3 +209,17 @@ test("finance expenses and funding support INR and AED without combining currenc
   assert.match(finance, /f\.currency=\$1/);
   assert.match(finance, /currency,sales:s/);
 });
+
+
+test("UAE PayTabs checkout applies a single valid AED VAT profile to the stored order and gateway amount", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  const paytabs = storefront.split('storefrontRouter.post("/orders/paytabs"')[1]?.split('storefrontRouter.post("/payments/paytabs/callback"')[0];
+  assert.ok(paytabs, "PayTabs checkout route must exist");
+  assert.ok(storefront.includes("count(*) = 1 AND COALESCE(bool_and(currency = 'AED' AND tax_rate_bps BETWEEN 1 AND 10000)"));
+  assert.ok(paytabs.includes("tax.rowCount !== 1"));
+  assert.ok(paytabs.includes("calculateUaeTotals(subtotal, deliveryFeeCents, Number(tax.rows[0].tax_rate_bps))"));
+  assert.ok(paytabs.includes("vat_cents,tax_rate_bps,total_cents,shipping_country"));
+  assert.ok(paytabs.includes("'AE',$10,$11"));
+  assert.ok(paytabs.includes("cart_amount: (Number(order.total_cents) / 100).toFixed(2)"));
+  assert.ok(paytabs.includes("Number(order.total_cents),JSON.stringify"));
+});
