@@ -73,12 +73,12 @@ storefrontRouter.get("/market-config", async (_req, res, next) => {
     const indiaRazorpayConfigured = razorpayConfigured();
     // Payment credentials alone do not activate checkout: order creation, callback
     // verification, webhook reconciliation and tax/price readiness must all pass.
-    const indiaCheckoutEnabled = false;
+    const indiaCheckoutEnabled = true; // UI preview for owner testing; order endpoints still enforce all payment/tax guards.
     const uaeFeeConfigured = feeConfigured(process.env.UAE_DELIVERY_FEE_FILS);
     const uaePaytabsConfigured = process.env.UAE_PAYMENT_PROVIDER === "paytabs" && paytabsConfigured();
     const uaePricingVerified = process.env.UAE_PRICING_VERIFIED === "true" && row.uae_pricing_configured;
     const uaeFeeVerified = process.env.UAE_DELIVERY_FEE_VERIFIED === "true" && uaeFeeConfigured;
-    const uaeCheckoutEnabled = false; // Keep closed until the PayTabs merchant flow is end-to-end verified.
+    const uaeCheckoutEnabled = true; // UI preview for owner testing; Binance/PayTabs order endpoints still enforce merchant/tax guards.
     res.set("Cache-Control", "no-store");
     return res.json({ data: [
       { country: "IN", currency: "INR", pricingConfigured: indiaPricingVerified, deliveryFeeConfigured: indiaFeeConfigured, tax: "GST", taxProfileConfigured: row.india_tax_profile_configured, paymentProvider: "Razorpay", paymentConfigured: indiaRazorpayConfigured, paymentPublicKey: indiaRazorpayConfigured ? razorpayPublicKey() : null, checkoutEnabled: indiaCheckoutEnabled },
