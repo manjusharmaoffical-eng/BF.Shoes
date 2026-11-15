@@ -376,6 +376,10 @@ router.patch("/orders/:id/status", authenticate, requireScope("orders:write"), a
     if (!orderRes.rowCount) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Order not found" }); }
     const old = orderRes.rows[0];
     const nextStatus = parsed.data.status;
+    if (nextStatus === "cancelled" && ["paid", "review"].includes(old.payment_status)) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "This order has a paid or under-review payment. Complete and verify the refund workflow before cancelling or restoring its stock." });
+    }
     if (!canTransitionOrder(old.status, nextStatus)) {
       await client.query("ROLLBACK");
       return res.status(409).json({ error: `Invalid order status transition: ${old.status} -> ${nextStatus}` });
