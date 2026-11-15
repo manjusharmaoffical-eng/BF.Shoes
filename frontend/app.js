@@ -379,25 +379,25 @@
     $('#india-pin-field')?.classList.toggle('hidden', !isIndia);
     const pin = $('#shipping-pincode');
     if (pin) { pin.required = isIndia; pin.value = isIndia ? '500052' : ''; }
-    $('#payment-cod-option')?.classList.toggle('hidden', !isIndia);
+    $('#payment-razorpay-option')?.classList.toggle('hidden', !isIndia);
     $('#payment-card-option')?.classList.toggle('hidden', !isIndia);
     $('#payment-upi-option')?.classList.toggle('hidden', !isIndia);
     $('#payment-binance-option')?.classList.toggle('hidden', isIndia);
     const binance = $('#payment-binance-option input');
-    const cod = $('#payment-cod-option input');
-    if (isIndia && cod) cod.checked = true;
+    const razorpay = $('#payment-razorpay-option input');
+    if (isIndia && razorpay) razorpay.checked = true;
     if (!isIndia && binance) binance.checked = true;
     const note = $('#checkout-payment-note');
     if (note) note.textContent = isIndia
-      ? 'Cash on Delivery only. Delivery PIN: 500052. Delivery charges are listed in our Shipping Policy.'
+      ? 'Razorpay secure checkout. Delivery PIN: 500052. Delivery fee and GST are shown only after verified setup.'
       : 'Binance Pay hosted checkout. Payment is confirmed by a verified Binance notification; AED price and VAT are shown before payment.';
     const submit = $('#place-order');
-    if (submit) submit.innerHTML = isIndia ? 'Place COD order <span>↗</span>' : 'Continue to Binance Pay <span>↗</span>';
+    if (submit) submit.innerHTML = isIndia ? 'Pay securely with Razorpay <span>↗</span>' : 'Continue to Binance Pay <span>↗</span>';
     const cartNote = $('#cart-delivery-note');
     if (cartNote) cartNote.innerHTML = isIndia
       ? 'Delivery is available only for PIN code 500052. See our <a href="/policies.html#shipping">Shipping Policy</a> for delivery charges.'
       : 'UAE delivery is subject to verified delivery coverage and the fee shown before payment.';
-    $('#cart-cod-note')?.classList.toggle('hidden', !isIndia);
+    $('#cart-cod-note')?.classList.add('hidden');
   }
 
   if (countrySelect) {
