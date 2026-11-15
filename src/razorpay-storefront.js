@@ -29,6 +29,7 @@ const checkoutSchema = z.object({
 }).strict();
 
 function checkoutReadiness() {
+  if (process.env.INDIA_CHECKOUT_VERIFIED !== "true") return "India checkout has not been explicitly verified by the owner.";
   if (!razorpayConfigured()) return "Razorpay test credentials and HTTPS public URL are not enabled in this environment.";
   if (process.env.INDIA_PRICING_VERIFIED !== "true") return "India product pricing has not been owner-verified.";
   if (process.env.INDIA_DELIVERY_FEE_VERIFIED !== "true") return "India delivery fee has not been owner-verified.";
