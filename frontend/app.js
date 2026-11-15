@@ -32,7 +32,7 @@
   const checkoutTotalCents = () => totalCents();
   const setupMessage = () => state.market === 'IN'
     ? 'India checkout is pending PayU merchant verification, verified INR prices, confirmed delivery fee and GST profile.'
-    : 'UAE checkout is pending Binance Pay merchant enablement, verified AED prices, delivery fee and VAT profile.';
+    : 'UAE checkout is pending PayTabs merchant verification, verified AED prices, delivery fee and VAT profile.';
   const randomKey = () => Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   const productImage = product => {
     const candidate = typeof product.image_url === 'string' && product.image_url.startsWith('https://') ? product.image_url : '';
@@ -382,17 +382,17 @@
     $('#payment-payu-option')?.classList.toggle('hidden', !isIndia);
     $('#payment-card-option')?.classList.add('hidden');
     $('#payment-upi-option')?.classList.add('hidden');
-    $('#payment-binance-option')?.classList.toggle('hidden', isIndia);
-    const binance = $('#payment-binance-option input');
+    $('#payment-paytabs-option')?.classList.toggle('hidden', isIndia);
+    const paytabs = $('#payment-paytabs-option input');
     const payu = $('#payment-payu-option input');
     if (isIndia && payu) payu.checked = true;
-    if (!isIndia && binance) binance.checked = true;
+    if (!isIndia && paytabs) paytabs.checked = true;
     const note = $('#checkout-payment-note');
     if (note) note.textContent = isIndia
       ? 'Pay securely with PayU hosted checkout using supported cards, UPI and net banking. Delivery PIN: 500052.'
-      : 'Binance Pay hosted checkout. Payment is confirmed by a verified Binance notification; AED price and VAT are shown before payment.';
+      : 'PayTabs hosted checkout. AED pricing, delivery and VAT must be verified before payment.';
     const submit = $('#place-order');
-    if (submit) submit.innerHTML = isIndia ? 'Continue to PayU <span>↗</span>' : 'Continue to Binance Pay <span>↗</span>';
+    if (submit) submit.innerHTML = isIndia ? 'Continue to PayU <span>↗</span>' : 'Continue to PayTabs <span>↗</span>';
     const cartNote = $('#cart-delivery-note');
     if (cartNote) cartNote.innerHTML = isIndia
       ? 'Flat delivery charge: ₹55 for PIN code 500052. See our <a href="/policies.html#shipping">Shipping Policy</a>.'
@@ -457,7 +457,7 @@
       shipping_address: String(formData.get('shipping_address') || '').trim(),
       shipping_country: String(formData.get('shipping_country') || state.market),
       shipping_pincode: state.market === 'IN' ? String(formData.get('shipping_pincode') || '') : '',
-      payment_method: state.market === 'AE' ? 'binance' : 'payu',
+      payment_method: state.market === 'AE' ? 'paytabs' : 'payu',
       items: state.cart.map(item => ({ sku: item.variant.sku, quantity: item.quantity }))
     };
 
@@ -467,15 +467,17 @@
     }
 
     try {
-      if (!state.checkoutReady) throw new Error(state.market === 'IN' ? 'India checkout is disabled until PayU merchant credentials, verified prices, delivery fee and GST are configured.' : 'UAE checkout is disabled until Binance Pay merchant enablement, verified AED prices, delivery fee and VAT are configured.');
+      if (!state.checkoutReady) throw new Error(state.market === 'IN' ? 'India checkout is disabled until PayU merchant credentials, verified prices, delivery fee and GST are configured.' : 'UAE checkout is disabled until PayTabs merchant verification, verified AED prices, delivery fee and VAT are configured.');
       if (state.market === 'AE') {
-        const result = await request(API_BASE + '/orders/binance', {
+        const result = await request(API_BASE + '/orders/paytabs', {
           method: 'POST',
           headers: { 'Idempotency-Key': state.pendingCheckout.key },
           body: JSON.stringify(payload)
         });
         const checkoutUrl = result?.data?.checkout?.redirect_url;
-        if (!checkoutUrl || !checkoutUrl.startsWith('https://pay.binance.com/')) throw new Error('Binance Pay did not return a valid secure checkout link.');
+        let securePayTabsUrl = false;
+        try { const parsed = new URL(checkoutUrl); securePayTabsUrl = parsed.protocol === 'https:' && parsed.hostname === 'secure.paytabs.com'; } catch {}
+        if (!securePayTabsUrl) throw new Error('PayTabs did not return a valid secure checkout link.');
         window.location.assign(checkoutUrl);
         return;
       }
