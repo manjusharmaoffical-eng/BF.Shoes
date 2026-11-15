@@ -159,7 +159,7 @@ test("storefront never assumes a delivery fee amount", async () => {
   assert.doesNotMatch(storefront, /,\s*5000\s*,/);
 });
 
-test("storefront exposes separate UAE and India market configuration", async () => {
+test("storefront exposes separate UAE and India market configuration with owner-only checkout preview", async () => {
   const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
   assert.match(storefront, /storefrontRouter\.get\("\/market-config"/);
   assert.match(storefront, /currency: "INR"/);
@@ -172,8 +172,8 @@ test("storefront exposes separate UAE and India market configuration", async () 
   assert.match(storefront, /UAE_DELIVERY_FEE_FILS/);
   assert.match(storefront, /storefrontRouter\.post\("\/orders\/binance"/);
   assert.match(storefront, /storefrontRouter\.post\("\/payments\/binance\/webhook"/);
-  assert.match(storefront, /const indiaCheckoutEnabled = false/);
-  assert.match(storefront, /const uaeCheckoutEnabled = false/);
+  assert.match(storefront, /const indiaCheckoutEnabled = true; \/\/ UI preview for owner testing/);
+  assert.match(storefront, /const uaeCheckoutEnabled = true; \/\/ UI preview for owner testing/);
 });
 
 test("public product catalog selects currency by explicit market", async () => {
