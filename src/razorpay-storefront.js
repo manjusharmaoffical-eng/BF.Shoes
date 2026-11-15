@@ -33,7 +33,7 @@ function checkoutReadiness() {
   if (!razorpayConfigured()) return "Razorpay test credentials and HTTPS public URL are not enabled in this environment.";
   if (process.env.INDIA_PRICING_VERIFIED !== "true") return "India product pricing has not been owner-verified.";
   if (process.env.INDIA_DELIVERY_FEE_VERIFIED !== "true") return "India delivery fee has not been owner-verified.";
-  if (!/^\\d+$/.test(process.env.INDIA_DELIVERY_FEE_PAISE || "")) return "India delivery fee is not configured.";
+  if (!/^\d+$/.test(process.env.INDIA_DELIVERY_FEE_PAISE || "")) return "India delivery fee is not configured.";
   return null;
 }
 
