@@ -395,7 +395,7 @@
     if (submit) submit.innerHTML = isIndia ? 'Continue to PayU <span>↗</span>' : 'Continue to Binance Pay <span>↗</span>';
     const cartNote = $('#cart-delivery-note');
     if (cartNote) cartNote.innerHTML = isIndia
-      ? 'Delivery is available only for PIN code 500052. See our <a href="/policies.html#shipping">Shipping Policy</a> for delivery charges.'
+      ? 'Flat delivery charge: ₹55 for PIN code 500052. See our <a href="/policies.html#shipping">Shipping Policy</a>.'
       : 'UAE delivery is subject to verified delivery coverage and the fee shown before payment.';
     $('#cart-payu-note')?.classList.toggle('hidden', !isIndia);
   }
