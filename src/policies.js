@@ -25,6 +25,7 @@ export function orderRequestFingerprint(order) {
   const canonical = {
     customer_name: order.customer_name,
     customer_email: order.customer_email.toLowerCase(),
+    delivery_fee_cents: order.delivery_fee_cents ?? null,
     items: order.items.map(({ sku, quantity }) => ({ sku, quantity }))
   };
   return crypto.createHash("sha256").update(JSON.stringify(canonical)).digest("hex");
