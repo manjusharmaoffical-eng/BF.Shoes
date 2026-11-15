@@ -513,7 +513,7 @@
       state.busy = false;
       if(submit) {
         submit.disabled = !state.checkoutReady;
-        submit.innerHTML = state.market === 'AE' ? 'Continue to Binance Pay <span>↗</span>' : 'Continue to PayU <span>↗</span>';
+        submit.innerHTML = state.market === 'AE' ? 'Continue to PayTabs <span>↗</span>' : 'Continue to PayU <span>↗</span>';
       }
     }
   });
