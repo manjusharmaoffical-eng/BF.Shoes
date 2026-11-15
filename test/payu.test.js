@@ -42,3 +42,9 @@ test("PayU checkout stays disabled until explicit enablement, credentials and HT
     Object.assign(process.env,old);
   }
 });
+
+test("PayU reverse hash includes additional charges when PayU returns them",()=>{
+  const fields={status:"success",additional_charges:"2.00",udf1:"order-1",udf2:"uuid",udf3:"",udf4:"",udf5:"",email:"buyer@example.com",firstname:"Asha",productinfo:"BF SHOES",amount:"100.00",txnid:"BF123",key:"merchant"};
+  const expected=sha(["2.00","salt","success",...Array(6).fill(""),"uuid","order-1","buyer@example.com","Asha","BF SHOES","100.00","BF123","merchant"].join("|"));
+  assert.equal(payuResponseHash(fields,"salt"),expected);
+});
