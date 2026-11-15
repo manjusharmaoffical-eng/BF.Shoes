@@ -658,3 +658,23 @@ html,body{font-family:var(--bf-font)}
 @media(prefers-reduced-motion:reduce){
   .hero-reference .hero-product{animation:none;transform:none;transition:none}
 }
+
+/* BF SHOES product grid + persistent wishlist polish */
+.product-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:stretch}
+.product-card{min-width:0;transition:transform .24s ease,box-shadow .24s ease,border-color .24s ease}
+.product-card:hover{transform:translateY(-4px);box-shadow:0 14px 30px rgba(5,6,8,.10)}
+.product-image{position:relative;overflow:hidden}
+.product-image img{width:100%;height:100%;object-fit:contain}
+.wishlist-toggle{display:grid;place-items:center;width:38px;height:38px;min-width:38px;min-height:38px;top:10px;right:10px;border:1px solid #e5e7eb;border-radius:50%;background:#fff;color:#17191d;box-shadow:0 3px 12px rgba(0,0,0,.12);font-size:17px;cursor:pointer;transition:transform .2s ease,color .2s ease,background .2s ease,border-color .2s ease}
+.wishlist-toggle:hover{transform:scale(1.09);color:var(--bf-red)}
+.wishlist-toggle.saved{background:#fff;border-color:#ffd1d7;color:var(--bf-red)}
+.wishlist-toggle.saved i{font-weight:900;animation:bf-heart-pop .22s ease-out}
+.wishlist-toggle:focus-visible{outline:3px solid var(--bf-red);outline-offset:3px}
+.product-price-wrap{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.product-mrp{font-size:11px;color:#858b94;font-weight:500}
+#header-wishlist{position:relative}
+#header-wishlist i{font-size:21px}
+@keyframes bf-heart-pop{0%{transform:scale(.7)}70%{transform:scale(1.2)}100%{transform:scale(1)}}
+@media(max-width:1024px){.product-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.product-grid{grid-template-columns:minmax(0,1fr);gap:16px}.product-card{display:grid;grid-template-columns:minmax(0,42%) minmax(0,1fr);align-items:center;gap:10px;padding:8px}.product-card .product-image{grid-row:1 / span 3;height:150px}.product-card .product-info{padding:5px;min-width:0}.product-card .product-info h3{font-size:13px}.product-card .product-info p{font-size:10px}.product-card .product-sizes{margin:0 5px 4px}.product-card .add-row{margin:0 5px 4px}.product-card .add-row .button{min-height:38px}.wishlist-toggle{width:36px;height:36px;min-width:36px;min-height:36px;top:7px;right:7px}}
+@media(prefers-reduced-motion:reduce){.product-card,.wishlist-toggle,.wishlist-toggle.saved i{transition:none;animation:none}}

@@ -41,3 +41,17 @@ test("mobile header lays out all primary navigation links in a visible grid", ()
 test("mobile market selector has readable foreground and background contrast", () => {
   assert.match(css, /\.site-header \.market-select\{[\s\S]*?background:#fff;color:#111;border-color:#e31b2f/);
 });
+
+test("product cards expose an accessible persistent Font Awesome wishlist and real optional MRP", () => {
+  assert.match(app, /localStorage\.setItem\('bf-shoes-wishlist'/);
+  assert.match(app, /fa-heart/);
+  assert.match(app, /fa-solid/);
+  assert.match(app, /fa-regular/);
+  assert.match(app, /aria-pressed="\$\{watched\}"/);
+  assert.match(app, /product\.mrp_cents/);
+  assert.match(app, /product-price-wrap/);
+  assert.match(html, /id="header-wishlist"><i class="fa-regular fa-heart"/);
+  assert.match(css, /\.wishlist-toggle\.saved\{background:#fff;border-color:#ffd1d7;color:var\(--bf-red\)\}/);
+  assert.match(css, /@media\(max-width:1024px\)\{\.product-grid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)\}\}/);
+  assert.match(css, /@media\(max-width:480px\)\{\.product-grid\{grid-template-columns:minmax\(0,1fr\)/);
+});

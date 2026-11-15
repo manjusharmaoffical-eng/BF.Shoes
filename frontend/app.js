@@ -149,6 +149,8 @@
 
     const wishlistCount = $('#wishlist-count');
     if (wishlistCount) wishlistCount.textContent = String(state.wishlist.size);
+    const headerWishlist = $('#header-wishlist');
+    if (headerWishlist) headerWishlist.setAttribute('aria-label', `Wishlist, ${state.wishlist.size} saved items`);
 
     const emptyState = $('#empty-state');
     if(emptyState) emptyState.classList.toggle('hidden', state.loading || products.length > 0);
@@ -162,11 +164,16 @@
       const selected = state.selectedSizes[product.id] || (available[0] && available[0].sku) || '';
       const selectedVariant = variants.find(v => v.sku === selected && Number(v.stock_qty) > 0);
       const sizes = variants.map(v => `<button class="size-option ${v.sku === selected ? 'selected' : ''}" type="button" data-size-product="${escapeHtml(product.id)}" data-sku="${escapeHtml(v.sku)}" aria-pressed="${v.sku === selected}" ${Number(v.stock_qty) <= 0 ? 'disabled title="Out of stock"' : ''}>${escapeHtml(v.size_label)}</button>`).join('');
-      const status = !available.length ? 'Sold out' : (available.length <= 2 ? 'Limited run' : 'Everyday essential');
+      const mrpCents = Number(product.mrp_cents || 0);
+      const hasDiscount = Number.isFinite(mrpCents) && mrpCents > Number(product.price_cents);
+      const createdAt = product.created_at ? Date.parse(product.created_at) : NaN;
+      const isNew = Number.isFinite(createdAt) && Date.now() - createdAt < 30 * 24 * 60 * 60 * 1000;
+      const status = isNew ? 'New' : hasDiscount ? 'Sale' : (!available.length ? 'Sold out' : (available.length <= 2 ? 'Limited run' : 'Everyday essential'));
+      const watched = state.wishlist.has(String(product.id));
 
       return `<article class="product-card" data-product="${escapeHtml(product.id)}">
-        <div class="product-image"><img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(product.name)} sneaker" loading="${index < 3 ? 'eager' : 'lazy'}" /><span class="product-tag">${status}</span><button class="wishlist-toggle ${state.wishlist.has(String(product.id)) ? 'saved' : ''}" type="button" data-wishlist="${escapeHtml(product.id)}" aria-label="${state.wishlist.has(String(product.id)) ? 'Remove from wishlist' : 'Save to wishlist'}" aria-pressed="${state.wishlist.has(String(product.id))}">${state.wishlist.has(String(product.id)) ? '♥' : '♡'}</button><button class="quick-add" type="button" data-quick-add="${escapeHtml(product.id)}" aria-label="Quick add ${escapeHtml(product.name)}" ${!available.length || product.price_pending_conversion ? 'disabled title="Price verification pending"' : ''}>+</button></div>
-        <div class="product-info"><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.brand || 'BF SHOES')} · ${escapeHtml(product.short_description || product.description || 'Everyday sneaker').slice(0, 58)}</p></div><strong class="product-price">${product.price_pending_conversion ? 'Price verification pending' : money(product.price_cents, product.currency)}</strong></div>
+        <div class="product-image"><img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(product.name)}" loading="${index < 3 ? 'eager' : 'lazy'}" decoding="async" /><span class="product-tag">${status}</span><button class="wishlist-toggle ${watched ? 'saved' : ''}" type="button" data-wishlist="${escapeHtml(product.id)}" aria-label="${watched ? 'Remove from wishlist' : 'Add to wishlist'}" aria-pressed="${watched}" title="${watched ? 'Remove from wishlist' : 'Add to wishlist'}"><i class="${watched ? 'fa-solid' : 'fa-regular'} fa-heart" aria-hidden="true"></i></button><button class="quick-add" type="button" data-quick-add="${escapeHtml(product.id)}" aria-label="Quick add ${escapeHtml(product.name)}" ${!available.length || product.price_pending_conversion ? 'disabled title="Price verification pending"' : ''}>+</button></div>
+        <div class="product-info"><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.brand || 'BF SHOES')} · ${escapeHtml(product.short_description || product.description || 'Everyday sneaker').slice(0, 58)}</p></div><div class="product-price-wrap"><strong class="product-price">${product.price_pending_conversion ? 'Price verification pending' : money(product.price_cents, product.currency)}</strong>${hasDiscount ? `<del class="product-mrp">${money(mrpCents, product.currency)}</del>` : ''}</div></div>
         <div class="product-sizes" aria-label="Choose size for ${escapeHtml(product.name)}">${sizes || '<span class="product-info"><p>No sizes listed</p></span>'}</div>
         <div class="add-row"><button class="button button-dark" type="button" data-add="${escapeHtml(product.id)}" ${!selectedVariant || product.price_pending_conversion ? 'disabled' : ''}>${product.price_pending_conversion ? 'Price pending' : selectedVariant ? 'Add to bag' : 'Out of stock'} <span>+</span></button></div>
       </article>`;
@@ -258,7 +265,23 @@
   if($('#product-grid')) {
     $('#product-grid').addEventListener('click', event => {
       const wishlistButton = event.target.closest('[data-wishlist]');
-      if (wishlistButton) { const id = String(wishlistButton.dataset.wishlist); if (state.wishlist.has(id)) state.wishlist.delete(id); else state.wishlist.add(id); try { localStorage.setItem('bf-shoes-wishlist', JSON.stringify([...state.wishlist])); } catch {} renderProducts(); return; }
+      if (wishlistButton) {
+        const id = String(wishlistButton.dataset.wishlist);
+        if (state.wishlist.has(id)) state.wishlist.delete(id); else state.wishlist.add(id);
+        try { localStorage.setItem('bf-shoes-wishlist', JSON.stringify([...state.wishlist])); } catch {}
+        const count = $('#wishlist-count'); if (count) count.textContent = String(state.wishlist.size);
+        const icon = wishlistButton.querySelector('i');
+        const watched = state.wishlist.has(id);
+        wishlistButton.classList.toggle('saved', watched);
+        wishlistButton.setAttribute('aria-pressed', String(watched));
+        wishlistButton.setAttribute('aria-label', watched ? 'Remove from wishlist' : 'Add to wishlist');
+        wishlistButton.title = watched ? 'Remove from wishlist' : 'Add to wishlist';
+        if (icon) { icon.classList.toggle('fa-solid', watched); icon.classList.toggle('fa-regular', !watched); }
+        const headerWishlist = $('#header-wishlist');
+        if (headerWishlist) headerWishlist.setAttribute('aria-label', `Wishlist, ${state.wishlist.size} saved items`);
+        if (state.filter === 'saved' && !watched) renderProducts();
+        return;
+      }
       const sizeButton = event.target.closest('[data-size-product]');
       if (sizeButton) { state.selectedSizes[sizeButton.dataset.sizeProduct] = sizeButton.dataset.sku; renderProducts(); return; }
       const addButton = event.target.closest('[data-add]');
