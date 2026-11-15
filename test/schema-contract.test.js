@@ -209,3 +209,14 @@ test("finance expenses and funding support INR and AED without combining currenc
   assert.match(finance, /f\.currency=\$1/);
   assert.match(finance, /currency,sales:s/);
 });
+
+
+test("authenticated API order creation requires an explicit delivery fee and persists its total", async () => {
+  const routes = await readFile(new URL("../src/routes.js", import.meta.url), "utf8");
+  const schema = routes.split("const orderSchema = z.object({")[1]?.split("});")[0];
+  assert.ok(schema?.includes("delivery_fee_cents: z.number().int().min(0).max(2000000000)"));
+  assert.ok(routes.includes("const deliveryFeeCents = parsed.data.delivery_fee_cents"));
+  assert.ok(routes.includes("const totalCents = subtotal + deliveryFeeCents"));
+  assert.ok(routes.includes("delivery_fee_cents, total_cents, shipping_country, idempotency_key"));
+  assert.ok(routes.includes("currency === \"AED\" ? \"AE\" : \"IN\""));
+});
