@@ -438,11 +438,15 @@ storefrontRouter.post("/orders/binance", async (req, res, next) => {
     const amount = (Number(total.rows[0].total_cents) / 100).toFixed(2);
     const payment = await createBinancePayOrder({
       merchantTradeNo, amount, description: "BF SHOES order #" + order.order_number,
-      returnUrl: baseUrl + "/payment-result.html?provider=binance&order=" + encodeURIComponent(order.order_number)
+      returnUrl: baseUrl + "/payment-result.html?order=" + encodeURIComponent(order.order_number)
     });
     await pool.query(
       "INSERT INTO payment_attempts(order_id,provider,txnid,provider_payment_id,amount_cents,currency,status,checkout_params) VALUES($1,'binance',$2,$3,$4,'AED','pending',$5::jsonb)",
-      [order.id,merchantTradeNo,payment.prepayId,Number(total.rows[0].total_cents),JSON.stringify({ checkout_url: payment.checkoutUrl, prepay_id: payment.prepayId, expire_time: payment.expireTime })]);
+      [order.id,merchantTradeNo,payment.prepayId,Number(total.rows[0].total_cents),JSON.stringify({
+        checkout_url: payment.checkoutUrl, prepay_id: payment.prepayId, expire_time: payment.expireTime,
+        fiat_amount: payment.fiatAmount, fiat_currency: payment.fiatCurrency,
+        binance_total_fee: payment.totalFee, binance_currency: payment.currency
+      })]);
     await pool.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES('system',NULL,'storefront.binance_payment.initiated','order',$1)", [String(order.id)]);
     return res.status(201).json({ data: { order_number: order.order_number, checkout: { redirect_url: payment.checkoutUrl } } });
   } catch (err) {
@@ -490,11 +494,19 @@ storefrontRouter.post("/payments/binance/webhook", async (req, res, next) => {
       return res.status(200).json({ returnCode: "SUCCESS", returnMessage: null });
     }
     const verified = await queryBinancePayOrder(tradeNo);
-    const paidAmount = Number(verified.totalFee);
     const expectedAmount = Number(attempt.amount_cents) / 100;
-    if (verified.status !== "PAID" || verified.merchantTradeNo !== tradeNo || verified.currency !== "AED" ||
-        !Number.isFinite(paidAmount) || Math.abs(paidAmount - expectedAmount) > 0.000001 ||
-        !verified.transactionId || data.currency !== "AED" || Math.abs(Number(data.totalFee) - expectedAmount) > 0.000001) {
+    const checkout = attempt.checkout_params || {};
+    const expectedCryptoAmount = Number(checkout.binance_total_fee);
+    const expectedCryptoCurrency = String(checkout.binance_currency || "");
+    const paidAmount = Number(verified.totalFee);
+    if (verified.status !== "PAID" || verified.merchantTradeNo !== tradeNo ||
+        !expectedCryptoCurrency || verified.currency !== expectedCryptoCurrency ||
+        !Number.isFinite(expectedCryptoAmount) || expectedCryptoAmount <= 0 ||
+        !Number.isFinite(paidAmount) || Math.abs(paidAmount - expectedCryptoAmount) > 0.00000001 ||
+        !verified.transactionId || data.currency !== expectedCryptoCurrency ||
+        Math.abs(Number(data.totalFee) - expectedCryptoAmount) > 0.00000001 ||
+        String(checkout.fiat_currency) !== "AED" ||
+        Math.abs(Number(checkout.fiat_amount) - expectedAmount) > 0.000001) {
       await pool.query("UPDATE payment_attempts SET status='review',callback_payload=$1::jsonb WHERE id=$2 AND status='pending'", [JSON.stringify(payload),attempt.id]);
       await pool.query("UPDATE orders SET payment_status='review',updated_at=now() WHERE id=$1 AND payment_status='pending'", [attempt.order_id]);
       return res.status(200).json({ returnCode: "SUCCESS", returnMessage: null });

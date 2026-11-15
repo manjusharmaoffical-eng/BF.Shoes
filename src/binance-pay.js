@@ -62,21 +62,28 @@ export async function binancePayRequest(path, body, { env = process.env, fetchIm
   return result.data || {};
 }
 
-export async function createBinancePayOrder({ merchantTradeNo, amount, description, returnUrl, env = process.env }) {
+export async function createBinancePayOrder({ merchantTradeNo, amount, description, returnUrl, env = process.env, fetchImpl = fetch }) {
   if (env.BINANCE_PAY_CURRENCY !== "AED") {
     throw new Error("Set BINANCE_PAY_CURRENCY to AED only after Binance confirms AED checkout support for this merchant.");
   }
-  const data = await binancePayRequest("/binancepay/openapi/v3/order", {
+  const data = await binancePayRequest("/binancepay/openapi/v2/order", {
     env: { terminalType: "WEB" },
     merchantTradeNo,
-    orderAmount: Number(amount),
-    currency: "AED",
-    description: String(description).slice(0, 256),
-    goodsDetails: [{ goodsType: "01", goodsCategory: "D000", referenceGoodsId: String(merchantTradeNo), goodsName: "BF SHOES order", goodsDetail: String(description).slice(0, 256) }],
+    fiatAmount: Number(amount),
+    fiatCurrency: "AED",
+    goods: {
+      goodsType: "01",
+      goodsCategory: "3000",
+      referenceGoodsId: String(merchantTradeNo),
+      goodsName: "BF SHOES order",
+      goodsDetail: String(description).slice(0, 256)
+    },
     returnUrl
-  }, { env });
-  if (!data.prepayId || !data.checkoutUrl || !/^https:\/\/pay\.binance\.com\//.test(data.checkoutUrl)) {
-    throw new Error("Binance Pay returned an invalid hosted checkout session");
+  }, { env, fetchImpl });
+  if (!data.prepayId || !data.checkoutUrl || !/^https:\/\/pay\.binance\.com\//.test(data.checkoutUrl) ||
+      data.fiatCurrency !== "AED" || Math.abs(Number(data.fiatAmount) - Number(amount)) > 0.000001 ||
+      !data.currency || !Number.isFinite(Number(data.totalFee)) || Number(data.totalFee) <= 0) {
+    throw new Error("Binance Pay returned an invalid or unverifiable AED checkout session");
   }
   return data;
 }

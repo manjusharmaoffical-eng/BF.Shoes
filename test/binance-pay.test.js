@@ -54,8 +54,47 @@ test("UAE storefront exposes Binance Pay only as a gated hosted checkout flow", 
   assert.match(storefront, /storefrontRouter\.post\("\/orders\/binance"/);
   assert.match(storefront, /storefrontRouter\.post\("\/payments\/binance\/webhook"/);
   assert.match(helper, /BINANCE_PAY_ENABLED/);
+  assert.match(helper, /\/binancepay\/openapi\/v2\/order/);
+  assert.match(helper, /fiatAmount: Number\(amount\)/);
+  assert.match(helper, /fiatCurrency: "AED"/);
+  assert.doesNotMatch(helper, /orderAmount: Number\(amount\),\s*currency: "AED"/);
   assert.match(frontend, /API_BASE \+ '\/orders\/binance'/);
   assert.match(frontend, /https:\/\/pay\.binance\.com\//);
   assert.match(html, /id="payment-binance-option"/);
   assert.match(schema, /provider IN \('payu','paytabs','binance'\)/);
+});
+
+test("Binance Pay AED order uses V2 fiatAmount/fiatCurrency and validates quote", async () => {
+  const { createBinancePayOrder } = await import("../src/binance-pay.js");
+  const env = { BINANCE_API_KEY: "serial", BINANCE_SECRET_KEY: "secret", BINANCE_PAY_CURRENCY: "AED" };
+  let sent;
+  const fetchImpl = async (url, init) => {
+    sent = { url, body: JSON.parse(init.body) };
+    return {
+      ok: true,
+      json: async () => ({ status: "SUCCESS", code: "000000", data: {
+        prepayId: "1234567890123456789", checkoutUrl: "https://pay.binance.com/checkout/test",
+        currency: "USDT", totalFee: "27.12345678", fiatCurrency: "AED", fiatAmount: "100.00", expireTime: 1794719999999
+      } })
+    };
+  };
+  const result = await createBinancePayOrder({
+    merchantTradeNo: "BF12345", amount: "100.00", description: "BF SHOES order",
+    returnUrl: "https://bf-shoes.vercel.app/payment-result.html?order=12345", env, fetchImpl
+  });
+  assert.equal(sent.url, "https://bpay.binanceapi.com/binancepay/openapi/v2/order");
+  assert.equal(sent.body.fiatCurrency, "AED");
+  assert.equal(sent.body.fiatAmount, 100);
+  assert.equal(sent.body.currency, undefined);
+  assert.equal(sent.body.orderAmount, undefined);
+  assert.equal(sent.body.goods.goodsCategory, "3000");
+  assert.equal(result.currency, "USDT");
+  await assert.rejects(() => createBinancePayOrder({
+    merchantTradeNo: "BF12346", amount: "100.00", description: "BF SHOES order",
+    returnUrl: "https://bf-shoes.vercel.app/payment-result.html?order=12346", env,
+    fetchImpl: async () => ({ ok: true, json: async () => ({ status: "SUCCESS", code: "000000", data: {
+      prepayId: "1234567890123456788", checkoutUrl: "https://pay.binance.com/checkout/test",
+      currency: "USDT", totalFee: "27.12", fiatCurrency: "USD", fiatAmount: "100.00"
+    } }) })
+  }), /invalid or unverifiable AED checkout session/);
 });
