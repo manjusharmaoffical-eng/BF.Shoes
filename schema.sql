@@ -61,6 +61,7 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'sh
 ALTER TABLE products ADD COLUMN IF NOT EXISTS audience TEXT NOT NULL DEFAULT 'unisex' CHECK (audience IN ('men','women','kids','unisex'));
 ALTER TABLE products ADD COLUMN IF NOT EXISTS product_type TEXT NOT NULL DEFAULT 'general' CHECK (length(product_type) BETWEEN 1 AND 80);
 ALTER TABLE products ADD COLUMN IF NOT EXISTS attributes JSONB NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(attributes) = 'object');
+ALTER TABLE products ADD COLUMN IF NOT EXISTS mrp_cents INTEGER CHECK (mrp_cents IS NULL OR mrp_cents >= price_cents);
 CREATE INDEX IF NOT EXISTS products_catalog_category_idx ON products(category, audience, active);
 CREATE INDEX IF NOT EXISTS variants_product_idx ON variants(product_id);
 
@@ -516,3 +517,50 @@ CREATE TABLE IF NOT EXISTS return_request_events (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS return_request_events_request_idx ON return_request_events(request_id, created_at);
+
+
+-- BF SHOES initial men and women footwear catalog (idempotent seed).
+-- Owner-approved retail prices: INR 699 / MRP 999; UAE AED 27.25 / MRP 39.00.
+-- Inventory is deliberately zero until real stock is counted and entered by the owner.
+WITH catalog(slug,name,audience,product_type,code,description,image_path) AS (
+  VALUES
+    ('men-court-sneaker','BF Urban Court Sneaker','men','sneakers','BF-MCS','Men’s everyday court sneaker with a clean low-top profile.','/assets/catalog/men-court-sneaker.svg'),
+    ('men-running-shoe','BF Aero Running Shoe','men','running','BF-MRN','Men’s lightweight running shoe with a breathable sport profile.','/assets/catalog/men-running-shoe.svg'),
+    ('men-sport-trainer','BF Pulse Sports Trainer','men','sports','BF-MSP','Men’s sports trainer with a supportive athletic silhouette.','/assets/catalog/men-sport-trainer.svg'),
+    ('men-formal-oxford','BF Classic Oxford','men','formal','BF-MFO','Men’s formal lace-up shoe with a polished classic profile.','/assets/catalog/men-formal-oxford.svg'),
+    ('men-leather-loafer','BF Heritage Loafer','men','loafers','BF-MLO','Men’s slip-on loafer with a timeless smart-casual profile.','/assets/catalog/men-leather-loafer.svg'),
+    ('men-canvas-sneaker','BF Everyday Canvas','men','casual-sneakers','BF-MCV','Men’s casual canvas sneaker for everyday styling.','/assets/catalog/men-canvas-sneaker.svg'),
+    ('men-slip-on','BF Street Slip-On','men','slip-ons','BF-MSO','Men’s easy-wear slip-on shoe with a clean casual shape.','/assets/catalog/men-slip-on.svg'),
+    ('men-sandal','BF Active Sandal','men','sandals','BF-MSA','Men’s casual sandal with adjustable strap styling.','/assets/catalog/men-sandal.svg'),
+    ('women-stiletto','BF Noir Stiletto','women','stiletto-heels','BF-WST','Women’s pointed stiletto heel with an elegant evening profile.','/assets/catalog/women-stiletto.svg'),
+    ('women-block-heel','BF Comfort Block Heel','women','block-heels','BF-WBH','Women’s block heel with a stable everyday silhouette.','/assets/catalog/women-block-heel.svg'),
+    ('women-wedge','BF Riviera Wedge','women','heels-wedges','BF-WWG','Women’s wedge heel with a warm casual finish.','/assets/catalog/women-wedge.svg'),
+    ('women-pump','BF Signature Pump','women','heels-pumps','BF-WPU','Women’s classic closed-toe pump with a refined profile.','/assets/catalog/women-pump.svg'),
+    ('women-kitten-heel','BF SoftStep Kitten Heel','women','kitten-heels','BF-WKH','Women’s low kitten heel designed for a subtle dress look.','/assets/catalog/women-kitten-heel.svg'),
+    ('women-platform-heel','BF Elevate Platform Heel','women','platform-heels','BF-WPH','Women’s platform heel with a bold elevated silhouette.','/assets/catalog/women-platform-heel.svg'),
+    ('women-slingback-heel','BF Grace Slingback Heel','women','slingback-heels','BF-WSH','Women’s slingback heel with an adjustable rear strap.','/assets/catalog/women-slingback-heel.svg'),
+    ('women-mule-heel','BF Muse Mule Heel','women','mule-heels','BF-WMH','Women’s open-back mule heel with a clean minimal profile.','/assets/catalog/women-mule-heel.svg')
+), markets(currency,price_cents,mrp_cents,market_code) AS (
+  VALUES ('INR',69900,99900,'IN'),('AED',2725,3900,'AE')
+)
+INSERT INTO products(name,slug,description,short_description,seo_title,seo_description,brand,category,audience,product_type,attributes,image_url,price_cents,mrp_cents,unit_cost_cents,currency,active)
+SELECT c.name || CASE WHEN m.currency='INR' THEN ' — India' ELSE ' — UAE' END,
+       c.slug || CASE WHEN m.currency='INR' THEN '-india' ELSE '-uae' END,
+       c.description,c.description,c.name || ' | BF SHOES',c.description,'BF SHOES','shoes',c.audience,c.product_type,
+       jsonb_build_object('collection',c.audience,'style',c.product_type,'brand_mark','BF','inventory_note','stock_not_verified'),
+       'https://bf-shoes.vercel.app' || c.image_path,m.price_cents,m.mrp_cents,NULL,m.currency,TRUE
+FROM catalog c CROSS JOIN markets m
+ON CONFLICT (slug) DO NOTHING;
+
+-- Size options are present for filtering, but available inventory is never invented.
+WITH sizes AS (
+  SELECT 'men'::text AS audience, unnest(ARRAY['6','7','8','9','10','11']) AS size_label
+  UNION ALL SELECT 'women'::text, unnest(ARRAY['3','4','5','6','7','8'])
+)
+INSERT INTO variants(product_id,sku,size_label,color_name,stock_qty,active)
+SELECT p.id,
+       CASE WHEN p.slug LIKE '%-india' THEN 'IN' ELSE 'AE' END || '-' || upper(left(regexp_replace(p.slug,'[^a-z0-9]+','-','g'),28)) || '-' || replace(s.size_label,' ','') ,
+       'UK ' || s.size_label,'Black',0,TRUE
+FROM products p JOIN sizes s ON s.audience=p.audience
+WHERE p.slug LIKE 'men-%-india' OR p.slug LIKE 'men-%-uae' OR p.slug LIKE 'women-%-india' OR p.slug LIKE 'women-%-uae'
+ON CONFLICT (sku) DO NOTHING;
