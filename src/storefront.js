@@ -173,6 +173,7 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
   const d = parsed.data;
   const indiaPaymentConfig = parseIndiaMarketEnv(process.env);
   if (d.payment_method !== "payu" || indiaPaymentConfig.paymentGateway !== "payu" || !indiaPaymentConfig.paymentMethods.includes("payu")) return res.status(503).json({ error: "India online checkout is configured for PayU only. Select PayU and verify the merchant configuration." });
+  if (process.env.INDIA_CHECKOUT_VERIFIED !== "true") return res.status(503).json({ error: "India checkout remains disabled until the owner verifies the PayU, tax, price and delivery setup." });
   if (d.shipping_country !== "IN") return res.status(400).json({ error: "PayU India checkout is only configured for the India market." });
   if (d.shipping_pincode !== "500052") return res.status(400).json({ error: "BF SHOES currently delivers only to PIN code 500052." });
   const allowedPins = new Set((process.env.INDIA_DELIVERY_PINCODES || "500052").split(",").map(value => value.trim()).filter(Boolean));
