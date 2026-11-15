@@ -209,3 +209,12 @@ test("finance expenses and funding support INR and AED without combining currenc
   assert.match(finance, /f\.currency=\$1/);
   assert.match(finance, /currency,sales:s/);
 });
+
+
+test("paid or review-status orders cannot be cancelled before refund verification", async () => {
+  const routes = await readFile(new URL("../src/routes.js", import.meta.url), "utf8");
+  const statusRoute = routes.split('router.patch("/orders/:id/status"')[1]?.split('router.post("/admin/api-keys"')[0];
+  assert.ok(statusRoute?.includes('nextStatus === "cancelled" && ["paid", "review"].includes(old.payment_status)'));
+  assert.ok(statusRoute?.includes("Complete and verify the refund workflow before cancelling or restoring its stock."));
+  assert.ok(statusRoute?.includes('if (nextStatus === "cancelled")'));
+});
