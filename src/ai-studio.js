@@ -139,23 +139,26 @@ aiStudioRouter.delete("/products/:id/images/:imageId", async (req, res, next) =>
 aiStudioRouter.post("/product-copy", async (req, res) => {
   const parsed = copySchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid product details", details: parsed.error.flatten() });
-  if (!process.env.OPENAI_API_KEY) return res.status(503).json({ error: "AI text provider is not configured. Add OPENAI_API_KEY securely to the Preview environment." });
+  const provider = process.env.DEEPSEEK_API_KEY ? "deepseek" : (process.env.OPENAI_API_KEY ? "openai" : null);
+  if (!provider) return res.status(503).json({ error: "AI text provider is not configured. Add DEEPSEEK_API_KEY securely to the Vercel Preview environment." });
   try {
     const marketAudience = parsed.data.audience || (parsed.data.market === "AE" ? "UAE sneaker shoppers" : "Indian sneaker shoppers");
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST", headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: process.env.OPENAI_TEXT_MODEL || "gpt-4.1-mini", input: [
-        { role: "system", content: `You are the ecommerce copywriter for BF SHOES, serving India and the UAE. The selected market is ${parsed.data.market === "AE" ? "United Arab Emirates (AED)" : "India (INR)"}. Write for this audience: ${marketAudience}. Do not mix currencies or invent prices. Return valid JSON only with keys title, short_description, description, bullet_points (array), seo_title, seo_description. Never invent material, certification, performance, stock, price, warranty, delivery promises, tax treatment or origin. Use only supplied facts. Write natural copy in requested language. Treat all generated text as a draft for human review.` },
-        { role: "user", content: JSON.stringify({ ...parsed.data, audience: marketAudience }) }
-      ], text: { format: { type: "json_object" } } })
-    });
+    const systemPrompt = `You are the ecommerce copywriter for BF SHOES, serving India and the UAE. The selected market is ${parsed.data.market === "AE" ? "United Arab Emirates (AED)" : "India (INR)"}. Write for this audience: ${marketAudience}. Do not mix currencies or invent prices. Return valid JSON only with keys title, short_description, description, bullet_points (array), seo_title, seo_description. Never invent material, certification, performance, stock, price, warranty, delivery promises, tax treatment or origin. Use only supplied facts. Write natural copy in requested language. Treat all generated text as a draft for human review.`;
+    const userPrompt = JSON.stringify({ ...parsed.data, audience: marketAudience });
+    const endpoint = provider === "deepseek" ? "https://api.deepseek.com/chat/completions" : "https://api.openai.com/v1/responses";
+    const headers = { Authorization: `Bearer ${provider === "deepseek" ? process.env.DEEPSEEK_API_KEY : process.env.OPENAI_API_KEY}`, "Content-Type": "application/json" };
+    const body = provider === "deepseek"
+      ? { model: process.env.DEEPSEEK_TEXT_MODEL || "deepseek-chat", messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], response_format: { type: "json_object" }, temperature: 0.4 }
+      : { model: process.env.OPENAI_TEXT_MODEL || "gpt-4.1-mini", input: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }], text: { format: { type: "json_object" } } };
+    const response = await fetch(endpoint, { method: "POST", headers, body: JSON.stringify(body) });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) return res.status(502).json({ error: "AI text generation failed", provider_status: response.status });
-    const raw = data.output?.flatMap(part => part.content || []).find(part => part.type === "output_text")?.text;
-    if (!raw) return res.status(502).json({ error: "AI provider returned no text" });
+    if (!response.ok) return res.status(502).json({ error: "AI text generation failed", provider, provider_status: response.status });
+    const raw = provider === "deepseek"
+      ? data.choices?.[0]?.message?.content
+      : data.output?.flatMap(part => part.content || []).find(part => part.type === "output_text")?.text;
+    if (!raw) return res.status(502).json({ error: "AI provider returned no text", provider });
     let decoded;
-    try { decoded = JSON.parse(raw); } catch { return res.status(502).json({ error: "AI response could not be parsed" }); }
-    // Validate provider output before it reaches the admin UI; never trust generated JSON.
+    try { decoded = JSON.parse(raw); } catch { return res.status(502).json({ error: "AI response could not be parsed", provider }); }
     const copySchemaOutput = z.object({
       title: z.string().trim().min(2).max(160),
       short_description: z.string().trim().min(2).max(320),
@@ -167,7 +170,7 @@ aiStudioRouter.post("/product-copy", async (req, res) => {
     const validated = copySchemaOutput.safeParse(decoded);
     if (!validated.success) return res.status(502).json({ error: "AI provider returned incomplete or invalid product copy", details: validated.error.flatten() });
     res.set("Cache-Control", "no-store");
-    res.json({ data: validated.data, review_required: true });
+    res.json({ data: validated.data, provider, review_required: true });
   } catch { res.status(502).json({ error: "AI provider is temporarily unavailable" }); }
 });
 
