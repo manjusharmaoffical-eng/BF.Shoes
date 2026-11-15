@@ -429,7 +429,7 @@ ALTER TABLE orders ADD CONSTRAINT orders_payment_status_check
 CREATE TABLE IF NOT EXISTS payment_attempts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_id UUID NOT NULL REFERENCES orders(id) ON DELETE RESTRICT,
-  provider TEXT NOT NULL CHECK (provider IN ('payu','paytabs','binance')),
+  provider TEXT NOT NULL CHECK (provider IN ('payu','paytabs','binance','razorpay')),
   txnid TEXT NOT NULL UNIQUE,
   amount_cents INTEGER NOT NULL CHECK (amount_cents > 0),
   currency CHAR(3) NOT NULL CHECK (currency IN ('INR','AED')),
@@ -443,7 +443,7 @@ CREATE TABLE IF NOT EXISTS payment_attempts (
 );
 -- Upgrade existing PayU-only installations without dropping payment history.
 ALTER TABLE payment_attempts DROP CONSTRAINT IF EXISTS payment_attempts_provider_check;
-ALTER TABLE payment_attempts ADD CONSTRAINT payment_attempts_provider_check CHECK (provider IN ('payu','paytabs','binance'));
+ALTER TABLE payment_attempts ADD CONSTRAINT payment_attempts_provider_check CHECK (provider IN ('payu','paytabs','binance','razorpay'));
 ALTER TABLE payment_attempts DROP CONSTRAINT IF EXISTS payment_attempts_currency_check;
 ALTER TABLE payment_attempts ADD CONSTRAINT payment_attempts_currency_check CHECK (currency IN ('INR','AED'));
 

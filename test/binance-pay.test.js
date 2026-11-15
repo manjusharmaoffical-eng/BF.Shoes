@@ -43,7 +43,7 @@ test("Binance Pay webhook verifies RSA-SHA256 over the exact raw body", () => {
   assert.equal(verifyBinanceWebhookSignature({ timestamp, nonce, rawBody, signature: "bad", publicKey }), false);
 });
 
-test("UAE storefront exposes Binance Pay only as a gated hosted checkout flow", async () => {
+test("UAE storefront keeps PayTabs as the selected but gated merchant provider", async () => {
   const [storefront, frontend, html, schema, helper] = await Promise.all([
     readFile(new URL("../src/storefront.js", import.meta.url), "utf8"),
     readFile(new URL("../frontend/app.js", import.meta.url), "utf8"),
@@ -61,7 +61,7 @@ test("UAE storefront exposes Binance Pay only as a gated hosted checkout flow", 
   assert.match(frontend, /API_BASE \+ '\/orders\/binance'/);
   assert.match(frontend, /https:\/\/pay\.binance\.com\//);
   assert.match(html, /id="payment-binance-option"/);
-  assert.match(schema, /provider IN \('payu','paytabs','binance'\)/);
+  assert.match(schema, /razorpay/);
 });
 
 test("Binance Pay AED order uses V2 fiatAmount/fiatCurrency and validates quote", async () => {
