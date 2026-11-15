@@ -476,3 +476,43 @@ CREATE INDEX IF NOT EXISTS stock_transfers_variant_id_idx ON stock_transfers(var
 CREATE INDEX IF NOT EXISTS warehouse_stock_movements_actor_idx ON warehouse_stock_movements(actor_admin_id);
 CREATE INDEX IF NOT EXISTS warehouse_stock_movements_variant_id_idx ON warehouse_stock_movements(variant_id);
 CREATE INDEX IF NOT EXISTS warehouses_created_by_idx ON warehouses(created_by);
+
+
+-- Customer return/exchange requests. These records never issue refunds,
+-- charge fees, or modify inventory; an administrator must review each request.
+CREATE TABLE IF NOT EXISTS return_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE RESTRICT,
+  customer_id UUID NOT NULL REFERENCES customer_accounts(id) ON DELETE RESTRICT,
+  request_type TEXT NOT NULL CHECK (request_type IN ('return','exchange')),
+  reason TEXT NOT NULL CHECK (char_length(trim(reason)) BETWEEN 10 AND 1000),
+  status TEXT NOT NULL DEFAULT 'requested' CHECK (status IN ('requested','under_review','approved','rejected','received','completed','cancelled')),
+  customer_message TEXT NOT NULL DEFAULT '',
+  internal_note TEXT NOT NULL DEFAULT '',
+  reviewed_by UUID REFERENCES admins(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS return_requests_one_open_per_order_idx ON return_requests(order_id) WHERE status NOT IN ('rejected','cancelled');
+CREATE INDEX IF NOT EXISTS return_requests_customer_idx ON return_requests(customer_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS return_requests_status_idx ON return_requests(status, created_at DESC);
+CREATE TABLE IF NOT EXISTS return_request_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id UUID NOT NULL REFERENCES return_requests(id) ON DELETE CASCADE,
+  order_item_id UUID NOT NULL REFERENCES order_items(id) ON DELETE RESTRICT,
+  quantity INTEGER NOT NULL CHECK (quantity BETWEEN 1 AND 10),
+  requested_size TEXT NOT NULL DEFAULT '' CHECK (char_length(requested_size) <= 40),
+  UNIQUE(request_id, order_item_id)
+);
+CREATE TABLE IF NOT EXISTS return_request_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  request_id UUID NOT NULL REFERENCES return_requests(id) ON DELETE CASCADE,
+  actor_type TEXT NOT NULL CHECK (actor_type IN ('customer','admin','system')),
+  actor_id UUID,
+  from_status TEXT,
+  to_status TEXT NOT NULL CHECK (to_status IN ('requested','under_review','approved','rejected','received','completed','cancelled')),
+  customer_message TEXT NOT NULL DEFAULT '',
+  internal_note TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS return_request_events_request_idx ON return_request_events(request_id, created_at);

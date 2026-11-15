@@ -16,7 +16,10 @@ const requiredColumns = {
   product_images: ["product_id", "image_url"],
   campaigns: ["kind", "status", "starts_at", "ends_at"],
   tax_profiles: ["jurisdiction", "tax_rate_bps", "currency"],
-  tax_invoices: ["invoice_number", "subtotal_cents", "total_cents"]
+  tax_invoices: ["invoice_number", "subtotal_cents", "total_cents"],
+  return_requests: ["order_id", "customer_id", "request_type", "status", "reviewed_by"],
+  return_request_items: ["request_id", "order_item_id", "quantity", "requested_size"],
+  return_request_events: ["request_id", "actor_type", "from_status", "to_status"]
 };
 
 test("schema.sql contains the required business tables and columns", () => {

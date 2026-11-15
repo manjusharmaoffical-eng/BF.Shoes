@@ -14,6 +14,7 @@ import { aiStudioRouter } from "./ai-studio.js";
 import { ultronRouter } from "./ultron.js";
 import { invoicesRouter } from "./invoices.js";
 import { warehouseRouter } from "./warehouse.js";
+import { returnsRouter } from "./returns.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -73,10 +74,12 @@ app.use("/api/v1/auth/login", rateLimit({ windowMs: 15 * 60_000, limit: 10, stan
 // Public storefront endpoints are deliberately separated from admin/integration routes.
 app.use("/api/v1/store/orders", rateLimit({ windowMs: 15 * 60_000, limit: 8, standardHeaders: "draft-7", legacyHeaders: false }));
 app.use("/api/v1/store/orders/track", rateLimit({ windowMs: 15 * 60_000, limit: 8, standardHeaders: "draft-7", legacyHeaders: false }));
+app.use("/api/v1/returns", rateLimit({ windowMs: 15 * 60_000, limit: 8, standardHeaders: "draft-7", legacyHeaders: false }));
 app.use("/api/v1/store", storefrontRouter);
 const customerCredentialLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false });
 app.use(["/api/v1/customer-auth/register", "/api/v1/customer-auth/login"], customerCredentialLimiter);
 app.use("/api/v1/customer-auth", customerAuthRouter);
+app.use("/api/v1/returns", returnsRouter);
 app.use("/api/v1/newsletter", rateLimit({ windowMs: 60 * 60_000, limit: 5, standardHeaders: "draft-7", legacyHeaders: false }), newsletterRouter);
 app.use("/api/v1/business", businessRouter);
 app.use("/api/v1/finance", financeRouter);

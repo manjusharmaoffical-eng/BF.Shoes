@@ -28,10 +28,10 @@
     .order-card{border-top:1px solid var(--line);padding:18px 0}
     .order-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
     .order-items{color:#555;margin:10px 0;line-height:1.6}
-    .order-total{font-weight:800}
+    .order-total{font-weight:800}.return-request{border-top:1px solid var(--line);margin-top:14px;padding-top:14px}.return-request label{display:block;margin:9px 0 5px;font-size:12px;font-weight:700}.return-request input,.return-request select,.return-request textarea{width:100%;padding:11px;border:1px solid var(--line);background:#fff;color:var(--ink);box-sizing:border-box}.return-item{display:grid;grid-template-columns:auto 1fr 90px 120px;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}.return-item input[type=checkbox]{width:auto}.return-item input[type=number]{width:90px}.return-item input[type=text]{width:120px}.return-history{margin-top:18px;padding:14px;background:#f4f3ef}.return-history li{margin:6px 0;font-size:13px}
     .account-muted{color:var(--muted);font-size:13px}
     .hidden{display:none!important}
-    @media(max-width:680px){.account-shell{padding:28px 16px 56px}.account-grid{grid-template-columns:1fr}.account-top{align-items:flex-start;flex-direction:column}.account-card,.account-orders,.account-profile{padding:18px}}
+    @media(max-width:680px){.return-item{grid-template-columns:auto 1fr}.return-item input[type=number],.return-item input[type=text]{width:100%}.account-shell{padding:28px 16px 56px}.account-grid{grid-template-columns:1fr}.account-top{align-items:flex-start;flex-direction:column}.account-card,.account-orders,.account-profile{padding:18px}}
   </style>
   <script defer src="/account.js"></script>
 </head>
@@ -67,7 +67,7 @@
     </section>
     <section id="account-workspace" class="hidden">
       <div class="account-profile"><div class="order-head"><div><p class="eyebrow">SIGNED IN AS</p><strong id="customer-name"></strong><div id="customer-email" class="account-muted"></div></div><button id="signout-button" class="account-button" type="button">Sign out</button></div></div>
-      <div class="account-orders"><h2>Order history</h2><p class="account-muted">Only orders matching your signed-in account email are shown here.</p><div id="orders-list"><p class="account-muted">Loading orders…</p></div></div>
+      <div class="account-orders"><h2>Order history</h2><p class="account-muted">Only orders matching your signed-in account email are shown here.</p><div id="orders-list"><p class="account-muted">Loading orders…</p></div></div><div class="account-orders"><h2>Returns & exchanges</h2><p class="account-muted">Requests are reviewed by BF SHOES. No refund, return fee or stock change is triggered by submitting a request.</p><div id="return-requests-list"><p class="account-muted">Loading requests…</p></div></div>
     </section>
     <p class="account-muted" style="margin-top:28px">Your account session is stored only in this browser tab and expires after two hours.</p>
   </main>

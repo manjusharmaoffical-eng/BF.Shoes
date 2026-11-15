@@ -60,7 +60,7 @@ function clearCustomerCookie(res, req) {
   delete options.maxAge;
   res.clearCookie(COOKIE_NAME, options);
 }
-async function getSession(req) {
+export async function getCustomerSession(req) {
   const authorization = req.get("authorization") || "";
   const bearer = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
   const token = bearer || readCookie(req, COOKIE_NAME);
@@ -117,7 +117,7 @@ customerAuthRouter.post("/login", async (req, res, next) => {
 
 customerAuthRouter.get("/me", async (req, res, next) => {
   try {
-    const session = await getSession(req);
+    const session = await getCustomerSession(req);
     if (!session) {
       clearCustomerCookie(res, req);
       return res.status(401).json({ error: "Sign in to view your account." });
@@ -134,7 +134,7 @@ customerAuthRouter.get("/me", async (req, res, next) => {
 
 customerAuthRouter.post("/logout", async (req, res, next) => {
   try {
-    const session = await getSession(req).catch(err => {
+    const session = await getCustomerSession(req).catch(err => {
       if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") return null;
       throw err;
     });
@@ -146,13 +146,13 @@ customerAuthRouter.post("/logout", async (req, res, next) => {
 
 customerAuthRouter.get("/orders", async (req, res, next) => {
   try {
-    const session = await getSession(req);
+    const session = await getCustomerSession(req);
     if (!session) return res.status(401).json({ error: "Sign in to view your orders." });
     const result = await pool.query(
       `SELECT o.order_number,o.status,o.payment_status,o.currency,o.subtotal_cents,
         o.delivery_fee_cents,o.vat_cents,o.total_cents,o.created_at,
         COALESCE(json_agg(json_build_object(
-          'product_name',oi.product_name,'sku',oi.sku,'size',oi.size_label,
+          'id',oi.id,'product_name',oi.product_name,'sku',oi.sku,'size',oi.size_label,
           'color',oi.color_name,'quantity',oi.quantity,'line_total_cents',oi.line_total_cents
         )) FILTER (WHERE oi.id IS NOT NULL),'[]'::json) AS items
        FROM orders o
