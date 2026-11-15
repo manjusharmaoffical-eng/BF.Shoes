@@ -164,8 +164,10 @@ test("storefront exposes separate UAE and India market configuration", async () 
   assert.match(storefront, /PAYU_MERCHANT_KEY/);
   assert.match(storefront, /paymentProvider: "Razorpay"/);
   assert.match(storefront, /UAE_DELIVERY_FEE_FILS/);
+  assert.match(storefront, /storefrontRouter\.post\("\/orders\/binance"/);
+  assert.match(storefront, /storefrontRouter\.post\("\/payments\/binance\/webhook"/);
   assert.match(storefront, /const indiaCheckoutEnabled = indiaPricingVerified && indiaFeeConfigured && row\.india_tax_profile_configured && indiaPayuConfigured/);
-  assert.match(storefront, /const uaeCheckoutEnabled = uaePricingVerified && uaeFeeVerified && row\.uae_tax_profile_configured && uaePaytabsConfigured/);
+  assert.match(storefront, /const uaeCheckoutEnabled = uaePricingVerified && uaeFeeVerified && row\.uae_tax_profile_configured && uaeBinanceConfigured/);
 });
 
 test("public product catalog selects currency by explicit market", async () => {

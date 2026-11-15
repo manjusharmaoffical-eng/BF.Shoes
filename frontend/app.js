@@ -32,7 +32,7 @@
   const checkoutTotalCents = () => totalCents();
   const setupMessage = () => state.market === 'IN'
     ? 'India checkout is pending Razorpay credentials, verified INR prices, confirmed delivery fee and GST profile.'
-    : 'UAE checkout is pending a confirmed merchant gateway, verified AED prices, delivery fee and VAT profile.';
+    : 'UAE checkout is pending Binance Pay merchant enablement, verified AED prices, delivery fee and VAT profile.';
   const randomKey = () => Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   const productImage = product => {
     const candidate = typeof product.image_url === 'string' && product.image_url.startsWith('https://') ? product.image_url : '';
@@ -348,6 +348,34 @@
       : state.market === 'AE' ? 'UAE shopping is available. UAE delivery, VAT and payment setup must be completed before checkout opens.' : 'Checkout opens after verified INR prices, delivery fee, GST profile and Razorpay merchant credentials are configured.';
   }
 
+  function updateCheckoutMarketForm() {
+    const isIndia = state.market === 'IN';
+    const countryLabel = $('#shipping-country-label');
+    if (countryLabel) countryLabel.value = isIndia ? 'India' : 'United Arab Emirates';
+    $('#india-pin-field')?.classList.toggle('hidden', !isIndia);
+    const pin = $('#shipping-pincode');
+    if (pin) { pin.required = isIndia; pin.value = isIndia ? '500052' : ''; }
+    $('#payment-cod-option')?.classList.toggle('hidden', !isIndia);
+    $('#payment-card-option')?.classList.toggle('hidden', !isIndia);
+    $('#payment-upi-option')?.classList.toggle('hidden', !isIndia);
+    $('#payment-binance-option')?.classList.toggle('hidden', isIndia);
+    const binance = $('#payment-binance-option input');
+    const cod = $('#payment-cod-option input');
+    if (isIndia && cod) cod.checked = true;
+    if (!isIndia && binance) binance.checked = true;
+    const note = $('#checkout-payment-note');
+    if (note) note.textContent = isIndia
+      ? 'Cash on Delivery only. Delivery PIN: 500052. Delivery charges are listed in our Shipping Policy.'
+      : 'Binance Pay hosted checkout. Payment is confirmed by a verified Binance notification; AED price and VAT are shown before payment.';
+    const submit = $('#place-order');
+    if (submit) submit.innerHTML = isIndia ? 'Place COD order <span>↗</span>' : 'Continue to Binance Pay <span>↗</span>';
+    const cartNote = $('#cart-delivery-note');
+    if (cartNote) cartNote.innerHTML = isIndia
+      ? 'Delivery is available only for PIN code 500052. See our <a href="/policies.html#shipping">Shipping Policy</a> for delivery charges.'
+      : 'UAE delivery is subject to verified delivery coverage and the fee shown before payment.';
+    $('#cart-cod-note')?.classList.toggle('hidden', !isIndia);
+  }
+
   if (countrySelect) {
     countrySelect.addEventListener('change', () => {
       const phone = $('input[name="customer_phone"]'); if (phone) phone.placeholder = countrySelect.value === 'IN' ? '+91 98765 43210' : '+971 50 000 0000';
@@ -405,7 +433,7 @@
       shipping_address: String(formData.get('shipping_address') || '').trim(),
       shipping_country: String(formData.get('shipping_country') || state.market),
       shipping_pincode: state.market === 'IN' ? String(formData.get('shipping_pincode') || '') : '',
-      payment_method: String(formData.get('payment_method') || 'cod'),
+      payment_method: state.market === 'AE' ? 'binance' : 'cod',
       items: state.cart.map(item => ({ sku: item.variant.sku, quantity: item.quantity }))
     };
 
@@ -415,8 +443,19 @@
     }
 
     try {
-      if (!state.checkoutReady) throw new Error(state.market === 'IN' ? 'India checkout is disabled until Razorpay credentials, verified prices, delivery fee and GST are configured.' : 'UAE checkout is disabled until its merchant gateway, verified prices, delivery fee and VAT are configured.');
-      throw new Error('The selected payment gateway has not been activated for this market.');
+      if (!state.checkoutReady) throw new Error(state.market === 'IN' ? 'India checkout is disabled until Razorpay credentials, verified prices, delivery fee and GST are configured.' : 'UAE checkout is disabled until Binance Pay merchant enablement, verified AED prices, delivery fee and VAT are configured.');
+      if (state.market === 'AE') {
+        const result = await request(API_BASE + '/orders/binance', {
+          method: 'POST',
+          headers: { 'Idempotency-Key': state.pendingCheckout.key },
+          body: JSON.stringify(payload)
+        });
+        const checkoutUrl = result?.data?.checkout?.redirect_url;
+        if (!checkoutUrl || !checkoutUrl.startsWith('https://pay.binance.com/')) throw new Error('Binance Pay did not return a valid secure checkout link.');
+        window.location.assign(checkoutUrl);
+        return;
+      }
+      throw new Error('India online payments are not yet connected.');
 
     } catch (error) {
       showCheckoutError(error.message || 'Failed to place order. Please try again.');
@@ -424,7 +463,7 @@
       state.busy = false;
       if(submit) {
         submit.disabled = !state.checkoutReady;
-        submit.innerHTML = 'Place order';
+        submit.innerHTML = state.market === 'AE' ? 'Continue to Binance Pay <span>↗</span>' : 'Place COD order <span>↗</span>';
       }
     }
   });
@@ -454,12 +493,14 @@
     }
     const selectedCountry = $('#shipping-country');
     if (selectedCountry) selectedCountry.value = state.market;
+    updateCheckoutMarketForm();
     loadProducts();
     loadCheckoutReadiness();
     renderCart();
     toast(state.market === 'IN' ? 'India market selected.' : 'UAE market selected. Checkout is not available yet.');
   });
   if ($('#market-selector')) $('#market-selector').value = state.market;
+  updateCheckoutMarketForm();
   const initialDeliveryNote = $('#market-delivery-note');
   if (initialDeliveryNote) initialDeliveryNote.textContent = state.market === 'IN' ? 'Delivery to PIN 500052' : 'UAE delivery setup pending';
   const initialRange = $('#price-range'), initialRangeValue = $('#price-range-value');

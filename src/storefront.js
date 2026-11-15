@@ -8,6 +8,8 @@ import { randomBytes } from "node:crypto";
 import { payuConfigured, publicBaseUrl, payuPaymentUrl, payuRequestHash, payuResponseHash, safeHashEqual, verifyPayuPayment } from "./payu.js";
 import { paytabsConfigured, createPaytabsPayment, paytabsSignatureValid, verifyPaytabsPayment } from "./paytabs.js";
 import { allocateOrderWarehouseStock } from "./warehouse-stock.js";
+import { calculateUaeTotals } from "./uae-market-policy.js";
+import { binancePayConfigured, createBinancePayOrder, getBinancePayCertificate, queryBinancePayOrder, verifyBinanceWebhookSignature } from "./binance-pay.js";
 
 export const storefrontRouter = express.Router();
 
@@ -27,6 +29,7 @@ const checkoutSchema = z.object({
   payment_method: z.literal("cod").optional().default("cod"),
   items: z.array(z.object({ sku: z.string().trim().min(2).max(80), quantity: z.number().int().min(1).max(10) })).min(1).max(20)
 }).strict();
+const binanceCheckoutSchema = checkoutSchema.extend({ payment_method: z.literal("binance").default("binance") });
 
 storefrontRouter.get("/campaigns/active", async (_req, res, next) => {
   try {
@@ -69,14 +72,14 @@ storefrontRouter.get("/market-config", async (_req, res, next) => {
     const indiaPayuConfigured = false; // India provider is Razorpay; do not activate PayU.
     const indiaCheckoutEnabled = indiaPricingVerified && indiaFeeConfigured && row.india_tax_profile_configured && indiaPayuConfigured;
     const uaeFeeConfigured = feeConfigured(process.env.UAE_DELIVERY_FEE_FILS);
-    const uaePaytabsConfigured = false; // Merchant account is not confirmed; keep UAE checkout disabled.
+    const uaeBinanceConfigured = binancePayConfigured();
     const uaePricingVerified = process.env.UAE_PRICING_VERIFIED === "true" && row.uae_pricing_configured;
     const uaeFeeVerified = process.env.UAE_DELIVERY_FEE_VERIFIED === "true" && uaeFeeConfigured;
-    const uaeCheckoutEnabled = uaePricingVerified && uaeFeeVerified && row.uae_tax_profile_configured && uaePaytabsConfigured;
+    const uaeCheckoutEnabled = uaePricingVerified && uaeFeeVerified && row.uae_tax_profile_configured && uaeBinanceConfigured;
     res.set("Cache-Control", "no-store");
     return res.json({ data: [
       { country: "IN", currency: "INR", pricingConfigured: indiaPricingVerified, deliveryFeeConfigured: indiaFeeConfigured, tax: "GST", taxProfileConfigured: row.india_tax_profile_configured, paymentProvider: "Razorpay", paymentConfigured: false, checkoutEnabled: false },
-      { country: "AE", currency: "AED", pricingConfigured: uaePricingVerified, deliveryFeeConfigured: uaeFeeVerified, tax: "VAT", taxProfileConfigured: row.uae_tax_profile_configured, paymentProvider: "Not configured", paymentConfigured: false, checkoutEnabled: uaeCheckoutEnabled }
+      { country: "AE", currency: "AED", pricingConfigured: uaePricingVerified, deliveryFeeConfigured: uaeFeeVerified, tax: "VAT", taxProfileConfigured: row.uae_tax_profile_configured, paymentProvider: "Binance Pay", paymentConfigured: uaeBinanceConfigured, checkoutEnabled: uaeCheckoutEnabled }
     ] });
   } catch (err) { next(err); }
 });
@@ -349,6 +352,188 @@ storefrontRouter.post("/payments/payu/callback", express.urlencoded({extended:fa
   }catch(err){next(err);}
 });
 
+
+
+
+// UAE Binance Pay hosted checkout. UAE pricing, delivery fee and active VAT
+// profile must be verified before any payable order can be created.
+storefrontRouter.post("/orders/binance", async (req, res, next) => {
+  const parsed = binanceCheckoutSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Please check your checkout details", details: parsed.error.flatten() });
+  const suppliedKey = req.get("idempotency-key");
+  if (!suppliedKey || suppliedKey.length < 16 || suppliedKey.length > 120 || !/^[a-zA-Z0-9._:-]+$/.test(suppliedKey)) return res.status(400).json({ error: "A valid Idempotency-Key is required" });
+  const d = parsed.data;
+  if (d.shipping_country !== "AE") return res.status(400).json({ error: "Binance Pay checkout is currently for UAE orders only." });
+  if (process.env.UAE_PRICING_VERIFIED !== "true") return res.status(503).json({ error: "UAE product pricing has not been owner-verified." });
+  if (process.env.UAE_DELIVERY_FEE_VERIFIED !== "true") return res.status(503).json({ error: "UAE delivery fee has not been owner-verified." });
+  if (!binancePayConfigured()) return res.status(503).json({ error: "Binance Pay is not enabled for this verified merchant environment yet." });
+  const deliveryFeeCents = Number(process.env.UAE_DELIVERY_FEE_FILS);
+  if (!Number.isSafeInteger(deliveryFeeCents) || deliveryFeeCents < 0) return res.status(503).json({ error: "UAE delivery fee is not configured." });
+  const baseUrl = publicBaseUrl();
+  const idempotencyKey = "store:" + suppliedKey;
+  const fingerprint = storefrontRequestFingerprint({ ...d, shipping_country: "AE" });
+  const quantities = aggregateStorefrontItems(d.items);
+  if ([...quantities.values()].some(q => q > 10)) return res.status(400).json({ error: "Maximum quantity per size is 10" });
+  let client, order;
+  try {
+    client = await pool.connect();
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1), hashtext('bf-shoes-order-idempotency'))", [idempotencyKey]);
+    const existing = await client.query("SELECT * FROM orders WHERE idempotency_key=$1 FOR UPDATE", [idempotencyKey]);
+    if (existing.rowCount) {
+      const prior = existing.rows[0];
+      await client.query("COMMIT");
+      if (prior.request_fingerprint !== fingerprint) return res.status(409).json({ error: "This checkout key was already used for a different order." });
+      const attempt = await pool.query("SELECT checkout_params,status FROM payment_attempts WHERE order_id=$1 AND provider='binance' ORDER BY created_at DESC LIMIT 1", [prior.id]);
+      if (prior.payment_status === "paid") return res.status(409).json({ error: "This order has already been paid.", order_number: prior.order_number });
+      if (attempt.rows[0]?.status === "pending" && attempt.rows[0]?.checkout_params?.checkout_url) {
+        return res.status(200).json({ data: { order_number: prior.order_number, checkout: { redirect_url: attempt.rows[0].checkout_params.checkout_url } }, idempotent_replay: true });
+      }
+      return res.status(409).json({ error: "The previous payment attempt is no longer available. Start a fresh checkout." });
+    }
+    const tax = await client.query("SELECT id,currency,tax_rate_bps FROM tax_profiles WHERE active=true AND jurisdiction='AE_VAT' ORDER BY created_at DESC LIMIT 2");
+    if (tax.rowCount !== 1 || tax.rows[0].currency !== "AED" || !Number.isSafeInteger(Number(tax.rows[0].tax_rate_bps)) || Number(tax.rows[0].tax_rate_bps) <= 0 || Number(tax.rows[0].tax_rate_bps) > 10000) {
+      await client.query("ROLLBACK");
+      return res.status(503).json({ error: "A single valid active UAE VAT profile in AED is required before checkout." });
+    }
+    const skus = [...quantities.keys()].sort();
+    const found = await client.query(
+      `SELECT v.id AS variant_id,v.sku,v.size_label,v.color_name,v.stock_qty,
+       COALESCE((SELECT sum(r.quantity) FROM order_reservations r WHERE r.variant_id=v.id AND r.expires_at>now()),0)::int AS reserved_qty,
+       v.active AS variant_active,p.name AS product_name,p.price_cents,p.unit_cost_cents,p.currency,p.active AS product_active
+       FROM variants v JOIN products p ON p.id=v.product_id WHERE v.sku=ANY($1::text[]) ORDER BY v.sku FOR UPDATE OF v`, [skus]);
+    if (found.rowCount !== skus.length || found.rows.some(v => !v.variant_active || !v.product_active || v.currency !== "AED")) {
+      await client.query("ROLLBACK"); return res.status(409).json({ error: "Selected UAE products or sizes are unavailable or not priced in AED." });
+    }
+    let subtotal = 0;
+    for (const [sku, qty] of quantities) {
+      const v = found.rows.find(row => row.sku === sku);
+      if (Number(v.stock_qty) - Number(v.reserved_qty) < qty) { await client.query("ROLLBACK"); return res.status(409).json({ error: "Insufficient available stock for " + v.product_name + " size " + v.size_label }); }
+      subtotal += Number(v.price_cents) * qty;
+      if (!Number.isSafeInteger(subtotal) || subtotal > 2000000000) { await client.query("ROLLBACK"); return res.status(400).json({ error: "Order total exceeds limit" }); }
+    }
+    let totals;
+    try { totals = calculateUaeTotals(subtotal, deliveryFeeCents, Number(tax.rows[0].tax_rate_bps)); }
+    catch { await client.query("ROLLBACK"); return res.status(400).json({ error: "Order total is invalid." }); }
+    const vatCents = totals.vat_fils;
+    const total = totals.total_fils;
+    const inserted = await client.query(
+      `INSERT INTO orders(customer_name,customer_email,customer_phone,shipping_address,payment_method,payment_status,status,currency,subtotal_cents,delivery_fee_cents,vat_cents,tax_rate_bps,total_cents,shipping_country,idempotency_key,request_fingerprint)
+       VALUES($1,$2,$3,$4,'binance','pending','pending_payment','AED',$5,$6,$7,$8,$9,'AE',$10,$11) RETURNING id,order_number`,
+      [d.customer_name,d.customer_email.toLowerCase(),d.customer_phone,d.shipping_address + ", UAE",subtotal,deliveryFeeCents,vatCents,Number(tax.rows[0].tax_rate_bps),total,idempotencyKey,fingerprint]);
+    order = inserted.rows[0];
+    for (const [sku, qty] of quantities) {
+      const v = found.rows.find(row => row.sku === sku);
+      await client.query("INSERT INTO order_items(order_id,variant_id,sku,product_name,size_label,color_name,unit_price_cents,quantity,line_total_cents,unit_cost_cents) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
+        [order.id,v.variant_id,sku,v.product_name,v.size_label,v.color_name,v.price_cents,qty,Number(v.price_cents)*qty,v.unit_cost_cents??null]);
+      await client.query("INSERT INTO order_reservations(order_id,variant_id,quantity,expires_at) VALUES($1,$2,$3,now()+interval '20 minutes')", [order.id,v.variant_id,qty]);
+    }
+    await client.query("COMMIT");
+  } catch (err) { if (client) await client.query("ROLLBACK").catch(()=>{}); return next(err); }
+  finally { client?.release(); }
+
+  try {
+    const merchantTradeNo = "BF" + String(order.order_number);
+    const total = await pool.query("SELECT total_cents FROM orders WHERE id=$1", [order.id]);
+    const amount = (Number(total.rows[0].total_cents) / 100).toFixed(2);
+    const payment = await createBinancePayOrder({
+      merchantTradeNo, amount, description: "BF SHOES order #" + order.order_number,
+      returnUrl: baseUrl + "/payment-result.html?provider=binance&order=" + encodeURIComponent(order.order_number)
+    });
+    await pool.query(
+      "INSERT INTO payment_attempts(order_id,provider,txnid,provider_payment_id,amount_cents,currency,status,checkout_params) VALUES($1,'binance',$2,$3,$4,'AED','pending',$5::jsonb)",
+      [order.id,merchantTradeNo,payment.prepayId,Number(total.rows[0].total_cents),JSON.stringify({ checkout_url: payment.checkoutUrl, prepay_id: payment.prepayId, expire_time: payment.expireTime })]);
+    await pool.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES('system',NULL,'storefront.binance_payment.initiated','order',$1)", [String(order.id)]);
+    return res.status(201).json({ data: { order_number: order.order_number, checkout: { redirect_url: payment.checkoutUrl } } });
+  } catch (err) {
+    await pool.query("UPDATE payment_attempts SET status='failed' WHERE order_id=$1 AND provider='binance' AND status='pending'", [order.id]).catch(()=>{});
+    await pool.query("UPDATE orders SET payment_status='failed',status='cancelled',updated_at=now() WHERE id=$1 AND payment_status='pending'", [order.id]).catch(()=>{});
+    await pool.query("DELETE FROM order_reservations WHERE order_id=$1", [order.id]).catch(()=>{});
+    return res.status(502).json({ error: "Binance Pay could not create the payment session. No payment was taken." });
+  }
+});
+
+storefrontRouter.post("/payments/binance/webhook", async (req, res, next) => {
+  try {
+    const rawBody = req.rawBody;
+    const timestamp = req.get("BinancePay-Timestamp") || "";
+    const nonce = req.get("BinancePay-Nonce") || "";
+    const signature = req.get("BinancePay-Signature") || "";
+    const serial = req.get("BinancePay-Certificate-SN") || "";
+    if (!rawBody || !timestamp || !nonce || !signature || !serial) return res.status(400).json({ returnCode: "FAIL", returnMessage: "Missing signature headers" });
+    const publicKey = await getBinancePayCertificate(serial);
+    if (!verifyBinanceWebhookSignature({ timestamp, nonce, rawBody, signature, publicKey })) return res.status(401).json({ returnCode: "FAIL", returnMessage: "Invalid signature" });
+    const payload = req.body || {};
+    if (payload.bizType !== "PAY" || !["PAY_SUCCESS","PAY_CLOSED"].includes(payload.bizStatus)) {
+      return res.status(200).json({ returnCode: "SUCCESS", returnMessage: null });
+    }
+    let data;
+    try { data = typeof payload.data === "string" ? JSON.parse(payload.data) : payload.data; } catch { return res.status(400).json({ returnCode: "FAIL", returnMessage: "Invalid event data" }); }
+    const tradeNo = String(data?.merchantTradeNo || "");
+    if (!/^BF\d{1,18}$/.test(tradeNo)) return res.status(400).json({ returnCode: "FAIL", returnMessage: "Invalid merchant trade number" });
+    const found = await pool.query(
+      `SELECT pa.*,o.id AS order_id,o.order_number,o.total_cents,o.currency,o.customer_email
+       FROM payment_attempts pa JOIN orders o ON o.id=pa.order_id
+       WHERE pa.provider='binance' AND pa.txnid=$1`, [tradeNo]);
+    if (!found.rowCount) return res.status(404).json({ returnCode: "FAIL", returnMessage: "Payment attempt not found" });
+    const attempt = found.rows[0];
+    if (attempt.status === "paid" || attempt.status === "paid_stock_review") return res.status(200).json({ returnCode: "SUCCESS", returnMessage: null });
+    if (payload.bizStatus === "PAY_CLOSED") {
+      const c = await pool.connect();
+      try {
+        await c.query("BEGIN");
+        await c.query("UPDATE payment_attempts SET status='failed',callback_payload=$1::jsonb,verified_at=now() WHERE id=$2 AND status='pending'", [JSON.stringify(payload),attempt.id]);
+        await c.query("UPDATE orders SET payment_status='failed',status='cancelled',updated_at=now() WHERE id=$1 AND payment_status='pending'", [attempt.order_id]);
+        await c.query("DELETE FROM order_reservations WHERE order_id=$1", [attempt.order_id]);
+        await c.query("COMMIT");
+      } catch (err) { await c.query("ROLLBACK").catch(()=>{}); throw err; } finally { c.release(); }
+      return res.status(200).json({ returnCode: "SUCCESS", returnMessage: null });
+    }
+    const verified = await queryBinancePayOrder(tradeNo);
+    const paidAmount = Number(verified.totalFee);
+    const expectedAmount = Number(attempt.amount_cents) / 100;
+    if (verified.status !== "PAID" || verified.merchantTradeNo !== tradeNo || verified.currency !== "AED" ||
+        !Number.isFinite(paidAmount) || Math.abs(paidAmount - expectedAmount) > 0.000001 ||
+        !verified.transactionId || data.currency !== "AED" || Math.abs(Number(data.totalFee) - expectedAmount) > 0.000001) {
+      await pool.query("UPDATE payment_attempts SET status='review',callback_payload=$1::jsonb WHERE id=$2 AND status='pending'", [JSON.stringify(payload),attempt.id]);
+      await pool.query("UPDATE orders SET payment_status='review',updated_at=now() WHERE id=$1 AND payment_status='pending'", [attempt.order_id]);
+      return res.status(200).json({ returnCode: "SUCCESS", returnMessage: null });
+    }
+    const c = await pool.connect();
+    let review = false;
+    try {
+      await c.query("BEGIN");
+      const locked = await c.query("SELECT * FROM payment_attempts WHERE id=$1 FOR UPDATE", [attempt.id]);
+      const order = await c.query("SELECT * FROM orders WHERE id=$1 FOR UPDATE", [attempt.order_id]);
+      if (locked.rows[0]?.status === "paid" || order.rows[0]?.payment_status === "paid") {
+        await c.query("COMMIT");
+        return res.status(200).json({ returnCode: "SUCCESS", returnMessage: null });
+      }
+      const reservations = await c.query("SELECT variant_id,quantity FROM order_reservations WHERE order_id=$1 ORDER BY variant_id FOR UPDATE", [attempt.order_id]);
+      const items = await c.query("SELECT count(DISTINCT variant_id)::int AS count FROM order_items WHERE order_id=$1", [attempt.order_id]);
+      if (!reservations.rowCount || reservations.rowCount !== Number(items.rows[0].count)) review = true;
+      for (const r of reservations.rows) {
+        if (review) break;
+        const v = await c.query("SELECT stock_qty,COALESCE((SELECT sum(quantity) FROM order_reservations WHERE variant_id=$1 AND order_id<>$2 AND expires_at>now()),0)::int AS reserved FROM variants WHERE id=$1 FOR UPDATE", [r.variant_id,attempt.order_id]);
+        if (!v.rowCount || Number(v.rows[0].stock_qty) - Number(r.quantity) < Number(v.rows[0].reserved)) review = true;
+      }
+      if (!review) for (const r of reservations.rows) {
+        await c.query("UPDATE variants SET stock_qty=stock_qty-$1,updated_at=now() WHERE id=$2", [r.quantity,r.variant_id]);
+        await c.query("INSERT INTO inventory_movements(variant_id,delta,reason,reference_order_id) VALUES($1,$2,'storefront_binance_paid',$3)", [r.variant_id,-Number(r.quantity),attempt.order_id]);
+        await allocateOrderWarehouseStock(c, { orderId: attempt.order_id, variantId: r.variant_id, quantity: Number(r.quantity), reason: "storefront_binance_paid" });
+      }
+      await c.query("DELETE FROM order_reservations WHERE order_id=$1", [attempt.order_id]);
+      await c.query("UPDATE payment_attempts SET status=$1,provider_payment_id=$2,callback_payload=$3::jsonb,verified_at=now() WHERE id=$4", [review ? "paid_stock_review" : "paid",verified.transactionId,JSON.stringify(payload),attempt.id]);
+      await c.query("UPDATE orders SET payment_status=$1,status=$2,updated_at=now() WHERE id=$3", [review ? "review" : "paid",review ? "confirmed" : "processing",attempt.order_id]);
+      await c.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES('system',NULL,$1,'order',$2)", [review ? "payment.paid.stock_review" : "payment.paid",String(attempt.order_id)]);
+      await c.query("COMMIT");
+    } catch (err) { await c.query("ROLLBACK").catch(()=>{}); throw err; } finally { c.release(); }
+    if (!review) {
+      try { await deliverEmail({ kind: "order_confirmation", recipient: attempt.customer_email, subject: "BF SHOES payment received for order #" + attempt.order_number, textBody: "Your BF SHOES Binance Pay payment has been verified. Order #" + attempt.order_number + " is now being processed." }); } catch {}
+    }
+    return res.status(200).json({ returnCode: "SUCCESS", returnMessage: null });
+  } catch (err) { next(err); }
+});
 
 
 // UAE PayTabs hosted checkout. Checkout remains gated by verified owner settings,
