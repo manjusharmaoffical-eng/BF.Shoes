@@ -63,7 +63,7 @@ storefrontRouter.get("/market-config", async (_req, res, next) => {
       `SELECT
          EXISTS (SELECT 1 FROM products WHERE active = true AND currency = 'INR') AS india_pricing_configured,
          EXISTS (SELECT 1 FROM products WHERE active = true AND currency = 'AED') AS uae_pricing_configured,
-         EXISTS (SELECT 1 FROM tax_profiles WHERE active = true AND jurisdiction = 'IN_GST') AS india_tax_profile_configured,
+         (SELECT count(*) = 1 AND COALESCE(bool_and(currency = 'INR' AND trim(registration_number) <> '' AND trim(seller_state) <> '' AND tax_rate_bps BETWEEN 1 AND 10000), false) FROM tax_profiles WHERE active = true AND jurisdiction = 'IN_GST') AS india_tax_profile_configured,
          EXISTS (SELECT 1 FROM tax_profiles WHERE active = true AND jurisdiction = 'AE_VAT') AS uae_tax_profile_configured`
     );
     const row = result.rows[0];
@@ -214,7 +214,7 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
       return res.status(409).json({ error: "A previous payment attempt is no longer pending. Start a fresh checkout session." });
     }
     await client.query("DELETE FROM order_reservations WHERE expires_at<=now()");
-    const tax = await client.query("SELECT EXISTS (SELECT 1 FROM tax_profiles WHERE active=true AND jurisdiction='IN_GST') AS configured");
+    const tax = await client.query("SELECT count(*) = 1 AND COALESCE(bool_and(currency='INR' AND trim(registration_number)<>'' AND trim(seller_state)<>'' AND tax_rate_bps BETWEEN 1 AND 10000),false) AS configured FROM tax_profiles WHERE active=true AND jurisdiction='IN_GST'");
     if (!tax.rows[0].configured) {
       await client.query("ROLLBACK");
       return res.status(503).json({ error: "An active India GST tax profile is required before checkout." });
@@ -278,10 +278,11 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
   finally{client?.release();}
 });
 
-storefrontRouter.post("/payments/payu/callback", express.urlencoded({extended:false,limit:"30kb"}), async(req,res,next)=>{
+async function handlePayuCallback(req,res,next,{webhook=false}={}){
   const fields=req.body||{};
   const txnid=String(fields.txnid||"");
   const baseUrl=publicBaseUrl();
+  const respond=(status,orderNumber)=>webhook?res.status(200).json({received:true,status,order_number:orderNumber}):res.redirect(303,baseUrl+"/payment-result.html?status="+status+"&order="+encodeURIComponent(orderNumber));
   try{
     if(!baseUrl||!txnid||String(fields.key||"")!==String(process.env.PAYU_MERCHANT_KEY||""))return res.status(400).send("Invalid payment callback.");
     const found=await pool.query(
@@ -300,7 +301,7 @@ storefrontRouter.post("/payments/payu/callback", express.urlencoded({extended:fa
         await pool.query("UPDATE payment_attempts SET status='review',provider_payment_id=$1,callback_payload=$2::jsonb WHERE id=$3 AND status='pending'",
           [verified.providerPaymentId,JSON.stringify(fields),attempt.id]);
         await pool.query("UPDATE orders SET payment_status='review',updated_at=now() WHERE id=$1 AND payment_status='pending'",[attempt.order_id]);
-        return res.redirect(303,baseUrl+"/payment-result.html?status=review&order="+encodeURIComponent(attempt.order_number));
+        return respond("review",attempt.order_number);
       }
       let client;let stockReview=false;
       try{
@@ -310,7 +311,7 @@ storefrontRouter.post("/payments/payu/callback", express.urlencoded({extended:fa
         if(["paid","paid_stock_review"].includes(locked.rows[0]?.status)||["paid","review"].includes(order.rows[0]?.payment_status)){
           await client.query("COMMIT");
           const resultStatus = locked.rows[0]?.status === "paid_stock_review" || order.rows[0]?.payment_status === "review" ? "review" : "success";
-          return res.redirect(303,baseUrl+"/payment-result.html?status="+resultStatus+"&order="+encodeURIComponent(attempt.order_number));
+          return respond(resultStatus,attempt.order_number);
         }
         const reservations=await client.query("SELECT variant_id,quantity FROM order_reservations WHERE order_id=$1 ORDER BY variant_id FOR UPDATE",[attempt.order_id]);
         const itemCount=await client.query("SELECT count(DISTINCT variant_id)::int AS count FROM order_items WHERE order_id=$1",[attempt.order_id]);
@@ -343,7 +344,7 @@ storefrontRouter.post("/payments/payu/callback", express.urlencoded({extended:fa
       }catch(err){if(client)await client.query("ROLLBACK").catch(()=>{});throw err;}
       finally{client?.release();}
       if(!stockReview){try{await deliverEmail({kind:"order_confirmation",recipient:attempt.customer_email,subject:"BF SHOES payment received for order #"+attempt.order_number,textBody:"Your BF SHOES payment has been verified. Order #"+attempt.order_number+" is now being processed."});}catch{}}
-      return res.redirect(303,baseUrl+"/payment-result.html?status="+(stockReview?"review":"success")+"&order="+encodeURIComponent(attempt.order_number));
+      return respond(stockReview?"review":"success",attempt.order_number);
     }
     if(fields.status==="failure"){
       const client=await pool.connect();
@@ -355,11 +356,15 @@ storefrontRouter.post("/payments/payu/callback", express.urlencoded({extended:fa
         await client.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES('system',NULL,'payment.failed','order',$1)",[String(attempt.order_id)]);
         await client.query("COMMIT");
       }catch(err){await client.query("ROLLBACK").catch(()=>{});throw err;}finally{client.release();}
-      return res.redirect(303,baseUrl+"/payment-result.html?status=failed&order="+encodeURIComponent(attempt.order_number));
+      return respond("failed",attempt.order_number);
     }
-    return res.redirect(303,baseUrl+"/payment-result.html?status=pending&order="+encodeURIComponent(attempt.order_number));
+    return respond("pending",attempt.order_number);
   }catch(err){next(err);}
-});
+}
+
+const payuCallbackParser = express.urlencoded({extended:false,limit:"30kb"});
+storefrontRouter.post("/payments/payu/callback", payuCallbackParser, (req,res,next)=>handlePayuCallback(req,res,next));
+storefrontRouter.post("/payments/payu/webhook", payuCallbackParser, (req,res,next)=>handlePayuCallback(req,res,next,{webhook:true}));
 
 
 
