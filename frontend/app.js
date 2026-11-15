@@ -457,7 +457,7 @@
       shipping_address: String(formData.get('shipping_address') || '').trim(),
       shipping_country: String(formData.get('shipping_country') || state.market),
       shipping_pincode: state.market === 'IN' ? String(formData.get('shipping_pincode') || '') : '',
-      payment_method: state.market === 'AE' ? 'binance' : 'cod',
+      payment_method: state.market === 'AE' ? 'binance' : 'razorpay',
       items: state.cart.map(item => ({ sku: item.variant.sku, quantity: item.quantity }))
     };
 
@@ -466,6 +466,7 @@
       state.pendingCheckout = { body, key: `web-${randomKey()}` };
     }
 
+    let razorpayModalActive = false;
     try {
       if (!state.checkoutReady) throw new Error(state.market === 'IN' ? 'India checkout is disabled until Razorpay credentials, verified prices, delivery fee and GST are configured.' : 'UAE checkout is disabled until Binance Pay merchant enablement, verified AED prices, delivery fee and VAT are configured.');
       if (state.market === 'AE') {
@@ -479,15 +480,79 @@
         window.location.assign(checkoutUrl);
         return;
       }
+      if (state.market === 'IN') {
+        const result = await request(API_BASE + '/orders/razorpay', {
+          method: 'POST',
+          headers: { 'Idempotency-Key': state.pendingCheckout.key },
+          body: JSON.stringify(payload)
+        });
+        const checkout = result?.data?.checkout;
+        if (!checkout?.key || !checkout?.razorpay_order_id || !Number.isSafeInteger(Number(checkout.amount))) {
+          throw new Error('Razorpay did not return a valid checkout session.');
+        }
+        if (!window.Razorpay) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+            script.async = true;
+            script.onload = resolve;
+            script.onerror = () => reject(new Error('Razorpay checkout could not be loaded. Please try again.'));
+            document.head.appendChild(script);
+          });
+        }
+        const releaseCheckout = () => {
+          razorpayModalActive = false;
+          state.busy = false;
+          if (submit) {
+            submit.disabled = !state.checkoutReady;
+            submit.innerHTML = 'Pay securely with Razorpay <span>↗</span>';
+          }
+        };
+        const modal = new window.Razorpay({
+          key: checkout.key,
+          order_id: checkout.razorpay_order_id,
+          amount: checkout.amount,
+          currency: checkout.currency,
+          name: checkout.name,
+          description: checkout.description,
+          prefill: checkout.prefill,
+          theme: checkout.theme,
+          handler: async response => {
+            try {
+              const verified = await request(API_BASE + '/payments/razorpay/verify', {
+                method: 'POST',
+                body: JSON.stringify(response)
+              });
+              const orderNumber = verified?.data?.order_number || result?.data?.order_number;
+              window.location.assign('/payment-result.html?status=' +
+                encodeURIComponent(verified?.data?.status || 'success') +
+                '&order=' + encodeURIComponent(orderNumber || ''));
+            } catch (error) {
+              showCheckoutError(error.message || 'Payment verification is pending. Please contact BF SHOES support before retrying.');
+              releaseCheckout();
+            }
+          },
+          modal: { ondismiss: releaseCheckout }
+        });
+        modal.on('payment.failed', response => {
+          showCheckoutError(response?.error?.description || 'Payment was not completed. No successful payment was confirmed.');
+          releaseCheckout();
+        });
+        razorpayModalActive = true;
+        modal.open();
+        return;
+      }
       throw new Error('India online payments are not yet connected.');
 
     } catch (error) {
       showCheckoutError(error.message || 'Failed to place order. Please try again.');
     } finally {
-      state.busy = false;
-      if(submit) {
-        submit.disabled = !state.checkoutReady;
-        submit.innerHTML = state.market === 'AE' ? 'Continue to Binance Pay <span>↗</span>' : 'Place COD order <span>↗</span>';
+      if (!razorpayModalActive) {
+        state.busy = false;
+        if(submit) {
+          submit.disabled = !state.checkoutReady;
+          submit.innerHTML = state.market === 'AE' ? 'Continue to Binance Pay <span>↗</span>' : 'Pay securely with Razorpay <span>↗</span>';
+        }
       }
     }
   });
