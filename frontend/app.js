@@ -262,7 +262,7 @@
     }
   }
 
-  async async function openProductDetails(productId) {
+  async function openProductDetails(productId) {
     const product = state.products.find(item => String(item.id) === String(productId));
     const modal = $('#product-detail-modal');
     const content = $('#product-detail-content');
