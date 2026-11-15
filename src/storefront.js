@@ -98,7 +98,7 @@ storefrontRouter.get("/products", async (req, res, next) => {
         COALESCE(to_jsonb(p)->>'audience','unisex') AS audience,
         COALESCE(to_jsonb(p)->>'product_type','general') AS product_type,
         COALESCE(to_jsonb(p)->'attributes','{}'::jsonb) AS attributes,
-        p.price_cents, p.currency, p.image_url, p.created_at,
+        p.price_cents, p.currency, p.image_url, COALESCE(to_jsonb(p)->>'model_url','') AS model_url, p.created_at,
         NULLIF(COALESCE(to_jsonb(p)->>'mrp_cents', to_jsonb(p)->>'compare_at_price_cents', to_jsonb(p)->>'original_price_cents'), '')::integer AS mrp_cents,
         (p.currency <> $1) AS price_pending_conversion,
         COALESCE(json_agg(json_build_object('id', v.id, 'sku', v.sku, 'size_label', v.size_label,
