@@ -209,3 +209,19 @@ test("finance expenses and funding support INR and AED without combining currenc
   assert.match(finance, /f\.currency=\$1/);
   assert.match(finance, /currency,sales:s/);
 });
+
+
+test("admin UI follows the authenticated role and avoids exposing forbidden write actions", async () => {
+  const admin = await readFile(new URL("../frontend/admin.js", import.meta.url), "utf8");
+  const policies = await readFile(new URL("../src/policies.js", import.meta.url), "utf8");
+  const business = await readFile(new URL("../src/business.js", import.meta.url), "utf8");
+  const ai = await readFile(new URL("../src/ai-studio.js", import.meta.url), "utf8");
+  assert.match(admin, /req\('\/auth\/me'\)/);
+  assert.match(admin, /actor\.role==='staff'/);
+  assert.match(admin, /const readOnlyForms=/);
+  assert.match(admin, /const ownerOnly=new Set\(\['team','activity','communications','finance','invoices','ai-studio','ultron'\]\)/);
+  assert.match(policies, /MANAGER_SCOPES[\s\S]*campaigns:write/);
+  assert.match(policies, /STAFF_SCOPES[\s\S]*campaigns:read/);
+  assert.match(business, /businessRouter\.post\("\/campaigns", requireScope\("campaigns:write"\)/);
+  assert.match(ai, /function owner\(req, res, next\)/);
+});
