@@ -328,7 +328,8 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
     let checkoutParams = fields, qrToken = null, qrExpiresAt = null, qrDataUrl = null;
     if (d.payment_method === "payu_qr") {
       qrToken = randomBytes(24).toString("hex");
-      qrExpiresAt = new Date(Date.now() + 20 * 60 * 1000).toISOString();
+      const reservationExpiry = await client.query("SELECT min(expires_at) AS expires_at FROM order_reservations WHERE order_id=$1", [order.id]);
+      qrExpiresAt = new Date(reservationExpiry.rows[0]?.expires_at || Date.now()).toISOString();
       checkoutParams = { ...fields, qr_token: qrToken, qr_expires_at: qrExpiresAt };
       const qrUrl = new URL("/pay.html", baseUrl);
       qrUrl.hash = "token=" + encodeURIComponent(qrToken);
@@ -384,7 +385,7 @@ storefrontRouter.get("/payments/payu/qr", async (req, res, next) => {
     if (attempt.status !== "pending" || attempt.payment_status !== "pending") return res.status(410).json({ error: "This payment link is no longer active." });
     if (!attempt.checkout_params.qr_expires_at || Date.parse(attempt.checkout_params.qr_expires_at) <= Date.now()) { await expirePayuQrAttempt(token); return res.status(410).json({ error: "This payment link has expired." }); }
     const reservation = await pool.query("SELECT count(*)::int AS total,count(*) FILTER (WHERE expires_at>now())::int AS active FROM order_reservations WHERE order_id=$1", [attempt.order_id]);
-    if (!reservation.rows[0]?.total || reservation.rows[0].total !== reservation.rows[0].active) return res.status(410).json({ error: "The stock reservation for this payment link has expired." });
+    if (!reservation.rows[0]?.total || reservation.rows[0].total !== reservation.rows[0].active) { await expirePayuQrAttempt(token); return res.status(410).json({ error: "The stock reservation for this payment link has expired." }); }
     const { qr_token, qr_expires_at, ...fields } = attempt.checkout_params;
     res.set("Cache-Control", "no-store");
     return res.json({ data: { action: payuPaymentUrl(), method: "POST", fields } });
@@ -396,7 +397,7 @@ storefrontRouter.get("/payments/payu/qr-status", async (req, res, next) => {
   if (!/^[a-f0-9]{48}$/i.test(token)) return res.status(404).json({ error: "Payment status not found." });
   try {
     const found = await pool.query(
-      `SELECT pa.status,pa.checkout_params,pa.callback_payload,o.payment_status,o.order_number
+      `SELECT pa.status,pa.checkout_params,pa.callback_payload,o.id AS order_id,o.payment_status,o.order_number
        FROM payment_attempts pa JOIN orders o ON o.id=pa.order_id
        WHERE pa.provider='payu' AND pa.checkout_params->>'qr_token'=$1 LIMIT 1`,
       [token]
@@ -406,6 +407,10 @@ storefrontRouter.get("/payments/payu/qr-status", async (req, res, next) => {
     let status = row.status === "paid_stock_review" || row.payment_status === "review" ? "review" : row.status;
     const qrExpired = !row.checkout_params.qr_expires_at || Date.parse(row.checkout_params.qr_expires_at) <= Date.now();
     if (status === "pending" && qrExpired) { await expirePayuQrAttempt(token); status = "expired"; }
+    if (status === "pending") {
+      const reservation = await pool.query("SELECT count(*)::int AS total,count(*) FILTER (WHERE expires_at>now())::int AS active FROM order_reservations WHERE order_id=$1", [row.order_id]);
+      if (!reservation.rows[0]?.total || reservation.rows[0].total !== reservation.rows[0].active) { await expirePayuQrAttempt(token); status = "expired"; }
+    }
     if (status === "failed" && row.callback_payload?.reason === "qr_expired") status = "expired";
     res.set("Cache-Control", "no-store");
     return res.json({ data: { status, order_number: row.order_number } });
