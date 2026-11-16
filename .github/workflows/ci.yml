@@ -2,9 +2,8 @@ name: BF SHOES checks
 
 on:
   pull_request:
-    branches: [main, feature/international-business-tools]
   push:
-    branches: [main, feature/international-business-tools]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
