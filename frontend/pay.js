@@ -1,18 +1,19 @@
 (() => {
   const status = document.getElementById('pay-status');
   const form = document.getElementById('pay-form');
-  const token = new URLSearchParams(window.location.search).get('token') || '';
+  const token = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('token') || '';
   const allowedActions = new Set(['https://test.payu.in/_payment', 'https://secure.payu.in/_payment']);
   const fail = message => { if (status) status.textContent = message; };
   if (!/^[a-f0-9]{48}$/i.test(token)) {
     fail('This payment link is invalid. Return to BF SHOES and create a new checkout QR.');
     throw new Error('Invalid BF SHOES payment QR token');
   }
-  fetch('/api/v1/store/payments/payu/qr/' + encodeURIComponent(token), {
+  window.history.replaceState(null, '', window.location.pathname);
+  fetch('/api/v1/store/payments/payu/qr', {
     method: 'GET',
     credentials: 'same-origin',
     cache: 'no-store',
-    headers: { Accept: 'application/json' }
+    headers: { Accept: 'application/json', Authorization: 'Bearer ' + token }
   }).then(async response => {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || 'This payment link has expired.');
