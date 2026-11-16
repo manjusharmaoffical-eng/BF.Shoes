@@ -489,10 +489,11 @@
     const panel = $('#payu-qr-panel');
     if (!panel) return;
     panel.classList.toggle('hidden', !show);
-    for (const selector of ['.form-grid', '.payment-options', '.checkout-summary', '#checkout-error', '#place-order', '.privacy-note']) {
+    for (const selector of ['.form-grid', '.payment-options', '.checkout-summary', '#place-order', '.privacy-note']) {
       const element = $('#checkout-form ' + selector);
       if (element) element.classList.toggle('hidden', show);
     }
+    if (show) $('#checkout-error')?.classList.add('hidden');
   }
   function startPayuQrPolling(token, expiresAt) {
     stopPayuQrPolling();
