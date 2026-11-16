@@ -28,7 +28,7 @@ const checkoutSchema = z.object({
   shipping_address: z.string().trim().min(10).max(1000),
   shipping_country: z.enum(["IN", "AE"]).default("IN"),
   shipping_pincode: z.string().trim().optional().default(""),
-  payment_method: z.enum(["cod", "payu", "paytabs"]).optional().default("cod"),
+  payment_method: z.enum(["cod", "payu", "payu_qr", "paytabs"]).optional().default("cod"),
   items: z.array(z.object({ sku: z.string().trim().min(2).max(80), quantity: z.number().int().min(1).max(10) })).min(1).max(20)
 }).strict();
 const binanceCheckoutSchema = checkoutSchema.extend({ payment_method: z.literal("binance").default("binance") });
@@ -99,7 +99,7 @@ storefrontRouter.get("/market-config", async (_req, res, next) => {
     const uaeCheckoutEnabled = process.env.UAE_CHECKOUT_VERIFIED === "true" && uaePricingVerified && uaeFeeVerified && row.uae_tax_profile_configured && uaePaytabsConfigured;
     res.set("Cache-Control", "no-store");
     return res.json({ data: [
-      { country: "IN", currency: "INR", pricingConfigured: indiaPricingVerified, deliveryFeeConfigured: indiaFeeConfigured, tax: "GST", taxProfileConfigured: row.india_tax_profile_configured, paymentProvider: "PayU", paymentConfigured: indiaPayuConfigured, checkoutEnabled: indiaCheckoutEnabled },
+      { country: "IN", currency: "INR", pricingConfigured: indiaPricingVerified, deliveryFeeConfigured: indiaFeeConfigured, tax: "GST", taxProfileConfigured: row.india_tax_profile_configured, paymentProvider: "PayU", paymentConfigured: indiaPayuConfigured, paymentQrEnabled: indiaPayuConfigured, checkoutEnabled: indiaCheckoutEnabled },
       { country: "AE", currency: "AED", pricingConfigured: uaePricingVerified, deliveryFeeConfigured: uaeFeeVerified, tax: "VAT", taxProfileConfigured: row.uae_tax_profile_configured, paymentProvider: "PayTabs", paymentConfigured: uaePaytabsConfigured, checkoutEnabled: uaeCheckoutEnabled }
     ] });
   } catch (err) { next(err); }
@@ -218,7 +218,7 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
   if (!suppliedKey || suppliedKey.length < 16 || suppliedKey.length > 120 || !/^[a-zA-Z0-9._:-]+$/.test(suppliedKey)) return res.status(400).json({ error: "A valid Idempotency-Key is required" });
   const d = parsed.data;
   const indiaPaymentConfig = parseIndiaMarketEnv(process.env);
-  if (d.payment_method !== "payu" || indiaPaymentConfig.paymentGateway !== "payu" || !indiaPaymentConfig.paymentMethods.includes("payu")) return res.status(503).json({ error: "India online checkout is configured for PayU only. Select PayU and verify the merchant configuration." });
+  if (!["payu", "payu_qr"].includes(d.payment_method) || indiaPaymentConfig.paymentGateway !== "payu" || !indiaPaymentConfig.paymentMethods.includes("payu")) return res.status(503).json({ error: "India online checkout is configured for PayU only. Select PayU and verify the merchant configuration." });
   if (process.env.INDIA_CHECKOUT_VERIFIED !== "true") return res.status(503).json({ error: "India checkout remains disabled until the owner verifies the PayU, tax, price and delivery setup." });
   if (d.shipping_country !== "IN") return res.status(400).json({ error: "PayU India checkout is only configured for the India market." });
   if (d.shipping_pincode !== "500052") return res.status(400).json({ error: "BF SHOES currently delivers only to PIN code 500052." });
@@ -252,6 +252,15 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
       if (attempt.rows[0]?.status === "pending") {
         const reservation = await pool.query("SELECT count(*)::int AS total,count(*) FILTER (WHERE expires_at>now())::int AS active FROM order_reservations WHERE order_id=$1",[order.id]);
         if (reservation.rows[0].total > 0 && reservation.rows[0].active === reservation.rows[0].total) {
+          if (order.payment_method === "payu_qr" && attempt.rows[0].checkout_params?.qr_token) {
+            const token = attempt.rows[0].checkout_params.qr_token;
+            const expiresAt = attempt.rows[0].checkout_params.qr_expires_at;
+            if (!expiresAt || Date.parse(expiresAt) <= Date.now()) return res.status(409).json({ error: "This payment QR has expired. Start a fresh checkout session." });
+            const qrUrl = new URL("/pay.html", baseUrl);
+            qrUrl.searchParams.set("token", token);
+            const qrDataUrl = await QRCode.toDataURL(qrUrl.toString(), { width: 320, margin: 2, errorCorrectionLevel: "H", color: { dark: "#050608", light: "#ffffff" } });
+            return res.status(200).json({ data: { order_number: order.order_number, checkout: { type: "qr", qr_data_url: qrDataUrl, token, expires_at: expiresAt }, idempotent_replay: true } });
+          }
           return res.status(200).json({ data: { order_number: order.order_number, checkout: { action: payuPaymentUrl(), method: "POST", fields: attempt.rows[0].checkout_params }, idempotent_replay: true } });
         }
         await pool.query("UPDATE payment_attempts SET status='review' WHERE txnid=$1 AND status='pending'",[attempt.rows[0].txnid]);
@@ -291,9 +300,9 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
     const inserted=await client.query(
       `INSERT INTO orders(customer_name,customer_email,customer_phone,shipping_address,payment_method,payment_status,status,
         currency,subtotal_cents,delivery_fee_cents,total_cents,idempotency_key,request_fingerprint)
-       VALUES($1,$2,$3,$4,'payu','pending','pending_payment','INR',$5,$6,$7,$8,$9)
+       VALUES($1,$2,$3,$4,$5,'pending','pending_payment','INR',$6,$7,$8,$9,$10)
        RETURNING id,order_number,status,payment_status,subtotal_cents,delivery_fee_cents,total_cents,currency,created_at`,
-      [d.customer_name,d.customer_email.toLowerCase(),d.customer_phone,d.shipping_address+", India PIN: "+d.shipping_pincode,subtotal,deliveryFeeCents,totalCents,idempotencyKey,requestFingerprint]
+      [d.customer_name,d.customer_email.toLowerCase(),d.customer_phone,d.shipping_address+", India PIN: "+d.shipping_pincode,d.payment_method,subtotal,deliveryFeeCents,totalCents,idempotencyKey,requestFingerprint]
     );
     const order=inserted.rows[0];
     for(const [sku,qty] of quantities){
@@ -316,13 +325,64 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
       udf1:String(order.order_number),udf2:String(order.id),udf3:"",udf4:"",udf5:""
     };
     fields.hash=payuRequestHash(fields,process.env.PAYU_MERCHANT_SALT);
+    let checkoutParams = fields, qrToken = null, qrExpiresAt = null, qrDataUrl = null;
+    if (d.payment_method === "payu_qr") {
+      qrToken = randomBytes(24).toString("hex");
+      qrExpiresAt = new Date(Date.now() + 20 * 60 * 1000).toISOString();
+      checkoutParams = { ...fields, qr_token: qrToken, qr_expires_at: qrExpiresAt };
+      const qrUrl = new URL("/pay.html", baseUrl);
+      qrUrl.searchParams.set("token", qrToken);
+      qrDataUrl = await QRCode.toDataURL(qrUrl.toString(), { width: 320, margin: 2, errorCorrectionLevel: "H", color: { dark: "#050608", light: "#ffffff" } });
+    }
     await client.query("INSERT INTO payment_attempts(order_id,provider,txnid,amount_cents,currency,status,checkout_params) VALUES($1,'payu',$2,$3,'INR','pending',$4::jsonb)",
-      [order.id,txnid,totalCents,JSON.stringify(fields)]);
+      [order.id,txnid,totalCents,JSON.stringify(checkoutParams)]);
     await client.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES('system',NULL,'storefront.payment.initiated','order',$1)",[String(order.id)]);
     await client.query("COMMIT");
-    res.status(201).json({data:{order_number:order.order_number,checkout:{action:payuPaymentUrl(),method:"POST",fields}}});
+    if (qrToken) return res.status(201).json({data:{order_number:order.order_number,checkout:{type:"qr",qr_data_url:qrDataUrl,token:qrToken,expires_at:qrExpiresAt}}});
+    return res.status(201).json({data:{order_number:order.order_number,checkout:{action:payuPaymentUrl(),method:"POST",fields}}});
   }catch(err){if(client)await client.query("ROLLBACK").catch(()=>{});next(err);}
   finally{client?.release();}
+});
+
+storefrontRouter.get("/payments/payu/qr/:token", async (req, res, next) => {
+  const token = String(req.params.token || "");
+  if (!/^[a-f0-9]{48}$/i.test(token)) return res.status(404).json({ error: "Payment link not found." });
+  try {
+    const found = await pool.query(
+      `SELECT pa.checkout_params,pa.status,o.id AS order_id,o.payment_status
+       FROM payment_attempts pa JOIN orders o ON o.id=pa.order_id
+       WHERE pa.provider='payu' AND pa.checkout_params->>'qr_token'=$1 LIMIT 1`,
+      [token]
+    );
+    if (!found.rowCount) return res.status(404).json({ error: "Payment link not found." });
+    const attempt = found.rows[0];
+    if (attempt.status !== "pending" || attempt.payment_status !== "pending") return res.status(410).json({ error: "This payment link is no longer active." });
+    if (!attempt.checkout_params.qr_expires_at || Date.parse(attempt.checkout_params.qr_expires_at) <= Date.now()) return res.status(410).json({ error: "This payment link has expired." });
+    const reservation = await pool.query("SELECT count(*)::int AS total,count(*) FILTER (WHERE expires_at>now())::int AS active FROM order_reservations WHERE order_id=$1", [attempt.order_id]);
+    if (!reservation.rows[0]?.total || reservation.rows[0].total !== reservation.rows[0].active) return res.status(410).json({ error: "The stock reservation for this payment link has expired." });
+    const { qr_token, qr_expires_at, ...fields } = attempt.checkout_params;
+    res.set("Cache-Control", "no-store");
+    return res.json({ data: { action: payuPaymentUrl(), method: "POST", fields } });
+  } catch (err) { return next(err); }
+});
+
+storefrontRouter.get("/payments/payu/qr-status/:token", async (req, res, next) => {
+  const token = String(req.params.token || "");
+  if (!/^[a-f0-9]{48}$/i.test(token)) return res.status(404).json({ error: "Payment status not found." });
+  try {
+    const found = await pool.query(
+      `SELECT pa.status,pa.checkout_params,o.payment_status,o.order_number
+       FROM payment_attempts pa JOIN orders o ON o.id=pa.order_id
+       WHERE pa.provider='payu' AND pa.checkout_params->>'qr_token'=$1 LIMIT 1`,
+      [token]
+    );
+    if (!found.rowCount) return res.status(404).json({ error: "Payment status not found." });
+    const row = found.rows[0];
+    let status = row.status === "paid_stock_review" || row.payment_status === "review" ? "review" : row.status;
+    if (status === "pending" && (!row.checkout_params.qr_expires_at || Date.parse(row.checkout_params.qr_expires_at) <= Date.now())) status = "expired";
+    res.set("Cache-Control", "no-store");
+    return res.json({ data: { status, order_number: row.order_number } });
+  } catch (err) { return next(err); }
 });
 
 async function handlePayuCallback(req,res,next,{webhook=false}={}){
