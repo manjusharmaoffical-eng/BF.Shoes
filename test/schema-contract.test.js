@@ -41,7 +41,7 @@ test("schema.sql contains the required business tables and columns", () => {
 
 test("checkout schema accepts PayU and PayTabs behind market behind verification gates", async () => {
   const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
-  assert.match(storefront, /payment_method:\s*z\.enum\(\["cod", "payu", "paytabs"\]\)/, "Checkout schema must accept COD, PayU or PayTabs");
+  assert.match(storefront, /payment_method:\s*z\.enum\(\["cod", "payu", "payu_qr", "paytabs"\]\)/, "Checkout schema must accept COD, PayU or PayTabs");
   assert.match(storefront, /India online checkout is configured for PayU only/);
   assert.match(storefront, /paymentProvider: "PayU"/);
   assert.match(storefront, /payuConfigured\(\)/);
@@ -216,7 +216,7 @@ test("India checkout readiness is not blocked by the separate UAE AED catalog", 
   const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
   assert.doesNotMatch(storefront, /currencies\.rows\.some\(row => row\.currency !== "INR"/);
   assert.match(storefront, /no_inr_priced_products/);
-  assert.match(storefront, /PayU India checkout requires INR product prices only/);
+  assert.match(storefront, /v\.currency !== "INR"/);
 });
 
 test("website QR endpoint renders a real PNG for the official BF SHOES domain", async () => {
@@ -232,4 +232,24 @@ test("website QR endpoint renders a real PNG for the official BF SHOES domain", 
   const html = await readFile(new URL("../frontend/index.html", import.meta.url), "utf8");
   assert.match(html, /api\/v1\/store\/website-qr\.png/);
   assert.match(html, /alt="QR code that opens the BF SHOES website"/);
+});
+
+
+test("secure PayU checkout QR is transaction-specific, time-limited and status-checkable", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  const app = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8");
+  const html = await readFile(new URL("../frontend/index.html", import.meta.url), "utf8");
+  const payPage = await readFile(new URL("../frontend/pay.js", import.meta.url), "utf8");
+  assert.match(storefront, /payment_method: z\.enum\(\["cod", "payu", "payu_qr", "paytabs"\]\)/);
+  assert.match(storefront, /randomBytes\(24\)\.toString\("hex"\)/);
+  assert.match(storefront, /qr_expires_at/);
+  assert.match(storefront, /storefrontRouter\.get\("\/payments\/payu\/qr\/:token"/);
+  assert.match(storefront, /storefrontRouter\.get\("\/payments\/payu\/qr-status\/:token"/);
+  assert.match(storefront, /order_reservations WHERE order_id=\$1/);
+  assert.match(app, /payment_method: state\.market === 'AE' \? 'paytabs' : String\(formData\.get\('payment_method'\)/);
+  assert.match(app, /payu-qr-status/);
+  assert.match(html, /value="payu_qr"/);
+  assert.match(payPage, /https:\/\/secure\.payu\.in\/_payment/);
+  assert.match(payPage, /form\.submit\(\)/);
+  assert.match(payPage, /qr\/\+encodeURIComponent\(token\)/);
 });
