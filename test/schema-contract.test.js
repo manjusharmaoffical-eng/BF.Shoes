@@ -128,6 +128,7 @@ test("CSP allows secure HTTPS product images without weakening script sources", 
   const server = await readFile(new URL("../src/server.js", import.meta.url), "utf8");
   assert.match(server, /"img-src":\s*\["\x27self\x27", "data:", "https:", "https:\/\/res\.cloudinary\.com"\]/);
   assert.match(server, /getDefaultDirectives\(\)/);
+  assert.match(server, /"form-action": \["'self'", "https:\/\/test\.payu\.in", "https:\/\/secure\.payu\.in"\]/);
   assert.doesNotMatch(server, /scriptSrc:\s*\[[^\]]*https:/);
 });
 
