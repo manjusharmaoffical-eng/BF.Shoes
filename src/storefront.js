@@ -344,6 +344,31 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
   finally{client?.release();}
 });
 
+async function expirePayuQrAttempt(token) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const locked = await client.query(
+      `SELECT pa.id,pa.status,o.id AS order_id,o.payment_status
+       FROM payment_attempts pa JOIN orders o ON o.id=pa.order_id
+       WHERE pa.provider='payu' AND pa.checkout_params->>'qr_token'=$1
+       FOR UPDATE OF pa,o`,
+      [token]
+    );
+    const row = locked.rows[0];
+    if (row?.status === "pending" && row.payment_status === "pending") {
+      await client.query("UPDATE payment_attempts SET status='failed',callback_payload=jsonb_build_object('reason','qr_expired') WHERE id=$1 AND status='pending'", [row.id]);
+      await client.query("UPDATE orders SET payment_status='failed',status='cancelled',updated_at=now() WHERE id=$1 AND payment_status='pending'", [row.order_id]);
+      await client.query("DELETE FROM order_reservations WHERE order_id=$1", [row.order_id]);
+      await client.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES('system',NULL,'payment.qr.expired','order',$1)", [String(row.order_id)]);
+    }
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw err;
+  } finally { client.release(); }
+}
+
 storefrontRouter.get("/payments/payu/qr", async (req, res, next) => {
   const token = String(req.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
   if (!/^[a-f0-9]{48}$/i.test(token)) return res.status(404).json({ error: "Payment link not found." });
@@ -357,7 +382,7 @@ storefrontRouter.get("/payments/payu/qr", async (req, res, next) => {
     if (!found.rowCount) return res.status(404).json({ error: "Payment link not found." });
     const attempt = found.rows[0];
     if (attempt.status !== "pending" || attempt.payment_status !== "pending") return res.status(410).json({ error: "This payment link is no longer active." });
-    if (!attempt.checkout_params.qr_expires_at || Date.parse(attempt.checkout_params.qr_expires_at) <= Date.now()) return res.status(410).json({ error: "This payment link has expired." });
+    if (!attempt.checkout_params.qr_expires_at || Date.parse(attempt.checkout_params.qr_expires_at) <= Date.now()) { await expirePayuQrAttempt(token); return res.status(410).json({ error: "This payment link has expired." }); }
     const reservation = await pool.query("SELECT count(*)::int AS total,count(*) FILTER (WHERE expires_at>now())::int AS active FROM order_reservations WHERE order_id=$1", [attempt.order_id]);
     if (!reservation.rows[0]?.total || reservation.rows[0].total !== reservation.rows[0].active) return res.status(410).json({ error: "The stock reservation for this payment link has expired." });
     const { qr_token, qr_expires_at, ...fields } = attempt.checkout_params;
@@ -371,7 +396,7 @@ storefrontRouter.get("/payments/payu/qr-status", async (req, res, next) => {
   if (!/^[a-f0-9]{48}$/i.test(token)) return res.status(404).json({ error: "Payment status not found." });
   try {
     const found = await pool.query(
-      `SELECT pa.status,pa.checkout_params,o.payment_status,o.order_number
+      `SELECT pa.status,pa.checkout_params,pa.callback_payload,o.payment_status,o.order_number
        FROM payment_attempts pa JOIN orders o ON o.id=pa.order_id
        WHERE pa.provider='payu' AND pa.checkout_params->>'qr_token'=$1 LIMIT 1`,
       [token]
@@ -379,7 +404,9 @@ storefrontRouter.get("/payments/payu/qr-status", async (req, res, next) => {
     if (!found.rowCount) return res.status(404).json({ error: "Payment status not found." });
     const row = found.rows[0];
     let status = row.status === "paid_stock_review" || row.payment_status === "review" ? "review" : row.status;
-    if (status === "pending" && (!row.checkout_params.qr_expires_at || Date.parse(row.checkout_params.qr_expires_at) <= Date.now())) status = "expired";
+    const qrExpired = !row.checkout_params.qr_expires_at || Date.parse(row.checkout_params.qr_expires_at) <= Date.now();
+    if (status === "pending" && qrExpired) { await expirePayuQrAttempt(token); status = "expired"; }
+    if (status === "failed" && row.callback_payload?.reason === "qr_expired") status = "expired";
     res.set("Cache-Control", "no-store");
     return res.json({ data: { status, order_number: row.order_number } });
   } catch (err) { return next(err); }
