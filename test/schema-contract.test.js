@@ -243,6 +243,10 @@ test("secure PayU checkout QR is transaction-specific, time-limited and status-c
   assert.match(storefront, /payment_method: z\.enum\(\["cod", "payu", "payu_qr", "paytabs"\]\)/);
   assert.match(storefront, /randomBytes\(24\)\.toString\("hex"\)/);
   assert.match(storefront, /qr_expires_at/);
+  assert.match(storefront, /qrUrl\.hash/);
+  assert.match(storefront, /expirePayuQrAttempt/);
+  assert.match(storefront, /payment\.qr\.expired/);
+  assert.match(storefront, /paymentQrEnabled: indiaPayuConfigured/);
   assert.match(storefront, /storefrontRouter\.get\("\/payments\/payu\/qr"/);
   assert.match(storefront, /storefrontRouter\.get\("\/payments\/payu\/qr-status"/);
   assert.match(storefront, /order_reservations WHERE order_id=\$1/);
