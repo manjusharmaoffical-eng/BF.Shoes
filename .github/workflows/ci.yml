@@ -22,6 +22,8 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Verify QR dependency is installed
+        run: npm ls qrcode
       - name: Check JavaScript syntax
         run: find . -type f -name '*.js' -not -path './node_modules/*' -print0 | xargs -0 -n1 node --check
       - name: Run automated tests
