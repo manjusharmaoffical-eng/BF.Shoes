@@ -243,13 +243,14 @@ test("secure PayU checkout QR is transaction-specific, time-limited and status-c
   assert.match(storefront, /payment_method: z\.enum\(\["cod", "payu", "payu_qr", "paytabs"\]\)/);
   assert.match(storefront, /randomBytes\(24\)\.toString\("hex"\)/);
   assert.match(storefront, /qr_expires_at/);
-  assert.match(storefront, /storefrontRouter\.get\("\/payments\/payu\/qr\/:token"/);
-  assert.match(storefront, /storefrontRouter\.get\("\/payments\/payu\/qr-status\/:token"/);
+  assert.match(storefront, /storefrontRouter\.get\("\/payments\/payu\/qr"/);
+  assert.match(storefront, /storefrontRouter\.get\("\/payments\/payu\/qr-status"/);
   assert.match(storefront, /order_reservations WHERE order_id=\$1/);
   assert.match(app, /payment_method: state\.market === 'AE' \? 'paytabs' : String\(formData\.get\('payment_method'\)/);
   assert.match(app, /payu-qr-status/);
   assert.match(html, /value="payu_qr"/);
   assert.match(payPage, /https:\/\/secure\.payu\.in\/_payment/);
   assert.match(payPage, /form\.submit\(\)/);
-  assert.match(payPage, /qr\/\+encodeURIComponent\(token\)/);
+  assert.match(payPage, /new URLSearchParams\(window\.location\.hash/);
+  assert.match(payPage, /Authorization:/);
 });
