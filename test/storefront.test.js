@@ -21,3 +21,20 @@ test("storefront fingerprints include phone, address, and quantity", () => {
 test("storefront aggregates duplicate SKU lines", () => {
   assert.deepEqual([...aggregateStorefrontItems([{ sku: "BF-001", quantity: 1 }, { sku: "BF-001", quantity: 2 }]).entries()], [["BF-001", 3]]);
 });
+
+
+test("storefront fingerprints distinguish payment method, market and delivery PIN", () => {
+  const checkout = {
+    customer_name: "Buyer",
+    customer_email: "buyer@example.com",
+    customer_phone: "+971 50 123 4567",
+    shipping_address: "12 Main Street Abu Dhabi",
+    shipping_country: "IN",
+    shipping_pincode: "500052",
+    payment_method: "payu",
+    items: [{ sku: "BF-SPEED-7", quantity: 1 }]
+  };
+  assert.notEqual(storefrontRequestFingerprint(checkout), storefrontRequestFingerprint({ ...checkout, payment_method: "payu_qr" }));
+  assert.notEqual(storefrontRequestFingerprint(checkout), storefrontRequestFingerprint({ ...checkout, shipping_country: "AE" }));
+  assert.notEqual(storefrontRequestFingerprint(checkout), storefrontRequestFingerprint({ ...checkout, shipping_pincode: "110001" }));
+});
