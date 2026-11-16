@@ -469,7 +469,7 @@
     if (!isIndia && paytabs) paytabs.checked = true;
     const note = $('#checkout-payment-note');
     if (note) note.textContent = isIndia
-      ? 'Pay securely with PayU hosted checkout using supported cards, UPI and net banking. Delivery PIN: 500052.'
+      ? 'Pay securely with PayU hosted checkout or scan a secure checkout QR. Delivery PIN: 500052.'
       : 'PayTabs hosted checkout. AED pricing, delivery and VAT must be verified before payment.';
     const submit = $('#place-order');
     if (submit) submit.innerHTML = isIndia ? 'Continue to PayU <span>↗</span>' : 'Continue to PayTabs <span>↗</span>';
