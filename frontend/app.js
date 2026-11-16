@@ -494,11 +494,26 @@
       if (element) element.classList.toggle('hidden', show);
     }
   }
-  function startPayuQrPolling(token) {
+  function startPayuQrPolling(token, expiresAt) {
     stopPayuQrPolling();
     const poll = async () => {
       try {
-        const result = await request('/api/v1/store/payments/payu/qr-status/' + encodeURIComponent(token));
+        if (Date.now() >= Date.parse(expiresAt)) {
+          const message = $('#payu-qr-status');
+          const action = $('#payu-qr-back');
+          if (message) message.textContent = 'This payment QR has expired. Create a fresh checkout QR.';
+          if (action) { action.textContent = 'Try again'; action.dataset.action = 'retry'; }
+          state.pendingCheckout = null;
+          stopPayuQrPolling();
+          return;
+        }
+        const response = await fetch('/api/v1/store/payments/payu/qr-status', {
+          method: 'GET', credentials: 'same-origin', cache: 'no-store',
+          headers: { Accept: 'application/json', Authorization: 'Bearer ' + token }
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Unable to check payment status.');
+        const result = payload;
         const status = String(result?.data?.status || 'pending');
         const message = $('#payu-qr-status');
         const action = $('#payu-qr-back');
@@ -640,7 +655,7 @@
         if ($('#payu-qr-status')) $('#payu-qr-status').textContent = 'Scan with another phone camera to open the secure PayU checkout page.';
         if ($('#payu-qr-back')) { $('#payu-qr-back').textContent = 'Close QR'; $('#payu-qr-back').dataset.action = 'close'; }
         showPayuQrPanel(true);
-        startPayuQrPolling(checkout.token);
+        startPayuQrPolling(checkout.token, checkout.expires_at);
         return;
       }
       const allowedPayUActions = ['https://test.payu.in/_payment', 'https://secure.payu.in/_payment'];
