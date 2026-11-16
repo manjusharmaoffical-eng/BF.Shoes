@@ -41,8 +41,9 @@ The Docker image copies both `src/` and `frontend/`; without the frontend assets
 - Storefront is configured for INR and delivery PIN 500052 only. No other PIN is accepted.
 - Existing catalog rows priced in AED are not modified or silently relabelled as INR. The catalog flags these products as requiring price conversion, and checkout stays disabled until active product prices are verified and entered in INR.
 - Set `INDIA_DELIVERY_FEE_PAISE` only to the actual confirmed fee (100 paise = INR 1). Keep it blank until confirmed; zero means explicitly free delivery, not an unknown fee.
-- Cash on Delivery and online payment are shown as intended choices. COD order creation is available only after market configuration is complete. Online payment stays disabled and the API rejects it until a real gateway integration, merchant credentials, and payment verification are implemented and tested.
-- Set `INDIA_GST_STATUS=registered` only after confirming the seller is GST-registered and creating exactly one active `IN_GST` profile with the correct GSTIN, seller state, INR currency and legally applicable rate; use `not_registered` only when verified. The app does not invent a GST rate or tax profile.
+- Keep India tax and payment setup in a pending/unconfigured state while the owner is an individual seller preparing to register in India. The admin workflow must not invent a GSTIN, seller state, tax rate, delivery fee, or merchant status.
+- Payment provider modules and verification logic exist in the codebase, but merchant onboarding and live credentials are not complete. Keep online payment and checkout gated until the owner has a merchant account, supplies verified commercial/tax settings through secure provider/admin settings, and completes sandbox plus end-to-end verification.
+- After GST registration, set `INDIA_GST_STATUS=registered` only with a verified GSTIN, seller state, INR currency and legally applicable rate in the tax profile. The app must not invent a GST rate or tax profile.
 
 ## Feature configuration
 
@@ -60,5 +61,5 @@ git diff --check
 ````
 
 
-### Online payments (India)
-Razorpay online payments are not live in this build. Do not accept or mark an order paid until the merchant credentials are configured securely and the server-side order creation, signature verification, webhook verification, idempotency and refund handling have been implemented and tested. COD can remain an intended option, but checkout is gated until market configuration and verified INR prices are complete.
+### Online payments and live checkout
+Payment gateway modules include provider-side order/signature/webhook validation, but no merchant account or live credentials have been confirmed for BF SHOES. Do not mark an order paid or accept live checkout until merchant onboarding is complete, credentials are stored in the hosting provider's secure environment settings, and sandbox plus authenticated end-to-end verification passes. Keep GST/VAT profiles and delivery charges pending until the owner supplies verified values. Checkout must remain gated while any required commercial setting is unknown.
