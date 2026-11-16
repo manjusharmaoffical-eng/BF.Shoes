@@ -331,7 +331,7 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
       qrExpiresAt = new Date(Date.now() + 20 * 60 * 1000).toISOString();
       checkoutParams = { ...fields, qr_token: qrToken, qr_expires_at: qrExpiresAt };
       const qrUrl = new URL("/pay.html", baseUrl);
-      qrUrl.searchParams.set("token", qrToken);
+      qrUrl.hash = "token=" + encodeURIComponent(qrToken);
       qrDataUrl = await QRCode.toDataURL(qrUrl.toString(), { width: 320, margin: 2, errorCorrectionLevel: "H", color: { dark: "#050608", light: "#ffffff" } });
     }
     await client.query("INSERT INTO payment_attempts(order_id,provider,txnid,amount_cents,currency,status,checkout_params) VALUES($1,'payu',$2,$3,'INR','pending',$4::jsonb)",
