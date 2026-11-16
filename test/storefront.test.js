@@ -37,4 +37,5 @@ test("storefront fingerprints distinguish payment method, market and delivery PI
   assert.notEqual(storefrontRequestFingerprint(checkout), storefrontRequestFingerprint({ ...checkout, payment_method: "payu_qr" }));
   assert.notEqual(storefrontRequestFingerprint(checkout), storefrontRequestFingerprint({ ...checkout, shipping_country: "AE" }));
   assert.notEqual(storefrontRequestFingerprint(checkout), storefrontRequestFingerprint({ ...checkout, shipping_pincode: "110001" }));
+  assert.notEqual(storefrontRequestFingerprint(checkout), storefrontRequestFingerprint({ ...checkout, shipping_emirate: "Dubai" }));
 });
