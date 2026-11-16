@@ -5,6 +5,7 @@ import { aggregateStorefrontItems, storefrontRequestFingerprint } from "./storef
 import { deliverEmail } from "./email.js";
 import { parseIndiaMarketEnv, calculateIndiaTotals } from "./india-market-policy.js";
 import { randomBytes } from "node:crypto";
+import QRCode from "qrcode";
 import { payuConfigured, publicBaseUrl, payuPaymentUrl, payuRequestHash, payuResponseHash, safeHashEqual, verifyPayuPayment } from "./payu.js";
 import { paytabsConfigured, createPaytabsPayment, paytabsSignatureValid, verifyPaytabsPayment } from "./paytabs.js";
 import { allocateOrderWarehouseStock } from "./warehouse-stock.js";
@@ -31,6 +32,22 @@ const checkoutSchema = z.object({
   items: z.array(z.object({ sku: z.string().trim().min(2).max(80), quantity: z.number().int().min(1).max(10) })).min(1).max(20)
 }).strict();
 const binanceCheckoutSchema = checkoutSchema.extend({ payment_method: z.literal("binance").default("binance") });
+
+storefrontRouter.get("/website-qr.png", async (_req, res, next) => {
+  try {
+    const baseUrl = publicBaseUrl() || "https://bfshoes.online";
+    const qr = await QRCode.toBuffer(new URL("/", baseUrl).toString(), {
+      type: "png",
+      width: 360,
+      margin: 2,
+      errorCorrectionLevel: "H",
+      color: { dark: "#050608", light: "#ffffff" }
+    });
+    res.set("Content-Type", "image/png");
+    res.set("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
+    return res.send(qr);
+  } catch (err) { return next(err); }
+});
 
 storefrontRouter.get("/campaigns/active", async (_req, res, next) => {
   try {
@@ -150,7 +167,8 @@ async function getIndiaMarketConfig(db = pool) {
   if (!env.deliveryPincodes.includes("500052")) reasons.push("pin_500052_not_configured");
   if (env.gstStatus === "unconfigured") reasons.push("gst_status_not_confirmed");
   const currencies = await db.query("SELECT currency, count(*)::int AS product_count FROM products WHERE active=TRUE GROUP BY currency");
-  if (currencies.rows.some(row => row.currency !== "INR" && Number(row.product_count) > 0)) reasons.push("product_price_conversion_required");
+  // India and UAE catalogs are intentionally separate. AED products must not block
+  // India checkout; the order route independently rejects any non-INR SKU.
   if (!currencies.rows.some(row => row.currency === "INR" && Number(row.product_count) > 0)) reasons.push("no_inr_priced_products");
   if (!env.paymentMethods.length) reasons.push("payment_method_not_confirmed");
   let taxProfile = null, taxRate = 0;
