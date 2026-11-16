@@ -714,3 +714,25 @@ html,body{font-family:var(--bf-font)}
 .detail-viewer-note,.detail-stock{font-size:12px;color:#686868;line-height:1.6}
 .product-detail-copy{padding:16px 4px}.product-detail-copy h2{font-size:clamp(28px,4vw,42px);line-height:1.1;margin:0 0 12px}.detail-price{font-size:22px;font-weight:800;color:#c91528}.detail-description{line-height:1.8;color:#555;margin:24px 0}.product-detail-copy h3{font-size:14px;margin:22px 0 10px}.detail-sizes{gap:8px}.detail-add{width:100%;margin-top:18px;min-height:52px}.detail-benefits{display:grid;gap:8px;margin-top:22px;padding-top:18px;border-top:1px solid #e6e6e6;font-size:12px;color:#555}.product-detail-loading{padding:50px;text-align:center}
 @media(prefers-reduced-motion:reduce){.product-detail-modal,.product-detail-panel{scroll-behavior:auto}}
+
+
+/* Website QR — functional, high-contrast and scannable on print/mobile. */
+.footer-scan{display:flex;align-items:center;gap:14px;padding:12px 14px;background:#fff;color:#111;border:1px solid #e6e6e6;border-radius:10px}
+.footer-scan>div{display:grid;gap:6px;min-width:125px}
+.footer-scan strong{font-size:11px;font-weight:900;letter-spacing:.14em}
+.footer-scan span{font-size:10px;color:#555;line-height:1.45}
+.footer-scan a{font-size:10px;font-weight:800;color:#c8102e;text-decoration:underline;text-underline-offset:3px}
+.footer-scan img{display:block;width:104px;height:104px;object-fit:contain;background:#fff}
+@media(max-width:780px){.footer-scan{order:4;width:max-content;max-width:100%;margin-top:18px}.footer-top{flex-wrap:wrap;gap:18px}}
+@media(max-width:430px){.footer-scan{width:100%;justify-content:space-between}.footer-scan img{width:88px;height:88px}}
+
+
+/* Transaction-specific PayU checkout QR panel. */
+.payu-qr-panel{display:grid;justify-items:center;gap:12px;padding:22px 16px;margin:12px 0;background:#fff;border:1px solid #e7e7e7;border-radius:12px;text-align:center}
+.payu-qr-panel h3{margin:0;font-size:24px;letter-spacing:-.04em}
+.payu-qr-panel>div>p:last-child{max-width:340px;margin:8px auto 0;color:#555;font-size:12px;line-height:1.6}
+.payu-qr-panel>img{display:block;width:min(72vw,280px);height:auto;aspect-ratio:1;object-fit:contain;padding:10px;background:#fff;border:1px solid #eee;border-radius:8px}
+.payu-qr-order{margin:0;font-size:10px;letter-spacing:.12em;color:#666}
+.payu-qr-order strong{color:#111;font-size:13px}
+#payu-qr-status{margin:0;font-size:12px;font-weight:700;color:#171717}
+#payu-qr-expiry{font-size:10px;color:#666}

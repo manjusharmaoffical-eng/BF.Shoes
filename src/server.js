@@ -37,7 +37,9 @@ app.use(helmet({
       // Product and campaign artwork is HTTPS-only at the API boundary.
       // Permit secure remote images while keeping scripts and connections same-origin.
       "img-src": ["'self'", "data:", "https:", "https://res.cloudinary.com"],
-      "connect-src": ["'self'", "https://api.cloudinary.com"]
+      "connect-src": ["'self'", "https://api.cloudinary.com"],
+      // PayU Hosted Checkout uses a browser form POST; allow only its official test/live endpoints.
+      "form-action": ["'self'", "https://test.payu.in", "https://secure.payu.in"]
     }
   }
 }));

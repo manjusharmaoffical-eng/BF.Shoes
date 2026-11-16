@@ -385,8 +385,8 @@
   $('#scrim')?.addEventListener('click', () => setDrawer(false));
   $('#continue-shopping')?.addEventListener('click', () => setDrawer(false));
   $('#checkout-button')?.addEventListener('click', () => { if (!state.cart.length) return; setDrawer(false); setCheckout(true); });
-  $('#close-checkout')?.addEventListener('click', () => setCheckout(false));
-  $('#checkout-backdrop')?.addEventListener('click', event => { if (event.target === $('#checkout-backdrop')) setCheckout(false); });
+  $('#close-checkout')?.addEventListener('click', () => { stopPayuQrPolling(); setCheckout(false); });
+  $('#checkout-backdrop')?.addEventListener('click', event => { if (event.target === $('#checkout-backdrop')) { stopPayuQrPolling(); setCheckout(false); } });
   $('#finish-order')?.addEventListener('click', () => { setSuccess(false); state.cart = []; renderCart(); renderProducts(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
   $('#success-backdrop')?.addEventListener('click', event => { if (event.target === $('#success-backdrop')) setSuccess(false); });
 
@@ -431,6 +431,15 @@
       const uaeReady = state.market === 'AE' && selected && selected.checkoutEnabled && (!countrySelect || countrySelect.value === 'AE');
       state.checkoutReady = Boolean(indiaReady || uaeReady);
     } catch { state.checkoutReady = false; }
+    const qrInput = $('#payment-upi-option input');
+    if (qrInput) {
+      qrInput.disabled = !(state.market === 'IN' && state.checkoutReady && state.marketConfig?.paymentQrEnabled);
+      $('#payment-upi-option')?.classList.toggle('payment-unavailable', qrInput.disabled);
+      if (qrInput.disabled && qrInput.checked) {
+        const payuFallback = $('#payment-payu-option input');
+        if (payuFallback) payuFallback.checked = true;
+      }
+    }
     const checkoutButton = $('#checkout-button');
     const placeOrder = $('#place-order');
     if (checkoutButton) { checkoutButton.disabled = !state.checkoutReady; checkoutButton.textContent = state.checkoutReady ? 'Continue to checkout' : 'Checkout temporarily unavailable'; }
@@ -449,15 +458,18 @@
     if (pin) { pin.required = isIndia; pin.value = isIndia ? '500052' : ''; }
     $('#payment-payu-option')?.classList.toggle('hidden', !isIndia);
     $('#payment-card-option')?.classList.add('hidden');
-    $('#payment-upi-option')?.classList.add('hidden');
+    $('#payment-upi-option')?.classList.toggle('hidden', !isIndia);
     $('#payment-paytabs-option')?.classList.toggle('hidden', isIndia);
     const paytabs = $('#payment-paytabs-option input');
     const payu = $('#payment-payu-option input');
+    const payuQr = $('#payment-upi-option input');
+    if (payuQr) payuQr.disabled = !(isIndia && state.checkoutReady && state.marketConfig?.paymentQrEnabled);
+    $('#payment-upi-option')?.classList.toggle('payment-unavailable', Boolean(payuQr?.disabled));
     if (isIndia && payu) payu.checked = true;
     if (!isIndia && paytabs) paytabs.checked = true;
     const note = $('#checkout-payment-note');
     if (note) note.textContent = isIndia
-      ? 'Pay securely with PayU hosted checkout using supported cards, UPI and net banking. Delivery PIN: 500052.'
+      ? 'Pay securely with PayU hosted checkout or scan a secure checkout QR. Delivery PIN: 500052.'
       : 'PayTabs hosted checkout. AED pricing, delivery and VAT must be verified before payment.';
     const submit = $('#place-order');
     if (submit) submit.innerHTML = isIndia ? 'Continue to PayU <span>↗</span>' : 'Continue to PayTabs <span>↗</span>';
@@ -467,6 +479,86 @@
       : 'UAE delivery is subject to verified delivery coverage and the fee shown before payment.';
     $('#cart-payu-note')?.classList.toggle('hidden', !isIndia);
   }
+
+  let payuQrPollTimer = null;
+  function stopPayuQrPolling() {
+    if (payuQrPollTimer) window.clearTimeout(payuQrPollTimer);
+    payuQrPollTimer = null;
+  }
+  function showPayuQrPanel(show) {
+    const panel = $('#payu-qr-panel');
+    if (!panel) return;
+    panel.classList.toggle('hidden', !show);
+    for (const selector of ['.form-grid', '.payment-options', '.checkout-summary', '#place-order', '.privacy-note']) {
+      const element = $('#checkout-form ' + selector);
+      if (element) element.classList.toggle('hidden', show);
+    }
+    if (show) $('#checkout-error')?.classList.add('hidden');
+  }
+  function startPayuQrPolling(token, expiresAt) {
+    stopPayuQrPolling();
+    const poll = async () => {
+      try {
+        if (Date.now() >= Date.parse(expiresAt)) {
+          const message = $('#payu-qr-status');
+          const action = $('#payu-qr-back');
+          if (message) message.textContent = 'This payment QR has expired. Create a fresh checkout QR.';
+          if (action) { action.textContent = 'Try again'; action.dataset.action = 'retry'; }
+          state.pendingCheckout = null;
+          stopPayuQrPolling();
+          return;
+        }
+        const response = await fetch('/api/v1/store/payments/payu/qr-status', {
+          method: 'GET', credentials: 'same-origin', cache: 'no-store',
+          headers: { Accept: 'application/json', Authorization: 'Bearer ' + token }
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Unable to check payment status.');
+        const result = payload;
+        const status = String(result?.data?.status || 'pending');
+        const message = $('#payu-qr-status');
+        const action = $('#payu-qr-back');
+        if (status === 'paid') {
+          if (message) message.textContent = 'Payment verified. Order #' + String(result.data.order_number || '') + ' is now being processed.';
+          if (action) { action.textContent = 'Continue shopping'; action.dataset.action = 'done'; }
+          state.cart = [];
+          state.pendingCheckout = null;
+          renderCart();
+          renderProducts();
+          stopPayuQrPolling();
+          return;
+        }
+        if (status === 'review') {
+          if (message) message.textContent = 'Payment status needs BF SHOES verification. Do not pay again; your order is under review.';
+          if (action) { action.textContent = 'Close'; action.dataset.action = 'done'; }
+          stopPayuQrPolling();
+          return;
+        }
+        if (status === 'failed' || status === 'expired') {
+          if (message) message.textContent = status === 'expired' ? 'This payment QR has expired. Create a fresh checkout QR.' : 'PayU did not confirm this payment. You can try again.';
+          if (action) { action.textContent = 'Try again'; action.dataset.action = 'retry'; }
+          state.pendingCheckout = null;
+          stopPayuQrPolling();
+          return;
+        }
+        if (message) message.textContent = 'Waiting for secure PayU payment confirmation…';
+      } catch {
+        const message = $('#payu-qr-status');
+        if (message) message.textContent = 'Checking payment status securely…';
+      }
+      payuQrPollTimer = window.setTimeout(poll, 5000);
+    };
+    poll();
+  }
+  $('#payu-qr-back')?.addEventListener('click', () => {
+    stopPayuQrPolling();
+    const action = $('#payu-qr-back')?.dataset.action || 'close';
+    if (action === 'retry') {
+      showPayuQrPanel(false);
+      return;
+    }
+    setCheckout(false);
+  });
 
   if (countrySelect) {
     countrySelect.addEventListener('change', () => {
@@ -525,7 +617,7 @@
       shipping_address: String(formData.get('shipping_address') || '').trim(),
       shipping_country: String(formData.get('shipping_country') || state.market),
       shipping_pincode: state.market === 'IN' ? String(formData.get('shipping_pincode') || '') : '',
-      payment_method: state.market === 'AE' ? 'paytabs' : 'payu',
+      payment_method: state.market === 'AE' ? 'paytabs' : String(formData.get('payment_method') || 'payu'),
       items: state.cart.map(item => ({ sku: item.variant.sku, quantity: item.quantity }))
     };
 
@@ -555,6 +647,18 @@
         body: JSON.stringify(payload)
       });
       const checkout = result?.data?.checkout;
+      if (checkout?.type === 'qr') {
+        if (!checkout.qr_data_url || !checkout.token || !checkout.expires_at) throw new Error('PayU did not return a valid secure payment QR.');
+        const qrImage = $('#payu-qr-image');
+        if (qrImage) qrImage.src = checkout.qr_data_url;
+        if ($('#payu-qr-order-number')) $('#payu-qr-order-number').textContent = String(result?.data?.order_number || '—');
+        if ($('#payu-qr-expiry')) $('#payu-qr-expiry').textContent = 'QR expires: ' + new Date(checkout.expires_at).toLocaleString();
+        if ($('#payu-qr-status')) $('#payu-qr-status').textContent = 'Scan with another phone camera to open the secure PayU checkout page.';
+        if ($('#payu-qr-back')) { $('#payu-qr-back').textContent = 'Close QR'; $('#payu-qr-back').dataset.action = 'close'; }
+        showPayuQrPanel(true);
+        startPayuQrPolling(checkout.token, checkout.expires_at);
+        return;
+      }
       const allowedPayUActions = ['https://test.payu.in/_payment', 'https://secure.payu.in/_payment'];
       if (!checkout || checkout.method !== 'POST' || !allowedPayUActions.includes(checkout.action) || !checkout.fields || typeof checkout.fields !== 'object' || !checkout.fields.hash || !checkout.fields.txnid) {
         throw new Error('PayU did not return a valid secure checkout request.');

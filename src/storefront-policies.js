@@ -6,7 +6,10 @@ export function storefrontRequestFingerprint(data) {
     customer_email: data.customer_email.trim().toLowerCase(),
     customer_phone: data.customer_phone.replace(/[ .()-]/g, ""),
     shipping_address: data.shipping_address.trim().replace(/\s+/g, " "),
-    payment_method: "cod",
+    shipping_country: String(data.shipping_country || "IN").trim().toUpperCase(),
+    shipping_pincode: String(data.shipping_pincode || "").trim(),
+    shipping_emirate: String(data.shipping_emirate || "").trim(),
+    payment_method: String(data.payment_method || "cod").trim().toLowerCase(),
     items: data.items.map(({ sku, quantity }) => ({ sku: sku.trim(), quantity })).sort((a, b) => a.sku.localeCompare(b.sku))
   };
   return crypto.createHash("sha256").update(JSON.stringify(canonical)).digest("hex");
