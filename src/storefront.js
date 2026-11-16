@@ -257,7 +257,7 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
             const expiresAt = attempt.rows[0].checkout_params.qr_expires_at;
             if (!expiresAt || Date.parse(expiresAt) <= Date.now()) return res.status(409).json({ error: "This payment QR has expired. Start a fresh checkout session." });
             const qrUrl = new URL("/pay.html", baseUrl);
-            qrUrl.searchParams.set("token", token);
+            qrUrl.hash = "token=" + encodeURIComponent(token);
             const qrDataUrl = await QRCode.toDataURL(qrUrl.toString(), { width: 320, margin: 2, errorCorrectionLevel: "H", color: { dark: "#050608", light: "#ffffff" } });
             return res.status(200).json({ data: { order_number: order.order_number, checkout: { type: "qr", qr_data_url: qrDataUrl, token, expires_at: expiresAt }, idempotent_replay: true } });
           }
@@ -344,8 +344,8 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
   finally{client?.release();}
 });
 
-storefrontRouter.get("/payments/payu/qr/:token", async (req, res, next) => {
-  const token = String(req.params.token || "");
+storefrontRouter.get("/payments/payu/qr", async (req, res, next) => {
+  const token = String(req.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
   if (!/^[a-f0-9]{48}$/i.test(token)) return res.status(404).json({ error: "Payment link not found." });
   try {
     const found = await pool.query(
@@ -366,8 +366,8 @@ storefrontRouter.get("/payments/payu/qr/:token", async (req, res, next) => {
   } catch (err) { return next(err); }
 });
 
-storefrontRouter.get("/payments/payu/qr-status/:token", async (req, res, next) => {
-  const token = String(req.params.token || "");
+storefrontRouter.get("/payments/payu/qr-status", async (req, res, next) => {
+  const token = String(req.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
   if (!/^[a-f0-9]{48}$/i.test(token)) return res.status(404).json({ error: "Payment status not found." });
   try {
     const found = await pool.query(
