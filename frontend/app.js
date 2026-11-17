@@ -46,7 +46,7 @@
       return;
     }
     image.dataset.bfFallbackApplied = 'true';
-    image.src = FALLBACK_IMAGES[0];
+    image.src = PLACEHOLDER_IMAGE;
   }, true);
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const money = (cents, currency = 'INR') => { const locale = currency === 'AED' ? 'en-AE' : 'en-IN'; const amount = (Number(cents || 0) / 100).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return currency === 'AED' ? 'AED ' + amount : '₹' + amount; };
@@ -59,7 +59,9 @@
     : 'UAE checkout is pending PayTabs merchant verification, verified AED prices, delivery fee and VAT profile.';
   const randomKey = () => Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   const productImage = product => {
-    const candidate = typeof product.image_url === 'string' && product.image_url.startsWith('https://') ? product.image_url : '';
+    const raw = typeof product.image_url === 'string' && product.image_url.startsWith('https://') ? product.image_url : '';
+    let candidate = raw;
+    try { const parsed = new URL(raw); if (parsed.hostname === 'bf-shoes.vercel.app') candidate = parsed.pathname + parsed.search; } catch {}
     return candidate || productFallback(product);
   };
   const productFallback = product => /speed[- ]run/i.test((product.slug || '') + ' ' + (product.name || '')) ? FALLBACK_IMAGE : PLACEHOLDER_IMAGE;
@@ -188,7 +190,6 @@
       const available = availableVariants(product);
       const selected = state.selectedSizes[product.id] || (available[0] && available[0].sku) || '';
       const selectedVariant = variants.find(v => v.sku === selected && Number(v.stock_qty) > 0);
-      const sizes = variants.map(v => `<button class="size-option ${v.sku === selected ? 'selected' : ''}" type="button" data-size-product="${escapeHtml(product.id)}" data-sku="${escapeHtml(v.sku)}" aria-pressed="${v.sku === selected}" ${Number(v.stock_qty) <= 0 ? 'disabled title="Out of stock"' : ''}>${escapeHtml(v.size_label)}</button>`).join('');
       const mrpCents = Number(product.mrp_cents || 0);
       const hasDiscount = Number.isFinite(mrpCents) && mrpCents > Number(product.price_cents);
       const createdAt = product.created_at ? Date.parse(product.created_at) : NaN;
@@ -199,8 +200,7 @@
       return `<article class="product-card" data-product="${escapeHtml(product.id)}">
         <div class="product-image"><img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(product.name)}" loading="${index < 3 ? 'eager' : 'lazy'}" decoding="async" /><span class="product-tag">${status}</span><button class="wishlist-toggle ${watched ? 'saved' : ''}" type="button" data-wishlist="${escapeHtml(product.id)}" aria-label="${watched ? 'Remove from wishlist' : 'Add to wishlist'}" aria-pressed="${watched}" title="${watched ? 'Remove from wishlist' : 'Add to wishlist'}"><i class="${watched ? 'fa-solid' : 'fa-regular'} fa-heart" aria-hidden="true"></i></button><button class="quick-add" type="button" data-quick-add="${escapeHtml(product.id)}" aria-label="Quick add ${escapeHtml(product.name)}" ${!available.length || product.price_pending_conversion ? 'disabled title="Price verification pending"' : ''}>+</button></div>
         <div class="product-info"><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.brand || 'BF SHOES')} · ${escapeHtml(product.short_description || product.description || 'Everyday sneaker').slice(0, 58)}</p></div><div class="product-price-wrap"><strong class="product-price">${product.price_pending_conversion ? 'Price verification pending' : money(product.price_cents, product.currency)}</strong>${hasDiscount ? `<del class="product-mrp">${money(mrpCents, product.currency)}</del>` : ''}</div></div>
-        <div class="product-sizes" aria-label="Choose size for ${escapeHtml(product.name)}">${sizes || '<span class="product-info"><p>No sizes listed</p></span>'}</div>
-        <div class="add-row"><button class="button button-dark" type="button" data-add="${escapeHtml(product.id)}" ${!selectedVariant || product.price_pending_conversion ? 'disabled' : ''}>${product.price_pending_conversion ? 'Price pending' : selectedVariant ? 'Add to bag' : 'Out of stock'} <span>+</span></button></div>
+        <p class="product-view-link">View details &amp; options <span aria-hidden="true">↗</span></p>
       </article>`;
     }).join('');
   }
@@ -335,15 +335,20 @@
     if (!images.length) images = [{ image_url: productImage(product), alt_text: product.name }];
     const variants = product.variants || [];
     const available = availableVariants(product);
-    const selectedSku = state.selectedSizes[product.id] || (available[0] && available[0].sku) || '';
-    const selectedVariant = variants.find(v => v.sku === selectedSku && Number(v.stock_qty) > 0);
+    const initialSku = state.selectedSizes[product.id] || (available[0] && available[0].sku) || '';
+    const initialVariant = variants.find(v => v.sku === initialSku && Number(v.stock_qty) > 0) || available[0];
+    let selectedColor = String(initialVariant?.color_name || '');
+    let selectedSku = initialVariant?.sku || '';
     const galleryMarkup = images.map((image, index) => '<button type="button" class="detail-thumb ' + (index === 0 ? 'active' : '') + '" data-detail-image="' + index + '" aria-label="View product angle ' + (index + 1) + '"><img src="' + escapeHtml(image.image_url) + '" alt="' + escapeHtml(image.alt_text || product.name) + '"></button>').join('');
-    const sizeMarkup = variants.map(v => '<button type="button" class="size-option ' + (v.sku === selectedSku ? 'selected' : '') + '" data-detail-size="' + escapeHtml(v.sku) + '" ' + (Number(v.stock_qty) <= 0 ? 'disabled' : '') + '>' + escapeHtml(v.size_label) + '</button>').join('');
+    const colorNames = [...new Set(variants.map(v => String(v.color_name || '').trim()).filter(Boolean))];
+    const colorMarkup = colorNames.length > 1 ? '<h3>Select colour</h3><div class="detail-colors">' + colorNames.map(color => '<button type="button" class="detail-color-option ' + (color === selectedColor ? 'selected' : '') + '" data-detail-color="' + escapeHtml(color) + '" aria-pressed="' + (color === selectedColor) + '">' + escapeHtml(color) + '</button>').join('') + '</div>' : '';
+    const renderSizeMarkup = () => variants.filter(v => !selectedColor || String(v.color_name || '').trim() === selectedColor).map(v => '<button type="button" class="size-option ' + (v.sku === selectedSku ? 'selected' : '') + '" data-detail-size="' + escapeHtml(v.sku) + '" ' + (Number(v.stock_qty) <= 0 ? 'disabled' : '') + '>' + escapeHtml(v.size_label) + '</button>').join('');
+    let sizeMarkup = renderSizeMarkup();
     content.innerHTML = '<div class="product-detail-layout"><div class="product-detail-gallery"><div class="product-detail-stage" id="detail-stage">' +
       '<img id="detail-main-image" src="' + escapeHtml(images[0].image_url) + '" alt="' + escapeHtml(images[0].alt_text || product.name) + '">' +
       '</div><div class="detail-thumbnails">' + galleryMarkup + '</div>' +
       '<p class="detail-viewer-note">Product photos · Select a thumbnail to view another angle</p>' +
-      '</div><div class="product-detail-copy"><p class="eyebrow">BF SHOES · PRODUCT DETAILS</p><h2>' + escapeHtml(product.name) + '</h2><p class="detail-price">' + (product.price_pending_conversion ? 'Price verification pending' : money(product.price_cents, product.currency)) + '</p><p class="detail-description">' + escapeHtml(product.description || product.short_description || 'BF SHOES footwear') + '</p><h3>Select size</h3><div class="product-sizes detail-sizes">' + (sizeMarkup || '<span>No sizes listed</span>') + '</div><p class="detail-stock" id="detail-stock">' + (product.stock_verified === false ? 'Stock verification pending' : (selectedVariant ? Number(selectedVariant.stock_qty) + ' in stock' : 'Select an available size')) + '</p><button type="button" class="button button-dark detail-add" id="detail-add" ' + (!selectedVariant || product.price_pending_conversion ? 'disabled' : '') + '>Add to bag</button><div class="detail-benefits"><span>Return and exchange requests are reviewed by the BF SHOES team</span></div></div></div>';
+      '</div><div class="product-detail-copy"><p class="eyebrow">BF SHOES · PRODUCT DETAILS</p><h2>' + escapeHtml(product.name) + '</h2><p class="detail-price">' + (product.price_pending_conversion ? 'Price verification pending' : money(product.price_cents, product.currency)) + '</p><p class="detail-description">' + escapeHtml(product.description || product.short_description || 'BF SHOES footwear') + '</p>' + colorMarkup + '<h3>Select size</h3><div class="product-sizes detail-sizes" id="detail-sizes">' + (sizeMarkup || '<span>No sizes listed</span>') + '</div><p class="detail-stock" id="detail-stock">' + (product.stock_verified === false ? 'Stock verification pending' : (initialVariant ? Number(initialVariant.stock_qty) + ' in stock' : 'Select an available size')) + '</p><button type="button" class="button button-dark detail-add" id="detail-add" ' + (!initialVariant || product.price_pending_conversion ? 'disabled' : '') + '>Add to bag</button><div class="detail-benefits"><span>Return and exchange requests are reviewed by the BF SHOES team</span></div></div></div>';
     modal.querySelector('.product-detail-close')?.focus();
     content.querySelectorAll('[data-detail-image]').forEach(button => button.addEventListener('click', () => {
       const index = Number(button.dataset.detailImage);
@@ -352,16 +357,32 @@
       if (stage && image) stage.innerHTML = '<img id="detail-main-image" src="' + escapeHtml(image.image_url) + '" alt="' + escapeHtml(image.alt_text || product.name) + '">';
       content.querySelectorAll('[data-detail-image]').forEach(item => item.classList.toggle('active', item === button));
     }));
-    content.querySelectorAll('[data-detail-size]').forEach(button => button.addEventListener('click', () => {
-      state.selectedSizes[product.id] = button.dataset.detailSize;
-      const variant = variants.find(v => v.sku === button.dataset.detailSize && Number(v.stock_qty) > 0);
-      content.querySelectorAll('[data-detail-size]').forEach(item => item.classList.toggle('selected', item === button));
+    const updateDetailVariant = () => {
+      const variant = variants.find(v => v.sku === selectedSku && Number(v.stock_qty) > 0);
       const stock = $('#detail-stock', content), add = $('#detail-add', content);
       if (stock) stock.textContent = variant ? Number(variant.stock_qty) + ' in stock' : 'Out of stock';
       if (add) add.disabled = !variant || product.price_pending_conversion;
+      state.selectedSizes[product.id] = selectedSku;
+    };
+    const bindDetailSizeButtons = () => content.querySelectorAll('[data-detail-size]').forEach(button => button.addEventListener('click', () => {
+      selectedSku = button.dataset.detailSize;
+      content.querySelectorAll('[data-detail-size]').forEach(item => item.classList.toggle('selected', item === button));
+      updateDetailVariant();
+    }));
+    bindDetailSizeButtons();
+    content.querySelectorAll('[data-detail-color]').forEach(button => button.addEventListener('click', () => {
+      selectedColor = button.dataset.detailColor;
+      const firstAvailable = variants.find(v => String(v.color_name || '').trim() === selectedColor && Number(v.stock_qty) > 0);
+      selectedSku = firstAvailable?.sku || '';
+      content.querySelectorAll('[data-detail-color]').forEach(item => { const active = item === button; item.classList.toggle('selected', active); item.setAttribute('aria-pressed', String(active)); });
+      const sizeContainer = $('#detail-sizes', content);
+      sizeMarkup = renderSizeMarkup();
+      if (sizeContainer) sizeContainer.innerHTML = sizeMarkup || '<span>No sizes available in this colour</span>';
+      bindDetailSizeButtons();
+      updateDetailVariant();
     }));
     $('#detail-add', content)?.addEventListener('click', () => {
-      const sku = state.selectedSizes[product.id] || selectedSku;
+      const sku = selectedSku || state.selectedSizes[product.id] || '';
       const variant = availableVariants(product).find(v => v.sku === sku);
       if (!variant) return toast('Select an available size first.');
       addToCart(product, variant);
