@@ -6,11 +6,17 @@ const [app, html] = await Promise.all([
   readFile(new URL('../frontend/index.html', import.meta.url), 'utf8')
 ]);
 
-test('catalog size checkboxes filter products by UK size labels without assuming stock', () => {
-  assert.match(html, /data-size="3"/);
-  assert.match(html, /data-size="12"/);
-  assert.match(app, /\[data-size\].*addEventListener\('change'/);
-  assert.match(app, /matchesSize=!state\.sizes\.length/);
-  assert.match(app, /replace\(\/\^UK\\s\*\/i/);
-  assert.match(app, /matchesColor && matchesSize && matchesPrice/);
+test('homepage and catalogue do not expose global size or colour filters', () => {
+  assert.doesNotMatch(html, /data-size=/);
+  assert.doesNotMatch(html, /data-color=/);
+  assert.doesNotMatch(app, /catalog-sidebar \\[data-(?:size|color)\\]/);
+  assert.doesNotMatch(app, /matchesSize|matchesColor/);
+});
+
+test('size and colour choices are scoped to the selected product detail view', () => {
+  assert.match(app, /data-detail-size=/);
+  assert.match(app, /data-detail-color=/);
+  assert.match(app, /Select size/);
+  assert.match(app, /Select colour/);
+  assert.match(app, /selectedColor/);
 });
