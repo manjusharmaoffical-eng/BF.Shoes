@@ -15,6 +15,7 @@ test('product details modal exposes an accessible dialog and a dynamic multi-ima
   assert.match(app, /\/images/);
   assert.match(app, /data-detail-image/);
   assert.match(app, /data-detail-size/);
+  assert.match(app, /data-detail-color/);
   assert.match(css, /product-detail-modal/);
 });
 
