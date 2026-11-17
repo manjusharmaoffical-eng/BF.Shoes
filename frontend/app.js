@@ -157,9 +157,6 @@
       const audience=String(product.audience || '').toLowerCase();
       const productType=String(product.product_type || '').toLowerCase();
       const matchesCategory=!state.categories.length || state.categories.some(value=>value===category || value===audience || productType.includes(value));
-      const productColors=(product.variants||[]).map(v=>String(v.color_name||'').toLowerCase());
-      const matchesColor=!state.colors.length || state.colors.some(value=>productColors.some(color=>color.includes(value)));
-      const matchesSize=!state.sizes.length || (product.variants||[]).some(v=>state.sizes.includes(String(v.size_label||'').replace(/^UK\s*/i,'').trim().toLowerCase()));
       const matchesPrice = Number(product.price_cents) <= state.maxPriceCents;
       return (state.filter !== 'available' || inStock) && (state.filter !== 'saved' || state.wishlist.has(String(product.id))) && matchesSearch && matchesCategory && matchesPrice;
     });
