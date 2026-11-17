@@ -82,11 +82,15 @@ test("homepage keeps shoe size and colour selection inside the product details v
 });
 
 test("shop category navigation stays a responsive tile grid instead of a horizontal scroller", () => {
-  assert.match(html, /class="everyday-nav"[^>]*[\\s\\S]*?class="everyday-nav-links"/);
-  assert.match(html, /href="\\/men\\.html">MEN<\\/a>[\\s\\S]*?href="\\/women\\.html">WOMEN<\\/a>[\\s\\S]*?href="\\/kids\\.html">KIDS<\\/a>/);
-  assert.match(css, /\\.everyday-nav-links\\s*\\{[^}]*display:grid;[^}]*overflow:visible/);
-  assert.match(css, /@media \\(min-width:1101px\\)[\\s\\S]*?grid-template-columns:repeat\\(6,minmax\\(0,1fr\\)\\)/);
-  assert.match(css, /@media \\(min-width:601px\\) and \\(max-width:1100px\\)[\\s\\S]*?grid-template-columns:repeat\\(4,minmax\\(0,1fr\\)\\)/);
-  assert.match(css, /@media \\(max-width:600px\\)[\\s\\S]*?grid-template-columns:repeat\\(3,minmax\\(0,1fr\\)\\)/);
-  assert.doesNotMatch(css.slice(css.lastIndexOf("Keep category navigation as real tiles")), /overflow-x:auto|flex-wrap:nowrap/);
+  assert.ok(html.includes('class="everyday-nav"'));
+  assert.ok(html.includes('href="/men.html">MEN</a>'));
+  assert.ok(html.includes('href="/women.html">WOMEN</a>'));
+  assert.ok(html.includes('href="/kids.html">KIDS</a>'));
+  assert.ok(css.includes('.everyday-nav-links { display:grid; overflow:visible; flex-wrap:initial; }'));
+  assert.ok(css.includes('@media (min-width:1101px) { .everyday-nav-links { grid-template-columns:repeat(6,minmax(0,1fr)); } }'));
+  assert.ok(css.includes('@media (min-width:601px) and (max-width:1100px) { .everyday-nav-links { grid-template-columns:repeat(4,minmax(0,1fr)); } }'));
+  assert.ok(css.includes('@media (max-width:600px) { .everyday-nav-links { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; } }'));
+  const finalGridRules = css.slice(css.lastIndexOf("Keep category navigation as real tiles"));
+  assert.ok(!finalGridRules.includes("overflow-x:auto"));
+  assert.ok(!finalGridRules.includes("flex-wrap:nowrap"));
 });
