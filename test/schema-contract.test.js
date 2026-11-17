@@ -78,8 +78,9 @@ test("public catalog exposes family and audience fields for customer filters", a
   assert.match(storefront, /to_jsonb\(p\)->>'product_type'/);
   assert.match(storefront, /to_jsonb\(p\)->'attributes'/);
   assert.match(app, /product\.audience/);
-  assert.match(html, /data-category="watches"/);
-  assert.match(html, /data-category="eyewear"/);
+  assert.match(html, /href="\/watches\.html">WATCHES<\/a>/);
+  assert.match(html, /href="\/eyewear\.html">EYEWEAR<\/a>/);
+  assert.doesNotMatch(html, /data-category=/);
 });
 
 
