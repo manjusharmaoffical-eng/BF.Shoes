@@ -972,3 +972,14 @@ html,body{font-family:var(--bf-font)}
     scroll-snap-align:none;
   }
 }
+
+
+/* BF SHOES: one clean three-department category grid on the homepage. */
+.category-cards-three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.category-cards-three .category-card{aspect-ratio:1.7/1;border-radius:4px}
+.category-initial{position:absolute;right:8%;bottom:-22%;z-index:1;font:900 clamp(110px,19vw,240px)/1 Poppins,Arial,sans-serif;color:rgba(255,255,255,.12);letter-spacing:-.1em;pointer-events:none}
+.category-kids{background:linear-gradient(120deg,#202020,#d71920)}
+.category-kids:before{background:linear-gradient(90deg,rgba(12,12,12,.9),rgba(12,12,12,.12) 85%)}
+.category-cards-three .category-card-copy{top:22%;gap:20px}
+@media(max-width:760px){.category-cards-three{grid-template-columns:repeat(2,minmax(0,1fr))}.category-cards-three .category-card:last-child{grid-column:1/-1}.category-cards-three .category-card{aspect-ratio:1.55/1}}
+@media(max-width:420px){.category-cards-three{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.category-cards-three .category-card{aspect-ratio:1.15/1}.category-cards-three .category-card:last-child{grid-column:1/-1}.category-cards-three .category-card-copy strong{font-size:15px}}
