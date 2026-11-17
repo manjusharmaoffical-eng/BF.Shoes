@@ -5,7 +5,12 @@
   const FALLBACK_IMAGE = '/assets/bf-speed-run-product.jpeg';
   const PLACEHOLDER_IMAGE = '/assets/bf-product-placeholder.svg';
   const FALLBACK_IMAGES = [FALLBACK_IMAGE, PLACEHOLDER_IMAGE, '/bf-shoes-hero.svg'];
-  let savedMarket = 'IN'; try { savedMarket = localStorage.getItem('bf-market') === 'AE' ? 'AE' : 'IN'; } catch {}
+  const requestedMarket = new URLSearchParams(window.location.search).get('market');
+  let savedMarket = requestedMarket === 'AE' ? 'AE' : 'IN';
+  try {
+    if (requestedMarket === 'IN' || requestedMarket === 'AE') localStorage.setItem('bf-market', savedMarket);
+    else savedMarket = localStorage.getItem('bf-market') === 'AE' ? 'AE' : 'IN';
+  } catch {}
   const state = { market: savedMarket, checkoutReady: false, products: [], cart: [], cartByMarket: { IN: [], AE: [] }, selectedSizes: {}, filter: 'all', search: '', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null, marketConfig: null };
   state.cart = state.cartByMarket[state.market];
   const cartStorageKey = market => `bf-shoes-cart:v1:${market === 'AE' ? 'AE' : 'IN'}`;
