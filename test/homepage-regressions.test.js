@@ -34,12 +34,16 @@ test("homepage welcomes visitors with the local BF signature sneaker hero and re
   assert.match(css, /@media\(prefers-reduced-motion:reduce\)[\s\S]*?\.hero-reference \.hero-product\{animation:none/);
 });
 
-test("mobile header lays out all primary navigation links in a visible grid", () => {
+test("mobile header lays out all primary navigation links in a visible grid without duplicate footer categories", () => {
   assert.match(css, /@media\(max-width:600px\)[\s\S]*?\.site-header \.main-nav\{[\s\S]*?display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
   assert.match(css, /\.site-header \.main-nav a\{[\s\S]*?justify-content:center/);
   assert.match(html, /class="everyday-nav"[\s\S]*?href="\/collections\.html">COLLECTIONS<\/a>/);
   assert.match(html, /class="everyday-nav"[\s\S]*?href="\/men\.html">MEN<\/a>/);
   assert.match(html, /class="everyday-nav"[\s\S]*?href="\/women\.html">WOMEN<\/a>/);
+  const footer = html.slice(html.indexOf('<div class="footer-bottom">'), html.indexOf('</div>', html.indexOf('<div class="footer-bottom">')) + 6);
+  for (const href of ['/men.html', '/women.html', '/collections.html']) {
+    assert.equal(footer.split('href="' + href + '"').length - 1, 0);
+  }
   assert.match(html, /class="main-nav"[\s\S]*?href="\/about\.html">About<\/a>/);
 });
 
