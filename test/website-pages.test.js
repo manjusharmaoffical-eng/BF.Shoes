@@ -43,6 +43,12 @@ test('homepage and collection pages honour explicit market URLs and same-origin 
   assert.match(collection, /parsed\\.origin === window\\.location\\.origin/);
 });
 
+test('tablet header keeps market, account and wishlist controls visible', async () => {
+  const css = await readFile(new URL('../frontend/styles.css', import.meta.url), 'utf8');
+  assert.match(css, /@media \\(min-width:601px\\) and \\(max-width:780px\\)[\\s\\S]*?\\.site-header \\.market-select \\{ display:inline-flex; \\}/);
+  assert.match(css, /@media \\(min-width:601px\\) and \\(max-width:780px\\)[\\s\\S]*?\\.site-header \\.header-icon \\{ display:inline-flex; \\}/);
+});
+
 test('homepage navigation and sitemap expose the added customer pages', async () => {
   const html = await readFile(new URL('../frontend/index.html', import.meta.url), 'utf8');
   const sitemap = await readFile(new URL('../frontend/sitemap.xml', import.meta.url), 'utf8');
