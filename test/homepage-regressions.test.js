@@ -80,3 +80,13 @@ test("homepage keeps shoe size and colour selection inside the product details v
   assert.match(app, /data-detail-color=/);
   assert.match(app, /View details &amp; options/);
 });
+
+test("shop category navigation stays a responsive tile grid instead of a horizontal scroller", () => {
+  assert.match(html, /class="everyday-nav"[^>]*[\\s\\S]*?class="everyday-nav-links"/);
+  assert.match(html, /href="\\/men\\.html">MEN<\\/a>[\\s\\S]*?href="\\/women\\.html">WOMEN<\\/a>[\\s\\S]*?href="\\/kids\\.html">KIDS<\\/a>/);
+  assert.match(css, /\\.everyday-nav-links\\s*\\{[^}]*display:grid;[^}]*overflow:visible/);
+  assert.match(css, /@media \\(min-width:1101px\\)[\\s\\S]*?grid-template-columns:repeat\\(6,minmax\\(0,1fr\\)\\)/);
+  assert.match(css, /@media \\(min-width:601px\\) and \\(max-width:1100px\\)[\\s\\S]*?grid-template-columns:repeat\\(4,minmax\\(0,1fr\\)\\)/);
+  assert.match(css, /@media \\(max-width:600px\\)[\\s\\S]*?grid-template-columns:repeat\\(3,minmax\\(0,1fr\\)\\)/);
+  assert.doesNotMatch(css.slice(css.lastIndexOf("Keep category navigation as real tiles")), /overflow-x:auto|flex-wrap:nowrap/);
+});
