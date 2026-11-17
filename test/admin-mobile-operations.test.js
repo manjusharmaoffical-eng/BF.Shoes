@@ -29,10 +29,13 @@ test('admin mobile form controls remain touch-friendly', () => {
 });
 
 
-test('homepage avoids duplicate category panels and keeps category links in one navigation row', async () => {
+test('homepage has one main category navigation and preserves the category links in the footer', async () => {
   const home = await readFile(new URL('../frontend/index.html', import.meta.url), 'utf8');
   assert.doesNotMatch(home, /class="category-showcase"|data-category-jump=/);
-  assert.equal((home.match(/href="\/men\.html"/g) || []).length, 1);
-  assert.equal((home.match(/href="\/women\.html"/g) || []).length, 1);
-  assert.equal((home.match(/href="\/collections\.html"/g) || []).length, 1);
+  const nav = home.match(/<nav class="everyday-nav"[\\s\\S]*?<\\/nav>/)?.[0] || '';
+  const footer = home.match(/<div class="footer-bottom">[\\s\\S]*?<\\/div>/)?.[0] || '';
+  for (const href of ['/men.html','/women.html','/collections.html']) {
+    assert.ok(nav.includes('href="' + href + '"'));
+    assert.ok(footer.includes('href="' + href + '"'));
+  }
 });
