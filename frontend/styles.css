@@ -956,3 +956,19 @@ html,body{font-family:var(--bf-font)}
 .detail-help-links{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:16px;padding-top:14px;border-top:1px solid #e5e5e5}
 .detail-help-links a{font-size:12px;font-weight:700;color:#c8102e;text-decoration:underline;text-underline-offset:3px}
 .detail-help-links a:focus-visible{outline:2px solid #c8102e;outline-offset:3px}
+
+/* Keep every collection link visible on narrow screens instead of clipping the row. */
+@media (max-width:1100px) {
+  .everyday-nav-links {
+    flex-wrap:wrap;
+    overflow:visible;
+    justify-content:flex-start;
+    row-gap:10px;
+    column-gap:18px;
+    padding-bottom:2px;
+  }
+  .everyday-nav-links a {
+    flex:0 0 auto;
+    scroll-snap-align:none;
+  }
+}
