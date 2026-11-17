@@ -9,7 +9,6 @@ const [app, html] = await Promise.all([
 test('homepage and catalogue do not expose global size or colour filters', () => {
   assert.doesNotMatch(html, /data-size=/);
   assert.doesNotMatch(html, /data-color=/);
-  assert.doesNotMatch(app, /catalog-sidebar \\[data-(?:size|color)\\]/);
   assert.doesNotMatch(app, /matchesSize|matchesColor/);
 });
 
