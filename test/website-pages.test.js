@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
 const root = new URL('../frontend/', import.meta.url);
 
-test('BF SHOES customer website contains 27 separate HTML pages', async () => {
+test('BF SHOES customer website contains 28 separate HTML pages', async () => {
   const files = (await readdir(root)).filter(name => name.endsWith('.html'));
-  assert.equal(files.length, 27);
+  assert.equal(files.length, 28);
 });
 
 test('all 17 added pages have SEO metadata, canonical URLs and a route back to the store', async () => {
-  const pages = ['collections','men','women','sports','casual','running','sneakers','watches','eyewear','size-guide','fit-guide','shoe-care','shipping','returns','faq','about','contact'];
+  const pages = ['collections','men','women','kids','sports','casual','running','sneakers','watches','eyewear','size-guide','fit-guide','shoe-care','shipping','returns','faq','about','contact'];
   for (const page of pages) {
     const html = await readFile(new URL('../frontend/' + page + '.html', import.meta.url), 'utf8');
     assert.match(html, /<title>[^<]+<\/title>/, page + ' title');
@@ -22,7 +22,7 @@ test('all 17 added pages have SEO metadata, canonical URLs and a route back to t
 
 test('collection pages load live market-specific catalogue data without inventing price or stock', async () => {
   const app = await readFile(new URL('../frontend/store-pages.js', import.meta.url), 'utf8');
-  const pages = ['collections','men','women','sports','casual','running','sneakers','watches','eyewear'];
+  const pages = ['collections','men','women','kids','sports','casual','running','sneakers','watches','eyewear'];
   for (const page of pages) {
     const html = await readFile(new URL('../frontend/' + page + '.html', import.meta.url), 'utf8');
     assert.match(html, /data-bf-collection=/, page + ' collection selector');
