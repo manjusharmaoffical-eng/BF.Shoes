@@ -489,6 +489,7 @@
   $('#success-backdrop')?.addEventListener('click', event => { if (event.target === $('#success-backdrop')) setSuccess(false); });
 
   $('#header-product-search')?.addEventListener('input', event => { state.search=event.target.value; renderProducts(); if(event.target.value) $('#shop')?.scrollIntoView({behavior:'smooth',block:'start'}); });
+  $('#header-wishlist')?.addEventListener('click', () => { state.filter='saved'; renderProducts(); $('#shop')?.scrollIntoView({behavior:'smooth',block:'start'}); });
 
   const countrySelect = $('#shipping-country');
   document.querySelectorAll('input[name="payment_method"]').forEach(input => input.addEventListener('change', () => updateCheckoutMarketForm()));
