@@ -325,22 +325,50 @@
     } catch {}
     if (!images.length && product.image_url) images = [{ image_url: product.image_url, alt_text: product.name }];
     if (!images.length) images = [{ image_url: productImage(product), alt_text: product.name }];
-    const variants = product.variants || [];
-    const available = availableVariants(product);
-    const initialSku = state.selectedSizes[product.id] || (available[0] && available[0].sku) || '';
-    const initialVariant = variants.find(v => v.sku === initialSku && Number(v.stock_qty) > 0) || available[0];
+    const variants = (product.variants || []).filter(v => v.active !== false);
+    const available = variants.filter(v => Number(v.stock_qty) > 0 && v.stock_verified !== false);
+    const initialSku = state.selectedSizes[product.id] || variants[0]?.sku || '';
+    const initialVariant = variants.find(v => v.sku === initialSku) || variants[0] || null;
     let selectedColor = String(initialVariant?.color_name || '');
     let selectedSku = initialVariant?.sku || '';
-    const galleryMarkup = images.map((image, index) => '<button type="button" class="detail-thumb ' + (index === 0 ? 'active' : '') + '" data-detail-image="' + index + '" aria-label="View product angle ' + (index + 1) + '"><img src="' + escapeHtml(image.image_url) + '" alt="' + escapeHtml(image.alt_text || product.name) + '"></button>').join('');
     const colorNames = [...new Set(variants.map(v => String(v.color_name || '').trim()).filter(Boolean))];
-    const colorMarkup = colorNames.length ? '<h3>Select colour</h3><div class="detail-colors">' + colorNames.map(color => '<button type="button" class="detail-color-option ' + (color === selectedColor ? 'selected' : '') + '" data-detail-color="' + escapeHtml(color) + '" aria-pressed="' + (color === selectedColor) + '">' + escapeHtml(color) + '</button>').join('') + '</div>' : '<p class="detail-stock">Colour information is not available for this product.</p>';
-    const renderSizeMarkup = () => variants.filter(v => !selectedColor || String(v.color_name || '').trim() === selectedColor).map(v => '<button type="button" class="size-option ' + (v.sku === selectedSku ? 'selected' : '') + '" data-detail-size="' + escapeHtml(v.sku) + '" ' + (Number(v.stock_qty) <= 0 ? 'disabled' : '') + '>' + escapeHtml(v.size_label) + '</button>').join('');
+    const moneyLine = product.price_pending_conversion
+      ? '<p class="detail-price-pending">Price verification pending for this market</p>'
+      : '<p class="detail-price">' + money(product.price_cents, product.currency) + '</p>';
+    const mrpLine = Number(product.mrp_cents) > Number(product.price_cents)
+      ? '<p class="detail-mrp">MRP <del>' + money(product.mrp_cents, product.currency) + '</del></p>'
+      : '';
+    const attributeEntries = Object.entries(product.attributes && typeof product.attributes === 'object' ? product.attributes : {})
+      .filter(([key, value]) => /^[a-z0-9 _-]{1,50}$/i.test(key) && ['string','number','boolean'].includes(typeof value) && String(value).trim() !== '');
+    const attributeMarkup = attributeEntries.length
+      ? '<section class="detail-specifications"><h3>Product information</h3><dl>' + attributeEntries.map(([key,value]) => '<div><dt>' + escapeHtml(key.replace(/[_-]+/g,' ').replace(/\\b\\w/g,letter=>letter.toUpperCase())) + '</dt><dd>' + escapeHtml(value) + '</dd></div>').join('') + '</dl></section>'
+      : '';
+    const detailMeta = [
+      ['Brand', product.brand || 'BF SHOES'],
+      ['Category', product.category || ''],
+      ['Type', product.product_type || ''],
+      ['For', product.audience || ''],
+      ['SKU', initialVariant?.sku || 'Select a size']
+    ].filter(([,value]) => String(value).trim());
+    const metaMarkup = '<dl class="detail-meta">' + detailMeta.map(([label,value]) => '<div><dt>' + label + '</dt><dd>' + escapeHtml(value) + '</dd></div>').join('') + '</dl>';
+    const colorMarkup = colorNames.length
+      ? '<section class="detail-option-group"><h3>Colour</h3><div class="detail-colors">' + colorNames.map(color => '<button type="button" class="detail-color-option ' + (color === selectedColor ? 'selected' : '') + '" data-detail-color="' + escapeHtml(color) + '" aria-pressed="' + (color === selectedColor) + '">' + escapeHtml(color) + '</button>').join('') + '</div></section>'
+      : '<p class="detail-stock">Colour information has not been added for this product yet.</p>';
+    const renderSizeMarkup = () => variants
+      .filter(v => !selectedColor || String(v.color_name || '').trim() === selectedColor)
+      .map(v => '<button type="button" class="size-option ' + (v.sku === selectedSku ? 'selected' : '') + '" data-detail-size="' + escapeHtml(v.sku) + '" ' + (v.stock_verified !== false && Number(v.stock_qty) <= 0 ? 'disabled' : '') + '>' + escapeHtml(v.size_label) + '</button>').join('');
     let sizeMarkup = renderSizeMarkup();
+    const galleryMarkup = images.map((image, index) => '<button type="button" class="detail-thumb ' + (index === 0 ? 'active' : '') + '" data-detail-image="' + index + '" aria-label="View product angle ' + (index + 1) + '"><img src="' + escapeHtml(image.image_url) + '" alt="' + escapeHtml(image.alt_text || product.name) + '"></button>').join('');
     content.innerHTML = '<div class="product-detail-layout"><div class="product-detail-gallery"><div class="product-detail-stage" id="detail-stage">' +
       '<img id="detail-main-image" src="' + escapeHtml(images[0].image_url) + '" alt="' + escapeHtml(images[0].alt_text || product.name) + '">' +
       '</div><div class="detail-thumbnails">' + galleryMarkup + '</div>' +
       '<p class="detail-viewer-note">Product photos · Select a thumbnail to view another angle</p>' +
-      '</div><div class="product-detail-copy"><p class="eyebrow">BF SHOES · PRODUCT DETAILS</p><h2>' + escapeHtml(product.name) + '</h2><p class="detail-price">' + (product.price_pending_conversion ? 'Price verification pending' : money(product.price_cents, product.currency)) + '</p><p class="detail-description">' + escapeHtml(product.description || product.short_description || 'BF SHOES footwear') + '</p>' + colorMarkup + '<h3>Select size</h3><div class="product-sizes detail-sizes" id="detail-sizes">' + (sizeMarkup || '<span>No sizes listed</span>') + '</div><p class="detail-stock" id="detail-stock">' + (product.stock_verified === false ? 'Stock verification pending' : (initialVariant ? Number(initialVariant.stock_qty) + ' in stock' : 'Select an available size')) + '</p><button type="button" class="button button-dark detail-add" id="detail-add" ' + (!initialVariant || product.price_pending_conversion ? 'disabled' : '') + '>Add to bag</button><div class="detail-benefits"><span>Return and exchange requests are reviewed by the BF SHOES team</span></div></div></div>';
+      '</div><div class="product-detail-copy"><p class="eyebrow">BF SHOES · PRODUCT DETAILS</p><h2>' + escapeHtml(product.name) + '</h2>' + moneyLine + mrpLine +
+      '<p class="detail-description">' + escapeHtml(product.description || product.short_description || 'Product description has not been added yet.') + '</p>' +
+      metaMarkup + colorMarkup + '<section class="detail-option-group"><h3>Size</h3><div class="product-sizes detail-sizes" id="detail-sizes">' + (sizeMarkup || '<span>No sizes have been added for this colour.</span>') + '</div></section>' +
+      '<p class="detail-stock" id="detail-stock">' + (initialVariant?.stock_verified === false ? 'Stock verification pending' : initialVariant ? (Number(initialVariant.stock_qty) > 0 ? Number(initialVariant.stock_qty) + ' in stock' : 'Out of stock') : 'Size and stock information has not been added yet') + '</p>' +
+      attributeMarkup + '<button type="button" class="button button-dark detail-add" id="detail-add" ' + (!initialVariant || initialVariant.stock_verified === false || Number(initialVariant.stock_qty) <= 0 || product.price_pending_conversion ? 'disabled' : '') + '>Add to bag</button>' +
+      '<div class="detail-benefits"><span>Return and exchange requests are reviewed by the BF SHOES team</span></div></div></div>';
     modal.querySelector('.product-detail-close')?.focus();
     content.querySelectorAll('[data-detail-image]').forEach(button => button.addEventListener('click', () => {
       const index = Number(button.dataset.detailImage);
@@ -350,10 +378,12 @@
       content.querySelectorAll('[data-detail-image]').forEach(item => item.classList.toggle('active', item === button));
     }));
     const updateDetailVariant = () => {
-      const variant = variants.find(v => v.sku === selectedSku && Number(v.stock_qty) > 0);
+      const variant = variants.find(v => v.sku === selectedSku) || null;
       const stock = $('#detail-stock', content), add = $('#detail-add', content);
-      if (stock) stock.textContent = variant ? Number(variant.stock_qty) + ' in stock' : 'Out of stock';
-      if (add) add.disabled = !variant || product.price_pending_conversion;
+      if (stock) stock.textContent = !variant ? 'Size and stock information has not been added yet' : variant.stock_verified === false ? 'Stock verification pending' : Number(variant.stock_qty) > 0 ? Number(variant.stock_qty) + ' in stock' : 'Out of stock';
+      if (add) add.disabled = !variant || variant.stock_verified === false || Number(variant.stock_qty) <= 0 || product.price_pending_conversion;
+      const sku = content.querySelector('.detail-meta dd:last-child');
+      if (sku) sku.textContent = variant?.sku || 'Select a size';
       state.selectedSizes[product.id] = selectedSku;
     };
     const bindDetailSizeButtons = () => content.querySelectorAll('[data-detail-size]').forEach(button => button.addEventListener('click', () => {
@@ -364,7 +394,7 @@
     bindDetailSizeButtons();
     content.querySelectorAll('[data-detail-color]').forEach(button => button.addEventListener('click', () => {
       selectedColor = button.dataset.detailColor;
-      const firstAvailable = variants.find(v => String(v.color_name || '').trim() === selectedColor && Number(v.stock_qty) > 0);
+      const firstAvailable = variants.find(v => String(v.color_name || '').trim() === selectedColor);
       selectedSku = firstAvailable?.sku || '';
       content.querySelectorAll('[data-detail-color]').forEach(item => { const active = item === button; item.classList.toggle('selected', active); item.setAttribute('aria-pressed', String(active)); });
       const sizeContainer = $('#detail-sizes', content);
@@ -375,7 +405,7 @@
     }));
     $('#detail-add', content)?.addEventListener('click', () => {
       const sku = selectedSku || state.selectedSizes[product.id] || '';
-      const variant = availableVariants(product).find(v => v.sku === sku);
+      const variant = availableVariants(product).find(v => v.sku === sku && v.stock_verified !== false);
       if (!variant) return toast('Select an available size first.');
       addToCart(product, variant);
       renderCart();
