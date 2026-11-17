@@ -113,6 +113,8 @@ app.use("/api/v1/invoices", invoicesRouter);
 app.use("/api/v1/warehouse", warehouseRouter);
 app.use("/api/v1", router);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Keep the short Admin URL aligned with the deployed static Admin document.
+app.get("/admin", (_req, res) => res.sendFile(path.resolve(__dirname, "../frontend/admin.html")));
 app.get("/favicon.ico", (_req, res) => res.redirect(302, "/favicon.svg"));
 app.use(express.static(path.resolve(__dirname, "../frontend"), { index: "index.html", maxAge: process.env.NODE_ENV === "production" ? "1h" : 0 }));
 app.use((_req, res) => res.status(404).json({ error: "Not found" }));
