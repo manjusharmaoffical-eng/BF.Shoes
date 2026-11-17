@@ -32,3 +32,19 @@ test('modal content escapes user-supplied product names, image URLs and size lab
   assert.match(app, /escapeHtml\(v\.size_label\)/);
   assert.doesNotMatch(app, /within 12 hours after delivery/);
 });
+
+test('product details expose variant filters, product metadata and recorded attributes', () => {
+  assert.match(app, /detail-option-group/);
+  assert.match(app, /detail-meta/);
+  assert.match(app, /detail-specifications/);
+  assert.match(app, /product\.attributes/);
+  assert.match(app, /product\.mrp_cents/);
+  assert.match(app, /stock_verification pending/i);
+  assert.match(app, /data-detail-color/);
+  assert.match(app, /data-detail-size/);
+});
+test('footer preserves category, sizing, delivery and customer-support destinations', () => {
+  for (const href of ['/collections.html','/men.html','/women.html','/sports.html','/casual.html','/running.html','/sneakers.html','/watches.html','/eyewear.html','/size-guide.html','/fit-guide.html','/shoe-care.html','/shipping.html','/returns.html','/faq.html','/contact.html','/track-order.html']) {
+    assert.ok(html.includes('href="' + href + '"'), 'missing footer destination ' + href);
+  }
+});
