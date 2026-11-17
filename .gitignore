@@ -24,3 +24,10 @@ bin-release/
 
 # Local database backups contain private business/customer data; never commit.
 /backups/
+# Dependencies are installed from the lockfile during build/deploy.
+/node_modules/
+
+# Local test/build output and diagnostic logs.
+/coverage/
+*.log
+*.tmp
