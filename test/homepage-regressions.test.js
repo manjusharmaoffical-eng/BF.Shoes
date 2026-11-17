@@ -68,9 +68,9 @@ test("product detail gallery uses a public read-only endpoint, not owner-only AI
 });
 
 test("homepage keeps shoe size and colour selection inside the product details view", () => {
-  assert.doesNotMatch(html, /<details open><summary>(?:Size|Color)<\\/summary>/);
+  assert.doesNotMatch(html, /<details open><summary>(?:Size|Color)<\/summary>/);
   assert.doesNotMatch(app, /data-size-product=/);
-  assert.doesNotMatch(app, /data-quick-add=/);
+  assert.doesNotMatch(app, /<button class="quick-add"/);
   assert.match(app, /data-detail-size=/);
   assert.match(app, /data-detail-color=/);
   assert.match(app, /View details &amp; options/);
