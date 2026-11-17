@@ -33,6 +33,16 @@ test('collection pages load live market-specific catalogue data without inventin
   assert.match(app, /v\.stock_verified/);
 });
 
+test('homepage and collection pages honour explicit market URLs and same-origin product images', async () => {
+  const app = await readFile(new URL('../frontend/app.js', import.meta.url), 'utf8');
+  const collection = await readFile(new URL('../frontend/store-pages.js', import.meta.url), 'utf8');
+  assert.match(app, /new URLSearchParams\\(window\\.location\\.search\\)\\.get\\('market'\\)/);
+  assert.match(app, /localStorage\\.setItem\\('bf-market', savedMarket\\)/);
+  assert.match(collection, /new URLSearchParams\\(window\\.location\\.search\\)\\.get\\('market'\\)/);
+  assert.match(collection, /parsed\\.hostname === 'bf-shoes\\.vercel\\.app'/);
+  assert.match(collection, /parsed\\.origin === window\\.location\\.origin/);
+});
+
 test('homepage navigation and sitemap expose the added customer pages', async () => {
   const html = await readFile(new URL('../frontend/index.html', import.meta.url), 'utf8');
   const sitemap = await readFile(new URL('../frontend/sitemap.xml', import.meta.url), 'utf8');
