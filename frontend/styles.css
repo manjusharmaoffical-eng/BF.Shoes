@@ -912,3 +912,8 @@ html,body{font-family:var(--bf-font)}
 }
 
 .detail-add { min-height:44px; }
+
+
+/* Filter-free catalogue: let product cards use the full content width. */
+.catalog-layout{display:block;grid-template-columns:minmax(0,1fr)}
+.catalog-layout .catalog-results{width:100%;min-width:0}
