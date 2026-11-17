@@ -258,6 +258,7 @@ businessRouter.get("/exports/inventory.csv", ownerOnly, async (req, res, next) =
        FROM variants v JOIN products p ON p.id=v.product_id
        WHERE p.currency=$1 ORDER BY p.name,v.color_name,v.size_label,v.sku`, [parsed.data.currency]
     );
+    await pool.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES('admin',$1,'report.export.inventory','report',$2)", [req.actor.id, parsed.data.currency]);
     sendCsv(res, `bf-shoes-inventory-${parsed.data.currency.toLowerCase()}.csv`, result.rows,
       ["product_name","currency","sku","size_label","color_name","stock_qty","active"].map(key => ({ key, label: key.replaceAll("_", " ").toUpperCase() })));
   } catch (err) { next(err); }
@@ -279,6 +280,7 @@ businessRouter.get("/exports/orders.csv", ownerOnly, async (req, res, next) => {
        ORDER BY created_at DESC LIMIT 10000`,
       [parsed.data.currency, parsed.data.from || null, parsed.data.to || null]
     );
+    await pool.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES('admin',$1,'report.export.orders','report',$2)", [req.actor.id, `${parsed.data.currency}:${parsed.data.from || "all"}:${parsed.data.to || "all"}`]);
     sendCsv(res, `bf-shoes-orders-${parsed.data.currency.toLowerCase()}.csv`, result.rows,
       ["order_number","created_at","customer_name","customer_email","customer_phone","currency","subtotal_cents","delivery_fee_cents","vat_cents","total_cents","status","shipping_country","shipping_emirate","payment_method"].map(key => ({ key, label: key.replaceAll("_", " ").toUpperCase() })));
   } catch (err) { next(err); }

@@ -58,10 +58,12 @@ test("UAE storefront keeps PayTabs as the selected but gated merchant provider",
   assert.match(helper, /fiatAmount: Number\(amount\)/);
   assert.match(helper, /fiatCurrency: "AED"/);
   assert.doesNotMatch(helper, /orderAmount: Number\(amount\),\s*currency: "AED"/);
-  assert.match(frontend, /API_BASE \+ '\/orders\/binance'/);
-  assert.match(frontend, /https:\/\/pay\.binance\.com\//);
-  assert.match(html, /id="payment-binance-option"/);
-  assert.match(schema, /razorpay/);
+  assert.match(storefront, /UAE_PAYMENT_PROVIDER !== "binance"/);
+  assert.match(storefront, /PayTabs is selected and checkout remains disabled/);
+  assert.doesNotMatch(frontend, /\/orders\/binance|pay\.binance\.com/);
+  assert.match(frontend, /payment_method: state\.market === 'AE' \? 'paytabs' : 'payu'/);
+  assert.match(html, /id="payment-paytabs-option"/);
+  assert.doesNotMatch(html, /payment-binance-option|Binance Pay/);
 });
 
 test("Binance Pay AED order uses V2 fiatAmount/fiatCurrency and validates quote", async () => {

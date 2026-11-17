@@ -2,7 +2,7 @@ import express from "express";
 import { z } from "zod";
 import { pool } from "./db.js";
 import { authenticate } from "./auth.js";
-import { calculateProfit } from "./finance-math.js";
+import { calculateProfit, calculateInventoryValuation } from "./finance-math.js";
 import { parseFinanceCurrency } from "./finance-validation.js";
 import { toCsv } from "./csv-export.js";
 
@@ -36,8 +36,15 @@ financeRouter.get("/summary",async(req,res,next)=>{const parsed=dateQuery.safePa
  const s=sales.rows[0],e=expenseTotal.rows[0];
  const financeCosts=await pool.query("SELECT COALESCE(sum(interest_cents),0)::bigint AS interest_paid_cents FROM finance_repayments r JOIN finance_funding f ON f.id=r.funding_id WHERE f.currency=$3 AND ($1::date IS NULL OR r.paid_date >= $1) AND ($2::date IS NULL OR r.paid_date <= $2)",[from,to,currency]);
  const interestPaid=financeCosts.rows[0].interest_paid_cents;
+ const inventoryResult=await pool.query(`SELECT count(*) FILTER(WHERE v.stock_qty>0)::int AS stocked_variants,
+  COALESCE(sum(v.stock_qty),0)::bigint AS total_units,
+  count(*) FILTER(WHERE v.stock_qty>0 AND p.unit_cost_cents IS NULL)::int AS missing_cost_variants,
+  COALESCE(sum(v.stock_qty::bigint*p.unit_cost_cents::bigint) FILTER(WHERE p.unit_cost_cents IS NOT NULL),0)::bigint AS known_inventory_value_cents
+  FROM variants v JOIN products p ON p.id=v.product_id WHERE p.currency=$1`,[currency]);
+ const inv=inventoryResult.rows[0];
+ const inventory={currency,...calculateInventoryValuation({stockedVariants:inv.stocked_variants,totalUnits:inv.total_units,missingCostVariants:inv.missing_cost_variants,knownInventoryValueCents:inv.known_inventory_value_cents})};
  const profit=calculateProfit({revenueCents:s.revenue_cents,cogsCents:s.cogs_cents,expensesCents:e.total_cents,interestCents:interestPaid,missingCostUnits:Number(s.units_missing_cost)});
- res.set("Cache-Control","no-store");res.json({data:{currency,sales:s,expenses:e.total_cents,expenses_by_category:costs.rows,funding:funding.rows,finance_costs:interestPaid,profit,note:!profit.complete?"Profit is unavailable as a final figure because some delivered units have no recorded cost. Enter actual product costs before relying on profit reports.":"Profit estimate uses delivered order value less recorded cost of goods, recorded operating expenses and interest actually paid in the selected period. Do not record the same interest again as a separate expense; tax, unrecorded costs and refunds may be incomplete."}});
+ res.set("Cache-Control","no-store");res.json({data:{currency,sales:s,expenses:e.total_cents,expenses_by_category:costs.rows,funding:funding.rows,finance_costs:interestPaid,inventory,profit,note:!profit.complete?"Profit is unavailable as a final figure because some delivered units have no recorded cost. Enter actual product costs before relying on profit reports.":"Profit estimate uses delivered order value less recorded cost of goods, recorded operating expenses and interest actually paid in the selected period. Inventory valuation is separate and remains incomplete when any stocked variant has no actual unit cost. Tax, unrecorded costs and refunds may also be incomplete."}});
  }catch(err){next(err)}});
 financeRouter.get("/expenses",async(req,res,next)=>{const parsed=dateQuery.safeParse(req.query);if(!parsed.success)return res.status(400).json({error:"Invalid date range or currency"});const {from=null,to=null,currency}=parsed.data;try{const r=await pool.query("SELECT * FROM finance_expenses WHERE currency=$3 AND ($1::date IS NULL OR expense_date >= $1) AND ($2::date IS NULL OR expense_date <= $2) ORDER BY expense_date DESC,created_at DESC LIMIT 500",[from,to,currency]);res.set("Cache-Control","no-store");res.json({data:r.rows})}catch(e){next(e)}});
 financeRouter.post("/expenses",async(req,res,next)=>{const p=expenseSchema.safeParse(req.body);if(!p.success)return res.status(400).json({error:"Invalid expense",details:p.error.flatten()});try{const v=p.data;const r=await pool.query("INSERT INTO finance_expenses(category,description,amount_cents,expense_date,currency,created_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING *",[v.category,v.description,v.amount_cents,v.expense_date,v.currency,req.actor.id]);await audit(req,"finance.expense.create","finance_expense",r.rows[0].id);res.status(201).json({data:r.rows[0]})}catch(e){next(e)}});
@@ -64,10 +71,13 @@ financeRouter.get("/export.csv",async(req,res,next)=>{
    pool.query("SELECT COALESCE(sum(amount_cents),0)::bigint AS expenses_cents FROM finance_expenses WHERE currency=$3 AND ($1::date IS NULL OR expense_date >= $1) AND ($2::date IS NULL OR expense_date <= $2)",[from,to,currency]),
    pool.query("SELECT COALESCE(sum(r.interest_cents),0)::bigint AS interest_cents FROM finance_repayments r JOIN finance_funding f ON f.id=r.funding_id WHERE f.currency=$3 AND ($1::date IS NULL OR r.paid_date >= $1) AND ($2::date IS NULL OR r.paid_date <= $2)",[from,to,currency])
   ]);
-  const s=sales.rows[0],e=expenses.rows[0],i=interest.rows[0];
+  const [s,e,i]=[sales.rows[0],expenses.rows[0],interest.rows[0]];
+  const inventoryResult=await pool.query(`SELECT count(*) FILTER(WHERE v.stock_qty>0)::int AS stocked_variants,COALESCE(sum(v.stock_qty),0)::bigint AS total_units,count(*) FILTER(WHERE v.stock_qty>0 AND p.unit_cost_cents IS NULL)::int AS missing_cost_variants,COALESCE(sum(v.stock_qty::bigint*p.unit_cost_cents::bigint) FILTER(WHERE p.unit_cost_cents IS NOT NULL),0)::bigint AS known_inventory_value_cents FROM variants v JOIN products p ON p.id=v.product_id WHERE p.currency=$1`,[currency]);
+  const inv=inventoryResult.rows[0],inventory=calculateInventoryValuation({stockedVariants:inv.stocked_variants,totalUnits:inv.total_units,missingCostVariants:inv.missing_cost_variants,knownInventoryValueCents:inv.known_inventory_value_cents});
   const profit=calculateProfit({revenueCents:s.revenue_cents,cogsCents:s.cogs_cents,expensesCents:e.expenses_cents,interestCents:i.interest_cents,missingCostUnits:Number(s.missing_cost_units)});
-  const row={currency,from:from||"all",to:to||"all",delivered_orders:s.orders,revenue_cents:s.revenue_cents,cogs_cents:s.cogs_cents,expenses_cents:e.expenses_cents,interest_paid_cents:i.interest_cents,missing_cost_units:s.missing_cost_units,profit_complete:profit.complete,gross_profit_cents:profit.complete?profit.gross_profit_cents:"",operating_profit_cents:profit.complete?profit.operating_profit_cents:"",net_profit_cents:profit.complete?profit.net_profit_cents:"",note:profit.complete?"Based on recorded data only":"Profit withheld because actual unit costs are missing"};
+  const row={currency,from:from||"all",to:to||"all",delivered_orders:s.orders,revenue_cents:s.revenue_cents,cogs_cents:s.cogs_cents,expenses_cents:e.expenses_cents,interest_paid_cents:i.interest_cents,missing_cost_units:s.missing_cost_units,stocked_variants:inventory.stocked_variants,current_stock_units:inventory.total_units,inventory_missing_cost_variants:inventory.missing_cost_variants,inventory_value_complete:inventory.complete,inventory_value_cents:inventory.inventory_value_cents??"",profit_complete:profit.complete,gross_profit_cents:profit.complete?profit.gross_profit_cents:"",operating_profit_cents:profit.complete?profit.operating_profit_cents:"",net_profit_cents:profit.complete?profit.net_profit_cents:"",note:!inventory.complete?"Current inventory valuation withheld because stocked variants have no recorded unit cost":profit.complete?"Based on recorded data only":"Profit withheld because actual sold-unit costs are missing"};
   const columns=Object.keys(row).map(key=>({key,label:key.replaceAll("_"," ").toUpperCase()}));
+  await audit(req,"finance.export.csv","report",`${currency}:${from||"all"}:${to||"all"}`);
   res.set({"Content-Type":"text/csv; charset=utf-8","Content-Disposition":`attachment; filename="bf-shoes-finance-${currency.toLowerCase()}.csv"`,"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"});
   res.send("\uFEFF"+toCsv([row],columns));
  }catch(err){next(err)}

@@ -31,6 +31,14 @@ test('finance P&L export preserves incomplete-cost warning and selected market/d
   assert.match(html, /id="export-finance"/);
   assert.match(js, /\/finance\/export\.csv\?/);
   assert.match(finance, /financeRouter\.get\("\/export\.csv"/);
-  assert.match(finance, /Profit withheld because actual unit costs are missing/);
+  assert.match(finance, /Profit withheld because actual sold-unit costs are missing/);
   assert.match(finance, /Invalid date range or currency/);
+});
+
+test('all CSV exports write owner audit events before returning customer or finance data', async () => {
+  const business = await readFile(new URL('../src/business.js', import.meta.url), 'utf8');
+  const finance = await readFile(new URL('../src/finance.js', import.meta.url), 'utf8');
+  assert.match(business, /report\.export\.inventory/);
+  assert.match(business, /report\.export\.orders/);
+  assert.match(finance, /finance\.export\.csv/);
 });

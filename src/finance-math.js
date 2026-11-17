@@ -19,3 +19,26 @@ export function calculateProfit({ revenueCents, cogsCents, expensesCents, intere
     missing_cost_units: missing
   };
 }
+
+
+export function calculateInventoryValuation({ stockedVariants, totalUnits, missingCostVariants, knownInventoryValueCents }) {
+  const count = (value, label) => {
+    const number = Number(value ?? 0);
+    if (!Number.isSafeInteger(number) || number < 0) throw new TypeError(`${label} must be a non-negative integer`);
+    return number;
+  };
+  const stocked = count(stockedVariants, "Stocked variant count");
+  const units = count(totalUnits, "Stock unit count");
+  const missing = count(missingCostVariants, "Missing-cost variant count");
+  const knownValue = cents(knownInventoryValueCents);
+  if (missing > stocked || stocked > units) throw new TypeError("Inventory counts are inconsistent");
+  const complete = missing === 0;
+  return {
+    complete,
+    stocked_variants: stocked,
+    total_units: units,
+    missing_cost_variants: missing,
+    inventory_value_cents: complete ? String(knownValue) : null,
+    known_inventory_value_cents: String(knownValue)
+  };
+}

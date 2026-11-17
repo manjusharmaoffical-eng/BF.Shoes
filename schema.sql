@@ -169,7 +169,7 @@ CREATE TABLE IF NOT EXISTS newsletter_subscribers (
 );
 CREATE TABLE IF NOT EXISTS notification_outbox (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  kind TEXT NOT NULL CHECK (kind IN ('order_confirmation','newsletter_welcome')),
+  kind TEXT NOT NULL CHECK (kind IN ('order_confirmation','newsletter_welcome','order_status_update','return_status_update')),
   recipient TEXT NOT NULL,
   subject TEXT NOT NULL,
   text_body TEXT NOT NULL,
@@ -179,6 +179,9 @@ CREATE TABLE IF NOT EXISTS notification_outbox (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   sent_at TIMESTAMPTZ
 );
+ALTER TABLE notification_outbox DROP CONSTRAINT IF EXISTS notification_outbox_kind_check;
+ALTER TABLE notification_outbox ADD CONSTRAINT notification_outbox_kind_check
+  CHECK (kind IN ('order_confirmation','newsletter_welcome','order_status_update','return_status_update'));
 CREATE INDEX IF NOT EXISTS notification_outbox_pending_idx ON notification_outbox(status, created_at);
 
 -- Product costs are intentionally nullable until an actual cost is entered.
@@ -564,3 +567,110 @@ SELECT p.id,
 FROM products p JOIN sizes s ON s.audience=p.audience
 WHERE p.slug LIKE 'men-%-india' OR p.slug LIKE 'men-%-uae' OR p.slug LIKE 'women-%-india' OR p.slug LIKE 'women-%-uae'
 ON CONFLICT (sku) DO NOTHING;
+
+
+-- Expanded women's footwear collection and richer product specifications.
+-- Prices follow the owner-approved new-style price points; inventory remains zero.
+ALTER TABLE product_images ADD COLUMN IF NOT EXISTS view_angle TEXT NOT NULL DEFAULT 'detail';
+ALTER TABLE product_images DROP CONSTRAINT IF EXISTS product_images_view_angle_check;
+ALTER TABLE product_images ADD CONSTRAINT product_images_view_angle_check
+  CHECK (view_angle IN ('front','back','top','bottom','detail'));
+
+WITH catalog(slug,name,product_type,code,description,short_description,occasion,closure) AS (
+  VALUES
+    ('women-ballet-flat','BF Luna Ballet Flat','ballet-flats','BF-WBF',
+     'A clean ballet flat with a softly rounded toe, low-profile shape and a neat everyday finish. Designed for simple styling with denim, dresses and workwear.',
+     'Rounded-toe ballet flat with a clean everyday profile.','Everyday, office and casual outings','Slip-on'),
+    ('women-everyday-flat','BF Ease Everyday Flat','flats','BF-WEF',
+     'A versatile flat shoe with a minimal upper, low profile and easy slip-on design. A practical style for daily outfits, commuting and relaxed occasions.',
+     'Minimal slip-on flat for daily wear.','Everyday, commuting and casual wear','Slip-on'),
+    ('women-knit-sneaker','BF Motion Knit Sneaker','women-sneakers','BF-WKS',
+     'A sporty low-top sneaker with a knit-look upper, lace-up front and streamlined athletic shape. Styled for casual outfits, walks and everyday movement.',
+     'Sport-inspired lace-up sneaker with a knit-look upper.','Casual wear, walking and everyday outfits','Lace-up'),
+    ('women-slide','BF Daylight Slide','slides','BF-WSD',
+     'An open-toe slide with a broad single-band upper and easy on-off construction. A simple warm-weather option for relaxed daily use.',
+     'Easy slip-on open-toe slide.','Relaxed wear and warm-weather outings','Slip-on'),
+    ('women-strap-sandal','BF City Strap Sandal','women-sandals','BF-WSS',
+     'A strappy open-toe sandal with a secure-looking multi-strap layout and low-profile shape. Pairs easily with casual and smart-casual outfits.',
+     'Multi-strap open-toe sandal with a low profile.','Casual and smart-casual outings','Buckle / strap'),
+    ('women-penny-loafer','BF Classic Penny Loafer','women-loafers','BF-WPL',
+     'A classic slip-on loafer with a moc-toe inspired front and penny-strap detail. A versatile smart-casual shape for office and everyday styling.',
+     'Penny-strap slip-on loafer.','Office, smart-casual and everyday wear','Slip-on'),
+    ('women-ankle-boot','BF Trail Ankle Boot','ankle-boots','BF-WAB',
+     'A clean ankle-height boot with a closed toe, supportive-looking shaft and side-zip styling. Designed as a versatile statement for casual and cooler-weather outfits.',
+     'Ankle-height boot with side-zip styling.','Casual outfits and cooler-weather styling','Side zip'),
+    ('women-espadrille','BF Coast Espadrille','espadrilles','BF-WES',
+     'A relaxed espadrille-inspired shoe with a low-cut upper and woven-look midsole detail. An easy seasonal style for casual daytime outfits.',
+     'Espadrille-inspired low-cut casual shoe.','Daytime casual and seasonal wear','Slip-on')
+), markets(currency,price_cents,mrp_cents,market_code) AS (
+  VALUES ('INR',69900,99900,'IN'),('AED',2725,3900,'AE')
+)
+INSERT INTO products(name,slug,description,short_description,seo_title,seo_description,brand,category,audience,product_type,attributes,image_url,price_cents,mrp_cents,unit_cost_cents,currency,active)
+SELECT c.name || CASE WHEN m.currency='INR' THEN ' — India' ELSE ' — UAE' END,
+       c.slug || CASE WHEN m.currency='INR' THEN '-india' ELSE '-uae' END,
+       c.description,c.short_description,c.name || ' | BF SHOES',c.description,'BF SHOES','shoes','women',c.product_type,
+       jsonb_build_object(
+         'collection','women','style',c.product_type,'brand_mark','BF',
+         'design_detail',c.description,'occasion',c.occasion,'closure',c.closure,
+         'upper_material','Not supplied by manufacturer','lining','Not supplied by manufacturer',
+         'outsole_material','Not supplied by manufacturer','heel_height','Not applicable / not specified',
+         'fit_notes','Exact fit measurements are not yet supplied; use the UK size guide.',
+         'care_instructions','Keep dry when possible. Wipe gently with a soft dry cloth; follow the maker care label.',
+         'size_system','UK','inventory_note','stock_not_verified',
+         'photo_status','awaiting_four_angle_product_photography',
+         'gallery_views',jsonb_build_array('front','back','top','bottom')
+       ),
+       'https://www.bfshoes.online/assets/catalog/' || c.slug || '.svg',
+       m.price_cents,m.mrp_cents,NULL,m.currency,TRUE
+FROM catalog c CROSS JOIN markets m
+ON CONFLICT (slug) DO NOTHING;
+
+WITH sizes AS (
+  SELECT unnest(ARRAY['3','4','5','6','7','8']) AS size_label
+)
+INSERT INTO variants(product_id,sku,size_label,color_name,stock_qty,active)
+SELECT p.id,
+       CASE WHEN p.slug LIKE '%-india' THEN 'IN' ELSE 'AE' END || '-' || upper(left(regexp_replace(p.slug,'[^a-z0-9]+','-','g'),28)) || '-' || s.size_label,
+       'UK ' || s.size_label,'Black',0,TRUE
+FROM products p CROSS JOIN sizes s
+WHERE p.slug LIKE 'women-ballet-flat-%' OR p.slug LIKE 'women-everyday-flat-%'
+   OR p.slug LIKE 'women-knit-sneaker-%' OR p.slug LIKE 'women-slide-%'
+   OR p.slug LIKE 'women-strap-sandal-%' OR p.slug LIKE 'women-penny-loafer-%'
+   OR p.slug LIKE 'women-ankle-boot-%' OR p.slug LIKE 'women-espadrille-%'
+ON CONFLICT (sku) DO NOTHING;
+
+-- Enrich existing catalogue records without inventing material, fit or performance claims.
+UPDATE products p
+SET attributes = COALESCE(p.attributes,'{}'::jsonb) || jsonb_build_object(
+  'design_detail',COALESCE(NULLIF(p.description,''),'BF SHOES footwear design.'),
+  'upper_material',COALESCE(p.attributes->>'upper_material','Not supplied by manufacturer'),
+  'lining',COALESCE(p.attributes->>'lining','Not supplied by manufacturer'),
+  'outsole_material',COALESCE(p.attributes->>'outsole_material','Not supplied by manufacturer'),
+  'fit_notes',COALESCE(p.attributes->>'fit_notes','Exact fit measurements are not yet supplied; use the UK size guide.'),
+  'care_instructions',COALESCE(p.attributes->>'care_instructions','Keep dry when possible. Wipe gently with a soft dry cloth; follow the maker care label.'),
+  'size_system','UK',
+  'photo_status',COALESCE(p.attributes->>'photo_status','awaiting_four_angle_product_photography'),
+  'gallery_views',jsonb_build_array('front','back','top','bottom')
+)
+WHERE p.category='shoes' AND p.active=true;
+
+-- Add style-specific catalogue copy for existing men's and women's range.
+UPDATE products SET attributes = COALESCE(attributes,'{}'::jsonb) || CASE
+ WHEN slug LIKE 'women-stiletto-%' THEN '{"occasion":"Evening, parties and formal occasions","closure":"Slip-on","heel_height":"High heel; exact measurement not supplied"}'::jsonb
+ WHEN slug LIKE 'women-block-heel-%' THEN '{"occasion":"Office, events and everyday smart styling","closure":"Slip-on","heel_height":"Block heel; exact measurement not supplied"}'::jsonb
+ WHEN slug LIKE 'women-wedge-%' THEN '{"occasion":"Daytime, casual and seasonal styling","closure":"Slip-on","heel_height":"Wedge; exact measurement not supplied"}'::jsonb
+ WHEN slug LIKE 'women-pump-%' THEN '{"occasion":"Office, formal and occasion wear","closure":"Slip-on","heel_height":"Pump heel; exact measurement not supplied"}'::jsonb
+ WHEN slug LIKE 'women-kitten-heel-%' THEN '{"occasion":"Office, daytime and smart-casual wear","closure":"Slip-on","heel_height":"Low kitten heel; exact measurement not supplied"}'::jsonb
+ WHEN slug LIKE 'women-platform-heel-%' THEN '{"occasion":"Parties and statement styling","closure":"Slip-on","heel_height":"Platform; exact measurement not supplied"}'::jsonb
+ WHEN slug LIKE 'women-slingback-heel-%' THEN '{"occasion":"Office, events and occasion wear","closure":"Rear slingback strap","heel_height":"Slingback heel; exact measurement not supplied"}'::jsonb
+ WHEN slug LIKE 'women-mule-heel-%' THEN '{"occasion":"Smart-casual and evening styling","closure":"Open-back slip-on","heel_height":"Mule heel; exact measurement not supplied"}'::jsonb
+ WHEN slug LIKE 'men-court-sneaker-%' THEN '{"occasion":"Everyday casual and streetwear","closure":"Lace-up","heel_height":"Flat sneaker profile"}'::jsonb
+ WHEN slug LIKE 'men-running-shoe-%' THEN '{"occasion":"Running, walking and sportswear","closure":"Lace-up","heel_height":"Sport profile; exact measurement not supplied"}'::jsonb
+ WHEN slug LIKE 'men-sport-trainer-%' THEN '{"occasion":"Training and active casual wear","closure":"Lace-up","heel_height":"Trainer profile; exact measurement not supplied"}'::jsonb
+ WHEN slug LIKE 'men-formal-oxford-%' THEN '{"occasion":"Office, formal and occasion wear","closure":"Lace-up","heel_height":"Low formal heel; exact measurement not supplied"}'::jsonb
+ WHEN slug LIKE 'men-leather-loafer-%' THEN '{"occasion":"Office and smart-casual wear","closure":"Slip-on","heel_height":"Low loafer heel; exact measurement not supplied"}'::jsonb
+ WHEN slug LIKE 'men-canvas-sneaker-%' THEN '{"occasion":"Everyday casual wear","closure":"Lace-up","heel_height":"Flat sneaker profile"}'::jsonb
+ WHEN slug LIKE 'men-slip-on-%' THEN '{"occasion":"Everyday casual and travel","closure":"Slip-on","heel_height":"Flat profile"}'::jsonb
+ WHEN slug LIKE 'men-sandal-%' THEN '{"occasion":"Casual and warm-weather wear","closure":"Adjustable strap","heel_height":"Flat sandal profile"}'::jsonb
+ ELSE '{}'::jsonb END
+WHERE category='shoes' AND active=true;

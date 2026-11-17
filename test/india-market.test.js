@@ -17,9 +17,9 @@ test("India market rejects unlisted PINs and unsupported payment methods", () =>
   assert.deepEqual(c.deliveryPincodes, ["500052"]);
   assert.deepEqual(c.paymentMethods, ["cod"], "Unsupported payment methods stay disabled");
   assert.deepEqual(parseIndiaMarketEnv({ INDIA_PAYMENT_METHODS: "online" }).paymentMethods, [], "Unknown online methods stay disabled");
-  assert.deepEqual(parseIndiaMarketEnv({ INDIA_PAYMENT_GATEWAY: "razorpay", INDIA_PAYMENT_METHODS: "razorpay" }).paymentMethods, ["razorpay"]);
-  assert.deepEqual(parseIndiaMarketEnv({ INDIA_PAYMENT_GATEWAY: "other", INDIA_PAYMENT_METHODS: "razorpay" }).paymentMethods, []);
-  assert.equal(parseIndiaMarketEnv({ INDIA_PAYMENT_GATEWAY: "razorpay", INDIA_GST_STATUS: "registered" }).paymentGateway, "razorpay");
+  assert.deepEqual(parseIndiaMarketEnv({ INDIA_PAYMENT_GATEWAY: "payu", INDIA_PAYMENT_METHODS: "payu" }).paymentMethods, ["payu"]);
+  assert.deepEqual(parseIndiaMarketEnv({ INDIA_PAYMENT_GATEWAY: "other", INDIA_PAYMENT_METHODS: "payu" }).paymentMethods, []);
+  assert.equal(parseIndiaMarketEnv({ INDIA_PAYMENT_GATEWAY: "payu", INDIA_GST_STATUS: "registered" }).paymentGateway, "payu");
   assert.equal(parseIndiaMarketEnv({ INDIA_PAYMENT_GATEWAY: "fake-gateway" }).paymentGateway, "unconfigured");
 });
 

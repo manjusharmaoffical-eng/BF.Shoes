@@ -15,7 +15,7 @@ test("admin product form exposes INR and AED currency choices", () => {
   assert.match(adminHtml, /name="currency"/);
   assert.match(adminHtml, /value="INR"/);
   assert.match(adminHtml, /value="AED"/);
-  assert.match(adminHtml, /Unit cost \(same currency as product/);
+  assert.match(adminHtml, /Unit cost \(owner only; actual purchase cost/);
 });
 
 test("admin saves and formats each product using its selected currency", () => {

@@ -71,17 +71,24 @@ These items are intentionally deferred until the owner is in India, verifies the
 - Migration inventory, schema drift checks and deployment rollback procedure.
 - Monitoring for API, database, email queue, AI provider and media storage failures.
 - Document environment variables and provider setup without exposing secret values.
-- VPS/own-server deployment guide and portability review; production remains on the currently configured hosting until the owner chooses otherwise.
+- [x] Prepare a Docker Compose + PostgreSQL VPS deployment guide, private network, localhost-only app binding, health checks and separate migration step. Actual server provisioning, verified data restore and DNS cutover remain pending until the owner selects a server.
 
 ## Work completed in the 2026-11-17 continuation
 
 - [x] Owner-only inventory and order CSV downloads, separated by INR/AED.
 - [x] Owner-only finance P&L CSV export with date and currency filters; missing-cost profit stays explicitly incomplete.
-- [x] Owner-only API key management screen with least-privilege scope selection, expiry, one-time secret reveal and revocation.
+- [x] Add current inventory valuation to finance summary and CSV; inventory value is withheld whenever any stocked variant lacks an actual unit cost.
+- [x] Owner-only API key management screen with least-privilege scope selection, expiry, one-time secret reveal and revocation. Integration keys cannot receive the key-administration scope.
+- [x] Role-aware admin navigation and action controls: staff are read-only, managers see only their scopes, and owner-only finance, returns, API keys, staff, audit and communications sections are hidden from non-owners.
+- [x] Protect actual unit costs and margins: only the owner can set/read product costs; staff, managers, customer order responses and integration API keys never receive internal cost snapshots. Cost changes are audited.
+- [x] Add separate AI copy/image rate limits to control provider spend and auto-clear expired admin sessions on API 401 responses.
+- [x] Make catalog size filters functional, show market-correct price-range labels, and improve product-details modal keyboard focus/escape behavior.
+- [x] Prepare self-hosted Docker Compose/VPS deployment files, optional Caddy HTTPS and systemd email scheduler without moving production data or changing DNS.
 - [x] Spreadsheet formula-injection protection for all CSV exports.
 - [x] Vercel Cron email outbox worker with 32+ byte timing-safe CRON_SECRET authentication, bounded batch size, row locking and maximum retry count.
 - [x] Customer-facing order-status and return-status email messages are queued after successful state changes; internal notes are never emailed.
-- [x] Automated build/test run: 147 tests passed at this checkpoint.
+- [x] Keep return/exchange fees unconfigured and non-chargeable until owner approval; remove an unsupported ₹100 fee assumption and remove unapproved return-window/packaging terms from the policy page.
+- [x] Automated build/test run: 168 tests passed in the latest scoped Vercel build validation (2026-11-17).
 
 ## Definition of done
 

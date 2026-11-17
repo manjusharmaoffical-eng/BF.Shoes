@@ -1,0 +1,15 @@
+[Unit]
+Description=Process BF SHOES queued customer email notifications
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=bfshoes
+Group=bfshoes
+EnvironmentFile=/etc/bf-shoes/bf-shoes.env
+ExecStart=/opt/bf-shoes/scripts/run-email-outbox.sh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true

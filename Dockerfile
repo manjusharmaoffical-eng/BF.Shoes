@@ -1,8 +1,8 @@
-FROM node:22-alpine
+FROM node:24-alpine
 ENV NODE_ENV=production
 WORKDIR /app
 COPY package*.json ./
-RUN npm install --omit=dev && npm cache clean --force
+RUN npm ci --omit=dev && npm cache clean --force
 COPY schema.sql ./schema.sql
 COPY src ./src
 COPY frontend ./frontend

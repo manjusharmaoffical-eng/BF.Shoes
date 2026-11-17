@@ -27,3 +27,8 @@ test('API key secret is returned only at creation and key administration require
   assert.match(policies, /if \(role === "admin"\) return \["\*"\]/);
   assert.doesNotMatch(policies, /MANAGER_SCOPES[^\n]*keys:write/);
 });
+
+
+test('API key expiry must be a future timestamp', () => {
+  assert.match(routes, /API key expiry must be in the future/);
+});

@@ -36,3 +36,9 @@ test("all product illustrations carry BF branding and filters", async () => {
   assert.match(html, /data-category-jump="heels"/);
   assert.match(html, /data-category="stiletto"/);
 });
+
+
+test('catalog illustration URLs use the primary BF SHOES domain for VPS portability', () => {
+  assert.match(schema, /https:\/\/www\.bfshoes\.online\/assets\/catalog\//);
+  assert.doesNotMatch(schema, /bf-shoes\.vercel\.app\/assets\/catalog/);
+});

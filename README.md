@@ -4,7 +4,7 @@ Express API, storefront, admin dashboard, PostgreSQL schema, inventory/order wor
 
 ## Current deployment requirements
 
-- Node.js 22+ or Docker with Compose.
+- Node.js 24+ or Docker with Compose.
 - PostgreSQL reachable from the API; keep database credentials server-side.
 - A strong `JWT_SECRET` (at least 32 bytes).
 - A public domain and TLS reverse proxy for production. The Compose file binds the API to `127.0.0.1:3000` so it is not directly exposed to the Internet.
@@ -63,3 +63,7 @@ git diff --check
 
 ### Online payments and live checkout
 Payment gateway modules include provider-side order/signature/webhook validation, but no merchant account or live credentials have been confirmed for BF SHOES. Do not mark an order paid or accept live checkout until merchant onboarding is complete, credentials are stored in the hosting provider's secure environment settings, and sandbox plus authenticated end-to-end verification passes. Keep GST/VAT profiles and delivery charges pending until the owner supplies verified values. Checkout must remain gated while any required commercial setting is unknown.
+
+## Self-hosted deployment
+
+A Docker Compose deployment path with PostgreSQL, health checks, private networking and a separate migration step is documented in `VPS-DEPLOYMENT.md`. It is prepared only; do not point DNS or move production data until a VPS is selected and a verified restore/cutover drill is approved.

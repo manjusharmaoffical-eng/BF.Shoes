@@ -10,7 +10,6 @@ import { paytabsConfigured, createPaytabsPayment, paytabsSignatureValid, verifyP
 import { allocateOrderWarehouseStock } from "./warehouse-stock.js";
 import { calculateUaeTotals } from "./uae-market-policy.js";
 import { binancePayConfigured, createBinancePayOrder, getBinancePayCertificate, queryBinancePayOrder, verifyBinanceWebhookSignature } from "./binance-pay.js";
-import { razorpayConfigured, razorpayPublicKey } from "./razorpay.js";
 
 export const storefrontRouter = express.Router();
 
@@ -70,7 +69,7 @@ storefrontRouter.get("/market-config", async (_req, res, next) => {
     const feeConfigured = value => value !== undefined && /^\d+$/.test(value) && Number.isSafeInteger(Number(value));
     const indiaPricingVerified = process.env.INDIA_PRICING_VERIFIED === "true" && row.india_pricing_configured;
     const indiaFeeConfigured = process.env.INDIA_DELIVERY_FEE_VERIFIED === "true" && feeConfigured(process.env.INDIA_DELIVERY_FEE_PAISE);
-    const indiaRazorpayConfigured = razorpayConfigured();
+    const indiaPayuConfigured = process.env.INDIA_PAYMENT_GATEWAY === "payu" && payuConfigured();
     // Payment credentials alone do not activate checkout: order creation, callback
     // verification, webhook reconciliation and tax/price readiness must all pass.
     const indiaCheckoutEnabled = false;
@@ -81,7 +80,7 @@ storefrontRouter.get("/market-config", async (_req, res, next) => {
     const uaeCheckoutEnabled = false; // Keep closed until the PayTabs merchant flow is end-to-end verified.
     res.set("Cache-Control", "no-store");
     return res.json({ data: [
-      { country: "IN", currency: "INR", pricingConfigured: indiaPricingVerified, deliveryFeeConfigured: indiaFeeConfigured, tax: "GST", taxProfileConfigured: row.india_tax_profile_configured, paymentProvider: "Razorpay", paymentConfigured: indiaRazorpayConfigured, paymentPublicKey: indiaRazorpayConfigured ? razorpayPublicKey() : null, checkoutEnabled: indiaCheckoutEnabled },
+      { country: "IN", currency: "INR", pricingConfigured: indiaPricingVerified, deliveryFeeConfigured: indiaFeeConfigured, tax: "GST", taxProfileConfigured: row.india_tax_profile_configured, paymentProvider: "PayU", paymentConfigured: indiaPayuConfigured, paymentPublicKey: null, checkoutEnabled: indiaCheckoutEnabled },
       { country: "AE", currency: "AED", pricingConfigured: uaePricingVerified, deliveryFeeConfigured: uaeFeeVerified, tax: "VAT", taxProfileConfigured: row.uae_tax_profile_configured, paymentProvider: "PayTabs", paymentConfigured: uaePaytabsConfigured, checkoutEnabled: uaeCheckoutEnabled }
     ] });
   } catch (err) { next(err); }
@@ -93,7 +92,7 @@ storefrontRouter.get("/products", async (req, res, next) => {
   if (!currency) return res.status(400).json({ error: "market must be IN or AE" });
   try {
     const result = await pool.query(
-      `SELECT p.id, p.name, p.slug, p.description, p.brand,
+      `SELECT p.id, p.name, p.slug, p.description, p.short_description, p.brand,
         COALESCE(to_jsonb(p)->>'category','shoes') AS category,
         COALESCE(to_jsonb(p)->>'audience','unisex') AS audience,
         COALESCE(to_jsonb(p)->>'product_type','general') AS product_type,
@@ -103,7 +102,10 @@ storefrontRouter.get("/products", async (req, res, next) => {
         (p.currency <> $1) AS price_pending_conversion,
         COALESCE(json_agg(json_build_object('id', v.id, 'sku', v.sku, 'size_label', v.size_label,
           'color_name', v.color_name, 'stock_qty', v.stock_qty)
-          ORDER BY v.size_label) FILTER (WHERE v.id IS NOT NULL AND v.active = true), '[]') AS variants
+          ORDER BY v.size_label) FILTER (WHERE v.id IS NOT NULL AND v.active = true), '[]') AS variants,
+        COALESCE((SELECT json_agg(json_build_object('image_url', pi.image_url, 'alt_text', pi.alt_text,
+          'view_angle', pi.view_angle) ORDER BY pi.sort_order, pi.created_at, pi.id)
+          FROM product_images pi WHERE pi.product_id = p.id), '[]'::json) AS gallery
        FROM products p LEFT JOIN variants v ON v.product_id = p.id
        WHERE p.active = true AND p.currency = $1 GROUP BY p.id ORDER BY p.created_at DESC LIMIT 100`,
       [currency]
@@ -121,7 +123,7 @@ async function getIndiaMarketConfig(db = pool) {
   if (!env.deliveryPincodes.includes("500052")) reasons.push("pin_500052_not_configured");
   if (env.gstStatus === "unconfigured") reasons.push("gst_status_not_confirmed");
   const currencies = await db.query("SELECT currency, count(*)::int AS product_count FROM products WHERE active=TRUE GROUP BY currency");
-  if (currencies.rows.some(row => row.currency !== "INR" && Number(row.product_count) > 0)) reasons.push("product_price_conversion_required");
+  // INR and AED are separate market catalogs; the presence of AED products must never force a conversion.
   if (!currencies.rows.some(row => row.currency === "INR" && Number(row.product_count) > 0)) reasons.push("no_inr_priced_products");
   if (!env.paymentMethods.length) reasons.push("payment_method_not_confirmed");
   let taxProfile = null, taxRate = 0;
@@ -130,9 +132,11 @@ async function getIndiaMarketConfig(db = pool) {
     if (r.rowCount !== 1 || r.rows[0].currency !== "INR" || !String(r.rows[0].registration_number || "").trim() || !String(r.rows[0].seller_state || "").trim() || !Number.isSafeInteger(Number(r.rows[0].tax_rate_bps)) || Number(r.rows[0].tax_rate_bps) <= 0 || Number(r.rows[0].tax_rate_bps) > 10000) reasons.push("valid_in_gst_profile_required");
     else { taxProfile = r.rows[0]; taxRate = Number(r.rows[0].tax_rate_bps); }
   }
-  const onlineReady = razorpayConfigured();
-  if (!onlineReady) reasons.push("razorpay_credentials_not_configured");
-  return { currency: "INR", country: "IN", delivery_pincodes: env.deliveryPincodes, target_pincode: "500052", delivery_fee_paise: env.deliveryFeePaise, payment_methods: env.paymentMethods, payment_gateway: env.paymentGateway, online_payment_ready: onlineReady, online_payment_note: onlineReady ? "Razorpay credentials are configured; checkout remains closed until order, callback and webhook flows pass end-to-end verification." : "Razorpay merchant credentials are required before online payments can be accepted.", gst_status: env.gstStatus, gst_rate_bps: env.gstStatus === "registered" ? (taxProfile ? taxRate : null) : (env.gstStatus === "not_registered" ? 0 : null), checkout_ready: reasons.length === 0, setup_required: [...new Set(reasons)], tax_profile: taxProfile };
+  const onlineReady = env.paymentGateway === "payu" && payuConfigured();
+  if (!onlineReady) reasons.push("payu_credentials_not_configured");
+  // Keep the public readiness flag false until a separately approved live checkout release.
+  reasons.push("checkout_activation_pending");
+  return { currency: "INR", country: "IN", delivery_pincodes: env.deliveryPincodes, target_pincode: "500052", delivery_fee_paise: env.deliveryFeePaise, payment_methods: env.paymentMethods, payment_gateway: env.paymentGateway, online_payment_ready: onlineReady, online_payment_note: onlineReady ? "PayU credentials are configured; checkout remains closed until order, callback and reconciliation flows pass end-to-end verification." : "PayU merchant credentials are required before online payments can be accepted.", gst_status: env.gstStatus, gst_rate_bps: env.gstStatus === "registered" ? (taxProfile ? taxRate : null) : (env.gstStatus === "not_registered" ? 0 : null), checkout_ready: reasons.length === 0, setup_required: [...new Set(reasons)], tax_profile: taxProfile };
 }
 
 storefrontRouter.get("/config", async (_req, res, next) => {
@@ -169,7 +173,7 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
   const suppliedKey = req.get("idempotency-key");
   if (!suppliedKey || suppliedKey.length < 16 || suppliedKey.length > 120 || !/^[a-zA-Z0-9._:-]+$/.test(suppliedKey)) return res.status(400).json({ error: "A valid Idempotency-Key is required" });
   const d = parsed.data;
-  return res.status(503).json({ error: "India online checkout is disabled until Razorpay integration and verified merchant credentials are configured." });
+  return res.status(503).json({ error: "India online checkout is disabled until PayU merchant credentials, verified prices and tax details are ready." });
   if (d.shipping_country !== "IN") return res.status(400).json({ error: "PayU India checkout is only configured for the India market." });
   if (d.shipping_pincode !== "500052") return res.status(400).json({ error: "BF SHOES currently delivers only to PIN code 500052." });
   const allowedPins = new Set((process.env.INDIA_DELIVERY_PINCODES || "500052").split(",").map(value => value.trim()).filter(Boolean));
@@ -372,6 +376,7 @@ storefrontRouter.post("/orders/binance", async (req, res, next) => {
   if (d.shipping_country !== "AE") return res.status(400).json({ error: "Binance Pay checkout is currently for UAE orders only." });
   if (process.env.UAE_PRICING_VERIFIED !== "true") return res.status(503).json({ error: "UAE product pricing has not been owner-verified." });
   if (process.env.UAE_DELIVERY_FEE_VERIFIED !== "true") return res.status(503).json({ error: "UAE delivery fee has not been owner-verified." });
+  if (process.env.UAE_PAYMENT_PROVIDER !== "binance") return res.status(503).json({ error: "Binance Pay is not the selected UAE provider. PayTabs is selected and checkout remains disabled." });
   if (!binancePayConfigured()) return res.status(503).json({ error: "Binance Pay is not enabled for this verified merchant environment yet." });
   const deliveryFeeCents = Number(process.env.UAE_DELIVERY_FEE_FILS);
   if (!Number.isSafeInteger(deliveryFeeCents) || deliveryFeeCents < 0) return res.status(503).json({ error: "UAE delivery fee is not configured." });
@@ -705,7 +710,7 @@ storefrontRouter.post("/orders", async (req, res, next) => {
   const d = parsed.data;
   if (d.shipping_country === "IN") {
     if (d.shipping_pincode !== "500052") return res.status(400).json({ error: "BF SHOES currently supports delivery only to PIN 500052, India." });
-    return res.status(503).json({ error: "India checkout is blocked until Razorpay credentials, verified INR prices, the confirmed delivery fee and the active GST profile are configured." });
+    return res.status(503).json({ error: "India checkout is blocked until PayU merchant credentials, verified INR prices, the confirmed delivery fee and the active GST profile are configured." });
   }
   return res.status(503).json({ error: "UAE checkout is blocked until a merchant gateway, verified AED prices, delivery fee and active VAT profile are configured." });
   const idempotencyKey = `store:${suppliedKey}`;

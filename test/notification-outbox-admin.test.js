@@ -56,6 +56,7 @@ test("order and return status changes enqueue customer-facing email without expo
   const schema = await readFile(new URL("../schema.sql", import.meta.url), "utf8");
   assert.match(routes, /kind: "order_status_update"/);
   assert.match(returns, /kind: 'return_status_update'/);
+  assert.match(returns, /request_type} request for order/);
   assert.match(returns, /if \(parsed\.data\.customer_message\)/);
   assert.doesNotMatch(returns, /textBody:[^\n]*internal_note/);
   assert.match(schema, /'order_status_update','return_status_update'/);

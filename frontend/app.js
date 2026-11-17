@@ -6,7 +6,7 @@
   const PLACEHOLDER_IMAGE = '/assets/bf-product-placeholder.svg';
   const FALLBACK_IMAGES = [FALLBACK_IMAGE, PLACEHOLDER_IMAGE, '/bf-shoes-hero.svg'];
   let savedMarket = 'IN'; try { savedMarket = localStorage.getItem('bf-market') === 'AE' ? 'AE' : 'IN'; } catch {}
-  const state = { market: savedMarket, maxPriceCents: savedMarket === 'AE' ? 50000 : 499900, checkoutReady: false, products: [], cart: [], cartByMarket: { IN: [], AE: [] }, selectedSizes: {}, filter: 'all', search: '', categories: [], colors: [], sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null, marketConfig: null };
+  const state = { market: savedMarket, maxPriceCents: savedMarket === 'AE' ? 50000 : 499900, checkoutReady: false, products: [], cart: [], cartByMarket: { IN: [], AE: [] }, selectedSizes: {}, filter: 'all', search: '', categories: [], colors: [], sizes: [], sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null, marketConfig: null };
   state.cart = state.cartByMarket[state.market];
   try { state.wishlist = new Set(JSON.parse(localStorage.getItem('bf-shoes-wishlist') || '[]').map(String)); } catch { state.wishlist = new Set(); }
 
@@ -31,8 +31,8 @@
   const vatCents = () => null;
   const checkoutTotalCents = () => totalCents();
   const setupMessage = () => state.market === 'IN'
-    ? 'India checkout is pending Razorpay credentials, verified INR prices, confirmed delivery fee and GST profile.'
-    : 'UAE checkout is pending Binance Pay merchant enablement, verified AED prices, delivery fee and VAT profile.';
+    ? 'India checkout is pending PayU merchant credentials, verified INR prices, confirmed delivery fee and GST profile.'
+    : 'UAE checkout is pending PayTabs merchant onboarding, verified AED prices, delivery fee and VAT profile.';
   const randomKey = () => Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   const productImage = product => {
     const candidate = typeof product.image_url === 'string' && product.image_url.startsWith('https://') ? product.image_url : '';
@@ -133,8 +133,9 @@
       const matchesCategory=!state.categories.length || state.categories.some(value=>value===category || value===audience || productType.includes(value));
       const productColors=(product.variants||[]).map(v=>String(v.color_name||'').toLowerCase());
       const matchesColor=!state.colors.length || state.colors.some(value=>productColors.some(color=>color.includes(value)));
+      const matchesSize=!state.sizes.length || (product.variants||[]).some(v=>state.sizes.includes(String(v.size_label||'').replace(/^UK\s*/i,'').trim().toLowerCase()));
       const matchesPrice = Number(product.price_cents) <= state.maxPriceCents;
-      return (state.filter !== 'available' || inStock) && (state.filter !== 'saved' || state.wishlist.has(String(product.id))) && matchesSearch && matchesCategory && matchesColor && matchesPrice;
+      return (state.filter !== 'available' || inStock) && (state.filter !== 'saved' || state.wishlist.has(String(product.id))) && matchesSearch && matchesCategory && matchesColor && matchesSize && matchesPrice;
     });
 
     if (state.sort === 'price-low') products.sort((a,b) => Number(a.price_cents)-Number(b.price_cents));
@@ -173,12 +174,89 @@
 
       return `<article class="product-card" data-product="${escapeHtml(product.id)}">
         <div class="product-image"><img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(product.name)}" loading="${index < 3 ? 'eager' : 'lazy'}" decoding="async" /><span class="product-tag">${status}</span><button class="wishlist-toggle ${watched ? 'saved' : ''}" type="button" data-wishlist="${escapeHtml(product.id)}" aria-label="${watched ? 'Remove from wishlist' : 'Add to wishlist'}" aria-pressed="${watched}" title="${watched ? 'Remove from wishlist' : 'Add to wishlist'}"><i class="${watched ? 'fa-solid' : 'fa-regular'} fa-heart" aria-hidden="true"></i></button><button class="quick-add" type="button" data-quick-add="${escapeHtml(product.id)}" aria-label="Quick add ${escapeHtml(product.name)}" ${!available.length || product.price_pending_conversion ? 'disabled title="Price verification pending"' : ''}>+</button></div>
-        <div class="product-info"><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.brand || 'BF SHOES')} · ${escapeHtml(product.short_description || product.description || 'Everyday sneaker').slice(0, 58)}</p></div><div class="product-price-wrap"><strong class="product-price">${product.price_pending_conversion ? 'Price verification pending' : money(product.price_cents, product.currency)}</strong>${hasDiscount ? `<del class="product-mrp">${money(mrpCents, product.currency)}</del>` : ''}</div></div>
+        <div class="product-info"><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.brand || 'BF SHOES')} · ${escapeHtml(product.short_description || product.description || 'Everyday sneaker').slice(0, 58)}</p><button class="product-details-trigger" type="button" data-details="${escapeHtml(product.id)}">View full details ↗</button></div><div class="product-price-wrap"><strong class="product-price">${product.price_pending_conversion ? 'Price verification pending' : money(product.price_cents, product.currency)}</strong>${hasDiscount ? `<del class="product-mrp">${money(mrpCents, product.currency)}</del>` : ''}</div></div>
         <div class="product-sizes" aria-label="Choose size for ${escapeHtml(product.name)}">${sizes || '<span class="product-info"><p>No sizes listed</p></span>'}</div>
         <div class="add-row"><button class="button button-dark" type="button" data-add="${escapeHtml(product.id)}" ${!selectedVariant || product.price_pending_conversion ? 'disabled' : ''}>${product.price_pending_conversion ? 'Price pending' : selectedVariant ? 'Add to bag' : 'Out of stock'} <span>+</span></button></div>
       </article>`;
     }).join('');
   }
+
+  let previousProductDetailsFocus = null;
+  function openProductDetails(product) {
+    const backdrop = $('#product-detail-backdrop');
+    if (!backdrop || !product) return;
+    previousProductDetailsFocus = document.activeElement;
+    const attrs = product.attributes && typeof product.attributes === 'object' ? product.attributes : {};
+    const gallery = Array.isArray(product.gallery) ? product.gallery : [];
+    const angles = ['front','back','top','bottom'];
+    const angleNames = {front:'Front view',back:'Back view',top:'Top view',bottom:'Sole / bottom'};
+    const byAngle = new Map(gallery.map(item => [String(item.view_angle || '').toLowerCase(), item]));
+    const current = gallery[0]?.image_url || productImage(product);
+    $('#product-detail-title').textContent = product.name || 'BF SHOES';
+    $('#product-detail-price').textContent = money(product.price_cents, product.currency);
+    $('#product-detail-description').textContent = product.description || product.short_description || 'BF SHOES footwear style.';
+    const main = $('#product-detail-image');
+    main.src = current;
+    main.alt = product.name + ' product view';
+    $('#product-detail-thumbs').innerHTML = angles.map(angle => {
+      const item = byAngle.get(angle);
+      const url = item?.image_url || '';
+      return url
+        ? `<button type="button" class="product-angle-thumb ${url === current ? 'active' : ''}" data-angle-url="${escapeHtml(url)}"><img src="${escapeHtml(url)}" alt="${angleNames[angle]}"><span>${angleNames[angle]}</span></button>`
+        : `<div class="product-angle-missing" aria-label="${angleNames[angle]} photo not uploaded"><span>BF</span><small>${angleNames[angle]}</small><em>Photo pending</em></div>`;
+    }).join('');
+    const details = [
+      ['Style', attrs.style || product.product_type || 'Footwear'],
+      ['Occasion', attrs.occasion || 'Everyday styling'],
+      ['Closure', attrs.closure || 'Not specified'],
+      ['Upper material', attrs.upper_material || 'Not supplied by manufacturer'],
+      ['Lining', attrs.lining || 'Not supplied by manufacturer'],
+      ['Outsole', attrs.outsole_material || 'Not supplied by manufacturer'],
+      ['Heel height', attrs.heel_height || 'Not specified'],
+      ['Fit', attrs.fit_notes || 'Exact fit measurements not yet supplied'],
+      ['Care', attrs.care_instructions || 'Follow the maker care label']
+    ];
+    $('#product-detail-specs').innerHTML = details.map(([label,value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('');
+    const variants = Array.isArray(product.variants) ? product.variants : [];
+    $('#product-detail-sizes').innerHTML = '<strong>Available sizes</strong><p>' + (variants.length ? variants.map(v => escapeHtml(v.size_label) + (Number(v.stock_qty) > 0 ? '' : ' (out of stock)')).join(' · ') : 'Size options not listed') + '</p>';
+    const pending = angles.filter(angle => !byAngle.has(angle));
+    $('#product-detail-note').textContent = pending.length
+      ? 'Product photography is still pending for: ' + pending.map(angle => angleNames[angle]).join(', ') + '. These views will appear here once genuine product photos are added.'
+      : 'Four product views are available.';
+    backdrop.classList.add('visible');
+    backdrop.setAttribute('aria-hidden','false');
+    document.body.classList.add('locked');
+    $('#product-detail-close')?.focus();
+  }
+  function closeProductDetails() {
+    const backdrop = $('#product-detail-backdrop');
+    if (!backdrop) return;
+    backdrop.classList.remove('visible');
+    backdrop.setAttribute('aria-hidden','true');
+    document.body.classList.toggle('locked', $('#cart-drawer')?.classList.contains('open') || $('#checkout-backdrop')?.classList.contains('visible') || $('#success-backdrop')?.classList.contains('visible'));
+    previousProductDetailsFocus?.focus?.();
+    previousProductDetailsFocus = null;
+  }
+  document.addEventListener('keydown', event => {
+    const backdrop = $('#product-detail-backdrop');
+    if (!backdrop?.classList.contains('visible')) return;
+    if (event.key === 'Escape') { event.preventDefault(); closeProductDetails(); return; }
+    if (event.key !== 'Tab') return;
+    const focusable = [...backdrop.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')];
+    if (!focusable.length) { event.preventDefault(); return; }
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  });
+  $('#product-detail-close')?.addEventListener('click', closeProductDetails);
+  $('#product-detail-backdrop')?.addEventListener('click', event => { if (event.target === $('#product-detail-backdrop')) closeProductDetails(); });
+  $('#product-detail-thumbs')?.addEventListener('click', event => {
+    const button = event.target.closest('[data-angle-url]');
+    if (!button) return;
+    const image = $('#product-detail-image');
+    image.src = button.dataset.angleUrl;
+    $$('#product-detail-thumbs .product-angle-thumb').forEach(item => item.classList.toggle('active', item === button));
+  });
 
   function renderCart() {
     const count = totalItems();
@@ -192,7 +270,7 @@
 
     const delivery=$('#cart-delivery-fee');
     const guidance=$('#cart-market-guidance');
-    if(guidance) guidance.textContent = state.market === 'IN' ? 'India delivery is currently limited to PIN 500052. Checkout remains closed until verified INR pricing, delivery fee, GST and Razorpay setup are complete.' : 'UAE delivery fee, VAT and merchant gateway setup are not yet verified. Checkout remains closed; India PIN and payment instructions do not apply.';
+    if(guidance) guidance.textContent = state.market === 'IN' ? 'India delivery is currently limited to PIN 500052. Checkout remains closed until verified INR pricing, delivery fee, GST and PayU setup are complete.' : 'UAE delivery fee, VAT and PayTabs merchant setup are not yet verified. Checkout remains closed; India PIN and payment instructions do not apply.';
     if(delivery) delivery.textContent='Not configured';
     if($('#checkout-total')) $('#checkout-total').textContent = money(checkoutTotalCents(), activeCurrency);
 
@@ -264,6 +342,12 @@
 
   if($('#product-grid')) {
     $('#product-grid').addEventListener('click', event => {
+      const detailButton = event.target.closest('[data-details]');
+      if (detailButton) {
+        const product = state.products.find(item => String(item.id) === String(detailButton.dataset.details));
+        if (product) openProductDetails(product);
+        return;
+      }
       const wishlistButton = event.target.closest('[data-wishlist]');
       if (wishlistButton) {
         const id = String(wishlistButton.dataset.wishlist);
@@ -328,6 +412,7 @@
   $('#header-wishlist')?.addEventListener('click', () => { state.filter='saved'; $$('.filter').forEach(b=>b.classList.toggle('active',b.dataset.filter==='saved')); renderProducts(); $('#shop')?.scrollIntoView({behavior:'smooth',block:'start'}); });
   $('#price-range')?.addEventListener('input', event => { state.maxPriceCents = Number(event.target.value) * 100; if($('#price-range-value')) $('#price-range-value').textContent=money(state.maxPriceCents,state.market === 'AE' ? 'AED' : 'INR'); renderProducts(); });
   $$('.catalog-sidebar [data-category]').forEach(input => input.addEventListener('change', () => { state.categories=$$('.catalog-sidebar [data-category]:checked').map(x=>x.dataset.category.toLowerCase()); renderProducts(); }));
+  $$('.catalog-sidebar [data-size]').forEach(input => input.addEventListener('change', () => { state.sizes=$$('.catalog-sidebar [data-size]:checked').map(x=>String(x.dataset.size).trim().toLowerCase()); renderProducts(); }));
   $$('[data-category-jump]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); const category=String(link.dataset.categoryJump||'all').toLowerCase(); state.categories=category==='all'?[]:[category]; $$('.catalog-sidebar [data-category]').forEach(input=>{input.checked=state.categories.includes(input.dataset.category.toLowerCase());}); $$('.category-pills [data-category-jump]').forEach(pill=>pill.classList.toggle('active',pill.dataset.categoryJump===category)); renderProducts(); setMobileFilters(false); $('#shop')?.scrollIntoView({behavior:'smooth',block:'start'}); }));
   $$('.catalog-sidebar [data-color]').forEach(input => input.addEventListener('change', () => { state.colors=$$('.catalog-sidebar [data-color]:checked').map(x=>x.dataset.color.toLowerCase()); renderProducts(); }));
   $$('.view-mode').forEach(button=>button.addEventListener('click',()=>{$$('.view-mode').forEach(b=>b.classList.toggle('active',b===button));$('#product-grid')?.classList.toggle('list-view',button.textContent.trim()==='☷');}));
@@ -369,7 +454,7 @@
     if (placeOrder) placeOrder.disabled = !state.checkoutReady;
     if ($('#checkout-readiness-note')) $('#checkout-readiness-note').textContent = state.checkoutReady
       ? "Checkout is ready only after this market's payment, delivery and tax settings are verified."
-      : state.market === 'AE' ? 'UAE shopping is available. UAE delivery, VAT and payment setup must be completed before checkout opens.' : 'Checkout opens after verified INR prices, delivery fee, GST profile and Razorpay merchant credentials are configured.';
+      : state.market === 'AE' ? 'UAE shopping is available. PayTabs merchant onboarding, UAE delivery, AED pricing and VAT setup must be completed before checkout opens.' : 'Checkout opens after verified INR prices, delivery fee, GST profile and PayU merchant credentials are configured.';
   }
 
   function updateCheckoutMarketForm() {
@@ -379,20 +464,18 @@
     $('#india-pin-field')?.classList.toggle('hidden', !isIndia);
     const pin = $('#shipping-pincode');
     if (pin) { pin.required = isIndia; pin.value = isIndia ? '500052' : ''; }
-    $('#payment-cod-option')?.classList.toggle('hidden', !isIndia);
-    $('#payment-card-option')?.classList.toggle('hidden', !isIndia);
-    $('#payment-upi-option')?.classList.toggle('hidden', !isIndia);
-    $('#payment-binance-option')?.classList.toggle('hidden', isIndia);
-    const binance = $('#payment-binance-option input');
-    const cod = $('#payment-cod-option input');
-    if (isIndia && cod) cod.checked = true;
-    if (!isIndia && binance) binance.checked = true;
+    $('#payment-payu-option')?.classList.toggle('hidden', !isIndia);
+    const payu = $('#payment-payu-option input');
+    $('#payment-paytabs-option')?.classList.toggle('hidden', isIndia);
+    const paytabs = $('#payment-paytabs-option input');
+    if (isIndia && payu) payu.checked = true;
+    if (!isIndia && paytabs) paytabs.checked = true;
     const note = $('#checkout-payment-note');
     if (note) note.textContent = isIndia
-      ? 'Cash on Delivery only. Delivery PIN: 500052. Delivery charges are listed in our Shipping Policy.'
-      : 'Binance Pay hosted checkout. Payment is confirmed by a verified Binance notification; AED price and VAT are shown before payment.';
+      ? 'PayU hosted checkout is not enabled yet. Delivery PIN: 500052. Delivery charges are listed in our Shipping Policy.'
+      : 'PayTabs hosted checkout is not enabled yet. Merchant onboarding, verified AED prices, delivery and VAT setup are still pending.';
     const submit = $('#place-order');
-    if (submit) submit.innerHTML = isIndia ? 'Place COD order <span>↗</span>' : 'Continue to Binance Pay <span>↗</span>';
+    if (submit) submit.innerHTML = isIndia ? 'Continue to PayU <span>↗</span>' : 'Continue to PayTabs <span>↗</span>';
     const cartNote = $('#cart-delivery-note');
     if (cartNote) cartNote.innerHTML = isIndia
       ? 'Delivery is available only for PIN code 500052. See our <a href="/policies.html#shipping">Shipping Policy</a> for delivery charges.'
@@ -457,7 +540,7 @@
       shipping_address: String(formData.get('shipping_address') || '').trim(),
       shipping_country: String(formData.get('shipping_country') || state.market),
       shipping_pincode: state.market === 'IN' ? String(formData.get('shipping_pincode') || '') : '',
-      payment_method: state.market === 'AE' ? 'binance' : 'cod',
+      payment_method: state.market === 'AE' ? 'paytabs' : 'payu',
       items: state.cart.map(item => ({ sku: item.variant.sku, quantity: item.quantity }))
     };
 
@@ -467,19 +550,11 @@
     }
 
     try {
-      if (!state.checkoutReady) throw new Error(state.market === 'IN' ? 'India checkout is disabled until Razorpay credentials, verified prices, delivery fee and GST are configured.' : 'UAE checkout is disabled until Binance Pay merchant enablement, verified AED prices, delivery fee and VAT are configured.');
+      if (!state.checkoutReady) throw new Error(state.market === 'IN' ? 'India checkout is disabled until PayU merchant credentials, verified prices, delivery fee and GST are configured.' : 'UAE checkout is disabled until PayTabs merchant onboarding, verified AED prices, delivery fee and VAT are configured.');
       if (state.market === 'AE') {
-        const result = await request(API_BASE + '/orders/binance', {
-          method: 'POST',
-          headers: { 'Idempotency-Key': state.pendingCheckout.key },
-          body: JSON.stringify(payload)
-        });
-        const checkoutUrl = result?.data?.checkout?.redirect_url;
-        if (!checkoutUrl || !checkoutUrl.startsWith('https://pay.binance.com/')) throw new Error('Binance Pay did not return a valid secure checkout link.');
-        window.location.assign(checkoutUrl);
-        return;
+        throw new Error('PayTabs UAE checkout remains disabled until merchant onboarding and end-to-end verification are complete.');
       }
-      throw new Error('India online payments are not yet connected.');
+      throw new Error('PayU India checkout remains disabled until merchant onboarding and end-to-end verification are complete.');
 
     } catch (error) {
       showCheckoutError(error.message || 'Failed to place order. Please try again.');
@@ -487,7 +562,7 @@
       state.busy = false;
       if(submit) {
         submit.disabled = !state.checkoutReady;
-        submit.innerHTML = state.market === 'AE' ? 'Continue to Binance Pay <span>↗</span>' : 'Place COD order <span>↗</span>';
+        submit.innerHTML = state.market === 'AE' ? 'Continue to PayTabs <span>↗</span>' : 'Place COD order <span>↗</span>';
       }
     }
   });

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run a verified BF SHOES database backup daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=30m
+Unit=bf-shoes-db-backup.service
+
+[Install]
+WantedBy=timers.target

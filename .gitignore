@@ -21,3 +21,6 @@ bin-release/
 
 # Commit the safe template, never real environment files
 !/.env.example
+
+# Local database backups contain private business/customer data; never commit.
+/backups/

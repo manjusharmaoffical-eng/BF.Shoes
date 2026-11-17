@@ -29,7 +29,7 @@ returnsRouter.post('/', async (req, res, next) => {
     client = await pool.connect();
     await client.query('BEGIN');
     const orderResult = await client.query(
-      `SELECT o.id,o.order_number,o.status,o.currency,o.shipping_country
+      `SELECT o.id,o.order_number,o.status,o.currency,o.shipping_country,o.customer_email
        FROM orders o JOIN customer_accounts c ON lower(c.email)=lower(o.customer_email)
        WHERE o.order_number=$1 AND c.id=$2 AND c.active=true FOR UPDATE OF o`,
       [parsed.data.order_number, session.row.id]
@@ -64,6 +64,14 @@ returnsRouter.post('/', async (req, res, next) => {
       [session.row.id, request.id]
     );
     await client.query('COMMIT');
+    try {
+      await deliverEmail({
+        kind: 'return_status_update',
+        recipient: order.customer_email,
+        subject: `BF SHOES ${request.request_type} request received for order #${order.order_number}`,
+        textBody: `Your BF SHOES ${request.request_type} request for order #${order.order_number} has been received and is waiting for review.\n\nNo refund, return fee or inventory change has been made. We will update you when the request is reviewed.`
+      });
+    } catch { /* Request creation must remain committed even if email queuing is unavailable. */ }
     return res.status(201).json({ data: { ...request, currency: order.currency, items }, message: 'Request submitted. No refund, fee or stock change has been made.' });
   } catch (err) {
     if (client) await client.query('ROLLBACK').catch(() => {});
