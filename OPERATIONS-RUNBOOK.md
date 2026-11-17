@@ -8,7 +8,7 @@ The helper `scripts/backup-db.sh` creates a PostgreSQL custom-format dump and ve
 2. By default, files are written to `$HOME/bf-shoes-db-backups`, outside the repository. Set `BACKUP_DIR` only to a private, encrypted volume if a different location is required.
 3. The script uses restrictive directory/file permissions, writes to a temporary `.partial` file, verifies the archive, then renames it to `.dump` and prints a SHA-256 checksum.
 4. Copy verified dumps to a separate encrypted storage location. Do not commit backups or upload them to public storage.
-5. Retain multiple dated backups according to the business' recovery needs. No scheduled backup is configured by this repository; schedule it only on a host with reliable storage, secure environment variables, monitoring, and an agreed retention policy.
+5. Retain multiple dated backups according to the business' recovery needs. A VPS systemd service/timer template is included under `deploy/systemd/`, but it has not been installed because no VPS is provisioned. No live scheduled backup is currently active. Install and monitor it only on a host with reliable storage, secure environment variables, and an agreed retention policy.
 
 Example (run in a private shell where DATABASE_URL is already set):
 

@@ -48,3 +48,9 @@ test('VPS runs a daily verified backup through the localhost-only PostgreSQL por
   assert.match(backupTimer, /OnCalendar=daily/);
   assert.match(guide, /encrypted off-server copy/);
 });
+
+test('operations runbook accurately distinguishes backup timer templates from an installed live schedule', async () => {
+  const runbook = await readFile(new URL('../OPERATIONS-RUNBOOK.md', import.meta.url), 'utf8');
+  assert.match(runbook, /systemd service\/timer template is included/);
+  assert.match(runbook, /No live scheduled backup is currently active/);
+});
