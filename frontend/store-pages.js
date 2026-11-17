@@ -7,7 +7,18 @@
   const marketSelect = document.querySelector('#store-page-market');
   const currencyFor = market => market === 'AE' ? 'AED' : 'INR';
   const money = (cents, currency) => new Intl.NumberFormat(currency === 'AED' ? 'en-AE' : 'en-IN', {style:'currency',currency,minimumFractionDigits:2}).format(Number(cents || 0) / 100);
-  const safeImage = value => typeof value === 'string' && value.startsWith('https://') ? value : '/assets/bf-product-placeholder.svg';
+  const safeImage = value => {
+    if (typeof value !== 'string' || !value.trim()) return '/assets/bf-product-placeholder.svg';
+    try {
+      const parsed = new URL(value, window.location.origin);
+      if (parsed.origin === window.location.origin || parsed.hostname === 'bf-shoes.vercel.app') {
+        return parsed.pathname + parsed.search + parsed.hash;
+      }
+      return parsed.protocol === 'https:' ? parsed.href : '/assets/bf-product-placeholder.svg';
+    } catch {
+      return value.startsWith('/') ? value : '/assets/bf-product-placeholder.svg';
+    }
+  };
   const collection = root.dataset.bfCollection || 'all';
   const matches = product => {
     const category = String(product.category || '').toLowerCase();
@@ -64,8 +75,17 @@
     }
   }
   if (marketSelect) {
-    try { marketSelect.value = localStorage.getItem('bf-market') === 'AE' ? 'AE' : 'IN'; } catch {}
-    marketSelect.addEventListener('change', () => { try { localStorage.setItem('bf-market', marketSelect.value); } catch {} load(); });
+    const requestedMarket = new URLSearchParams(window.location.search).get('market');
+    let initialMarket = requestedMarket === 'AE' ? 'AE' : 'IN';
+    try {
+      if (requestedMarket === 'IN' || requestedMarket === 'AE') localStorage.setItem('bf-market', initialMarket);
+      else initialMarket = localStorage.getItem('bf-market') === 'AE' ? 'AE' : 'IN';
+    } catch {}
+    marketSelect.value = initialMarket;
+    marketSelect.addEventListener('change', () => {
+      try { localStorage.setItem('bf-market', marketSelect.value); } catch {}
+      load();
+    });
   }
   load();
 })();
