@@ -221,7 +221,7 @@
     if($('#checkout-total')) $('#checkout-total').textContent = money(checkoutTotalCents(), activeCurrency);
 
     if($('#cart-items')) {
-      $('#cart-items').innerHTML = state.cart.map(item => `<div class="cart-line"><img src="${escapeHtml(productImage(item.product))}" alt="" /><div><h3>${escapeHtml(item.product.name)}</h3><p>Size ${escapeHtml(item.variant.size_label)} · ${escapeHtml(item.variant.color_name || 'Classic')}</p><div class="qty-control"><button type="button" data-qty="-1" data-sku="${escapeHtml(item.variant.sku)}" aria-label="Decrease quantity">−</button><span>${item.quantity}</span><button type="button" data-qty="1" data-sku="${escapeHtml(item.variant.sku)}" aria-label="Increase quantity" ${item.quantity >= 10 ? 'disabled' : ''}>+</button></div></div><strong class="cart-line-price">${money(Number(item.product.price_cents) * item.quantity, item.product.currency)}</strong></div>`).join('');
+      $('#cart-items').innerHTML = state.cart.map(item => `<div class="cart-line"><img src="${escapeHtml(productImage(item.product))}" alt="" /><div><h3>${escapeHtml(item.product.name)}</h3><p>Size ${escapeHtml(item.variant.size_label)} · ${escapeHtml(item.variant.color_name || 'Classic')}</p>${item.variant.stock_verified === false ? '<p class="cart-stock-pending">Stock confirmation pending — checkout unavailable.</p>' : ''}<div class="qty-control"><button type="button" data-qty="-1" data-sku="${escapeHtml(item.variant.sku)}" aria-label="Decrease quantity">−</button><span>${item.quantity}</span><button type="button" data-qty="1" data-sku="${escapeHtml(item.variant.sku)}" aria-label="Increase quantity" ${item.quantity >= 10 ? 'disabled' : ''}>+</button></div></div><strong class="cart-line-price">${money(Number(item.product.price_cents) * item.quantity, item.product.currency)}</strong></div>`).join('');
     }
   }
 
@@ -507,8 +507,8 @@
       const item = state.cart.find(row => row.variant.sku === button.dataset.sku); if (!item) return;
       const next = item.quantity + Number(button.dataset.qty); const stock = Number(item.variant.stock_qty);
       if (next <= 0) state.cart = state.cart.filter(row => row !== item);
-      else if (next <= Math.min(10, stock)) item.quantity = next;
-      else toast('Maximum available quantity reached.');
+      else if (next <= (item.variant.stock_verified === false ? 10 : Math.min(10, stock))) item.quantity = next;
+      else toast('Maximum cart quantity reached.');
       state.cartByMarket[state.market] = state.cart;
       persistCart();
       renderCart();
