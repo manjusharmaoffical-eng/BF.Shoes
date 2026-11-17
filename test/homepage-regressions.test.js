@@ -21,7 +21,7 @@ test("conventional favicon URL is redirected to the existing brand SVG", () => {
 test("homepage mobile controls have usable minimum touch sizes", () => {
   assert.match(css, /\.product-sizes \.size-option\{min-width:36px;min-height:36px/);
   assert.match(css, /\.site-header \.main-nav a\{font-size:12px;min-height:36px/);
-  assert.match(css, /\.detail-add\{min-height:44px/);
+  assert.match(css, /\.detail-add\\s*\\{\\s*min-height:44px/);
 });
 
 test("homepage welcomes visitors with the local BF signature sneaker hero and responsive 3D styling", () => {
