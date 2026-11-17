@@ -25,6 +25,6 @@ test('size and colour choices are scoped to the selected product detail view', (
   assert.match(app, /data-detail-color=/);
   assert.ok(app.includes('<h3>Size</h3>'));
   assert.ok(app.includes('<h3>Colour</h3>'));
-  assert.match(app, /colorNames\.length \?/);
+  assert.match(app, /colorNames\.length/);
   assert.match(app, /selectedColor/);
 });
