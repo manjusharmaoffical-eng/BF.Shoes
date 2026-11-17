@@ -8,6 +8,30 @@
   let savedMarket = 'IN'; try { savedMarket = localStorage.getItem('bf-market') === 'AE' ? 'AE' : 'IN'; } catch {}
   const state = { market: savedMarket, maxPriceCents: savedMarket === 'AE' ? 50000 : 499900, checkoutReady: false, products: [], cart: [], cartByMarket: { IN: [], AE: [] }, selectedSizes: {}, filter: 'all', search: '', categories: [], colors: [], sizes: [], sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null, marketConfig: null };
   state.cart = state.cartByMarket[state.market];
+  const cartStorageKey = market => `bf-shoes-cart:v1:${market === 'AE' ? 'AE' : 'IN'}`;
+  function persistCart(market = state.market, cart = state.cart) {
+    try {
+      localStorage.setItem(cartStorageKey(market), JSON.stringify(cart.map(item => ({ sku: String(item.variant?.sku || ''), quantity: Math.max(1, Math.min(10, Math.floor(Number(item.quantity) || 1))) })).filter(item => item.sku)));
+    } catch {}
+  }
+  function hydrateCart() {
+    let saved = [];
+    try {
+      const parsed = JSON.parse(localStorage.getItem(cartStorageKey(state.market)) || '[]');
+      if (Array.isArray(parsed)) saved = parsed;
+    } catch {}
+    const currency = state.market === 'AE' ? 'AED' : 'INR';
+    state.cart = saved.flatMap(entry => {
+      if (!entry || typeof entry.sku !== 'string') return [];
+      const product = state.products.find(item => item.currency === currency && !item.price_pending_conversion && (item.variants || []).some(variant => variant.sku === entry.sku));
+      const variant = product?.variants?.find(item => item.sku === entry.sku);
+      const stock = Math.max(0, Math.floor(Number(variant?.stock_qty) || 0));
+      const quantity = Math.min(10, stock, Math.floor(Number(entry.quantity) || 0));
+      return product && variant && quantity > 0 ? [{ product, variant, quantity }] : [];
+    });
+    state.cartByMarket[state.market] = state.cart;
+    persistCart();
+  }
   try { state.wishlist = new Set(JSON.parse(localStorage.getItem('bf-shoes-wishlist') || '[]').map(String)); } catch { state.wishlist = new Set(); }
 
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -210,6 +234,8 @@
     const already = current?.quantity || 0;
     if (already >= Math.min(10, Number(variant.stock_qty))) return toast('Maximum available quantity reached.');
     if (current) current.quantity += 1; else state.cart.push({ product, variant, quantity: 1 });
+    state.cartByMarket[state.market] = state.cart;
+    persistCart();
     renderCart(); toast(`${product.name} · size ${variant.size_label} added to your bag.`);
   }
 
@@ -253,6 +279,8 @@
       const response = await request(`${API_BASE}/products?market=${encodeURIComponent(state.market)}`);
       state.products = Array.isArray(response) ? response : (response.data || response.products || []);
       if (!Array.isArray(state.products)) state.products = [];
+      hydrateCart();
+      renderCart();
     } catch (error) {
       console.error("Error loading products:", error);
       toast(error.message || 'Failed to load products.');
@@ -426,6 +454,8 @@
       if (next <= 0) state.cart = state.cart.filter(row => row !== item);
       else if (next <= Math.min(10, stock)) item.quantity = next;
       else toast('Maximum available quantity reached.');
+      state.cartByMarket[state.market] = state.cart;
+      persistCart();
       renderCart();
     });
   }
@@ -437,7 +467,7 @@
   $('#checkout-button')?.addEventListener('click', () => { if (!state.cart.length) return; setDrawer(false); setCheckout(true); });
   $('#close-checkout')?.addEventListener('click', () => { stopPayuQrPolling(); setCheckout(false); });
   $('#checkout-backdrop')?.addEventListener('click', event => { if (event.target === $('#checkout-backdrop')) { stopPayuQrPolling(); setCheckout(false); } });
-  $('#finish-order')?.addEventListener('click', () => { setSuccess(false); state.cart = []; renderCart(); renderProducts(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  $('#finish-order')?.addEventListener('click', () => { setSuccess(false); state.cart = []; state.cartByMarket[state.market] = state.cart; persistCart(); renderCart(); renderProducts(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
   $('#success-backdrop')?.addEventListener('click', event => { if (event.target === $('#success-backdrop')) setSuccess(false); });
 
   $$('.filter').forEach(button => button.addEventListener('click', () => { state.filter = button.dataset.filter; $$('.filter').forEach(b => b.classList.toggle('active', b === button)); renderProducts(); }));
@@ -753,6 +783,7 @@
     const nextMarket = event.target.value === 'AE' ? 'AE' : 'IN';
     if (nextMarket === state.market) return;
     state.cartByMarket[state.market] = state.cart;
+    persistCart();
     state.market = nextMarket;
     state.cart = state.cartByMarket[state.market] || [];
     state.pendingCheckout = null;
