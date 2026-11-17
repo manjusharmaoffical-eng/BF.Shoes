@@ -39,7 +39,7 @@ test('product details expose variant filters, product metadata and recorded attr
   assert.match(app, /detail-specifications/);
   assert.match(app, /product\.attributes/);
   assert.match(app, /product\.mrp_cents/);
-  assert.match(app, /Stock verification pending/);
+  assert.match(app, /Stock confirmation pending/);
   assert.match(app, /data-detail-color/);
   assert.match(app, /data-detail-size/);
 });
@@ -57,4 +57,18 @@ test('product gallery normalizes legacy BF image-host URLs and falls back to the
 });
 test('product detail includes direct links to sizing, care, shipping and returns guidance', () => {
   for (const href of ['/size-guide.html','/fit-guide.html','/shoe-care.html','/shipping.html','/returns.html']) assert.ok(app.includes(href));
+});
+
+
+test('Add to bag is available for unverified stock as a cart-only intent', () => {
+  assert.match(app, /variant\.stock_verified === false \? 10/);
+  assert.match(app, /variant\.stock_verified !== false && Number\(variant\.stock_qty\) <= 0/);
+  assert.match(app, /Stock confirmation pending — you can add this size to your bag/);
+  assert.match(app, /item\.variant\.stock_verified === false \? 10/);
+});
+
+test('existing market prices remain visible while checkout readiness stays independently gated', () => {
+  assert.match(app, /const moneyLine = '<p class="detail-price">'/);
+  assert.match(app, /money\(product\.price_cents, product\.currency\)/);
+  assert.match(app, /checkoutButton\.disabled = !state\.checkoutReady/);
 });
