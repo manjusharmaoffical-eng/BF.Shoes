@@ -60,8 +60,8 @@ test('main category links render as a responsive grid and include Men, Women and
   const start = html.indexOf('<nav class="everyday-nav"');
   const nav = html.slice(start, html.indexOf('</nav>', start) + 6);
   for (const href of ['/men.html','/women.html','/kids.html']) assert.ok(nav.includes('href="' + href + '"'));
-  assert.match(css, /\.everyday-nav-links \\{ display:grid; grid-template-columns:repeat\\(6,minmax\\(0,1fr\\)\\)/);
-  assert.match(css, /@media \\(max-width:600px\\)[\\s\\S]*?\.everyday-nav-links \\{ grid-template-columns:repeat\\(3,minmax\\(0,1fr\\)\\)/);
+  assert.ok(css.includes('.everyday-nav-links { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:6px; }'));
+  assert.ok(css.includes('.everyday-nav-links { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; overflow:visible; padding:0; }'));
 });
 
 test('tablet header keeps market, account and wishlist controls visible', async () => {
