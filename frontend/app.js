@@ -338,7 +338,7 @@
     let selectedSku = initialVariant?.sku || '';
     const galleryMarkup = images.map((image, index) => '<button type="button" class="detail-thumb ' + (index === 0 ? 'active' : '') + '" data-detail-image="' + index + '" aria-label="View product angle ' + (index + 1) + '"><img src="' + escapeHtml(image.image_url) + '" alt="' + escapeHtml(image.alt_text || product.name) + '"></button>').join('');
     const colorNames = [...new Set(variants.map(v => String(v.color_name || '').trim()).filter(Boolean))];
-    const colorMarkup = colorNames.length > 1 ? '<h3>Select colour</h3><div class="detail-colors">' + colorNames.map(color => '<button type="button" class="detail-color-option ' + (color === selectedColor ? 'selected' : '') + '" data-detail-color="' + escapeHtml(color) + '" aria-pressed="' + (color === selectedColor) + '">' + escapeHtml(color) + '</button>').join('') + '</div>' : '';
+    const colorMarkup = colorNames.length ? '<h3>Select colour</h3><div class="detail-colors">' + colorNames.map(color => '<button type="button" class="detail-color-option ' + (color === selectedColor ? 'selected' : '') + '" data-detail-color="' + escapeHtml(color) + '" aria-pressed="' + (color === selectedColor) + '">' + escapeHtml(color) + '</button>').join('') + '</div>' : '<p class="detail-stock">Colour information is not available for this product.</p>';
     const renderSizeMarkup = () => variants.filter(v => !selectedColor || String(v.color_name || '').trim() === selectedColor).map(v => '<button type="button" class="size-option ' + (v.sku === selectedSku ? 'selected' : '') + '" data-detail-size="' + escapeHtml(v.sku) + '" ' + (Number(v.stock_qty) <= 0 ? 'disabled' : '') + '>' + escapeHtml(v.size_label) + '</button>').join('');
     let sizeMarkup = renderSizeMarkup();
     content.innerHTML = '<div class="product-detail-layout"><div class="product-detail-gallery"><div class="product-detail-stage" id="detail-stage">' +
@@ -488,34 +488,7 @@
   $('#finish-order')?.addEventListener('click', () => { setSuccess(false); state.cart = []; state.cartByMarket[state.market] = state.cart; persistCart(); renderCart(); renderProducts(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
   $('#success-backdrop')?.addEventListener('click', event => { if (event.target === $('#success-backdrop')) setSuccess(false); });
 
-  $$('.filter').forEach(button => button.addEventListener('click', () => { state.filter = button.dataset.filter; $$('.filter').forEach(b => b.classList.toggle('active', b === button)); renderProducts(); }));
-  $('#product-search')?.addEventListener('input', event => { state.search = event.target.value; const headerSearch=$('#header-product-search'); if(headerSearch) headerSearch.value=event.target.value; renderProducts(); });
-  $('#header-product-search')?.addEventListener('input', event => { if($('#product-search')) $('#product-search').value=event.target.value; state.search=event.target.value; renderProducts(); if(event.target.value) $('#shop')?.scrollIntoView({behavior:'smooth',block:'start'}); });
-  $('#header-wishlist')?.addEventListener('click', () => { state.filter='saved'; $$('.filter').forEach(b=>b.classList.toggle('active',b.dataset.filter==='saved')); renderProducts(); $('#shop')?.scrollIntoView({behavior:'smooth',block:'start'}); });
-  $('#price-range')?.addEventListener('input', event => { state.maxPriceCents = Number(event.target.value) * 100; if($('#price-range-value')) $('#price-range-value').textContent=money(state.maxPriceCents,state.market === 'AE' ? 'AED' : 'INR'); renderProducts(); });
-  $$('.catalog-sidebar [data-category]').forEach(input => input.addEventListener('change', () => { state.categories=$$('.catalog-sidebar [data-category]:checked').map(x=>x.dataset.category.toLowerCase()); renderProducts(); }));
-  $$('[data-category-jump]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); const category=String(link.dataset.categoryJump||'all').toLowerCase(); state.categories=category==='all'?[]:[category]; $$('.catalog-sidebar [data-category]').forEach(input=>{input.checked=state.categories.includes(input.dataset.category.toLowerCase());}); $$('.category-pills [data-category-jump]').forEach(pill=>pill.classList.toggle('active',pill.dataset.categoryJump===category)); renderProducts(); setMobileFilters(false); $('#shop')?.scrollIntoView({behavior:'smooth',block:'start'}); }));
-  $$('.view-mode').forEach(button=>button.addEventListener('click',()=>{$$('.view-mode').forEach(b=>b.classList.toggle('active',b===button));$('#product-grid')?.classList.toggle('list-view',button.textContent.trim()==='☷');}));
-  $('#product-sort')?.addEventListener('change', event => { state.sort = event.target.value; renderProducts(); });
-
-  const catalogLayout = $('.catalog-layout');
-  const mobileFilterTrigger = $('#mobile-filter-trigger');
-  const closeMobileFilters = $('#close-mobile-filters');
-  function setMobileFilters(open) {
-    if (!catalogLayout || !mobileFilterTrigger) return;
-    catalogLayout.classList.toggle('filters-open', open);
-    mobileFilterTrigger.setAttribute('aria-expanded', String(open));
-    document.body.classList.toggle('filters-locked', open);
-  }
-  mobileFilterTrigger?.addEventListener('click', () => setMobileFilters(!catalogLayout.classList.contains('filters-open')));
-  closeMobileFilters?.addEventListener('click', () => setMobileFilters(false));
-  catalogLayout?.addEventListener('click', event => {
-    if (catalogLayout.classList.contains('filters-open') && event.target === catalogLayout) setMobileFilters(false);
-  });
-  $$('.catalog-sidebar input').forEach(input => input.addEventListener('change', () => {
-    if (window.matchMedia('(max-width: 1024px)').matches && input.type === 'checkbox') setMobileFilters(false);
-  }));
-  document.addEventListener('keydown', event => { if (event.key === 'Escape') setMobileFilters(false); });
+  $('#header-product-search')?.addEventListener('input', event => { state.search=event.target.value; renderProducts(); if(event.target.value) $('#shop')?.scrollIntoView({behavior:'smooth',block:'start'}); });
 
   const countrySelect = $('#shipping-country');
   document.querySelectorAll('input[name="payment_method"]').forEach(input => input.addEventListener('change', () => updateCheckoutMarketForm()));
