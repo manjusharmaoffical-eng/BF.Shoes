@@ -46,7 +46,7 @@
       return;
     }
     image.dataset.bfFallbackApplied = 'true';
-    image.src = PLACEHOLDER_IMAGE;
+    image.src = image.dataset.productFallback || PLACEHOLDER_IMAGE;
   }, true);
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const money = (cents, currency = 'INR') => { const locale = currency === 'AED' ? 'en-AE' : 'en-IN'; const amount = (Number(cents || 0) / 100).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return currency === 'AED' ? 'AED ' + amount : '₹' + amount; };
@@ -58,12 +58,18 @@
     ? 'India checkout is pending PayU merchant verification, verified INR prices, confirmed delivery fee and GST profile.'
     : 'UAE checkout is pending PayTabs merchant verification, verified AED prices, delivery fee and VAT profile.';
   const randomKey = () => Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-  const productImage = product => {
-    const raw = typeof product.image_url === 'string' && product.image_url.startsWith('https://') ? product.image_url : '';
-    let candidate = raw;
-    try { const parsed = new URL(raw); if (parsed.hostname === 'bf-shoes.vercel.app') candidate = parsed.pathname + parsed.search; } catch {}
-    return candidate || productFallback(product);
+  const normalizeImageUrl = value => {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    try {
+      const parsed = new URL(raw);
+      if (parsed.hostname === 'bf-shoes.vercel.app') return parsed.pathname + parsed.search + parsed.hash;
+      return parsed.protocol === 'https:' ? raw : '';
+    } catch {
+      return raw.startsWith('/') ? raw : '';
+    }
   };
+  const productImage = product => normalizeImageUrl(product?.image_url) || productFallback(product);
   const productFallback = product => /speed[- ]run/i.test((product.slug || '') + ' ' + (product.name || '')) ? FALLBACK_IMAGE : PLACEHOLDER_IMAGE;
   function hashCode(value) { let hash = 0; for (let i = 0; i < value.length; i++) hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0; return hash; }
   function toast(message) { const el = $('#toast'); if (!el) return; el.textContent = message; el.classList.add('show'); clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.remove('show'), 2600); }
@@ -321,9 +327,14 @@
     let images = [];
     try {
       const response = await fetch('/api/v1/store/products/' + encodeURIComponent(product.id) + '/images');
-      if (response.ok) { const data = await response.json(); images = Array.isArray(data.data) ? data.data : []; }
+      if (response.ok) {
+        const data = await response.json();
+        images = Array.isArray(data.data)
+          ? data.data.map(image => ({ ...image, image_url: normalizeImageUrl(image.image_url) })).filter(image => image.image_url)
+          : [];
+      }
     } catch {}
-    if (!images.length && product.image_url) images = [{ image_url: product.image_url, alt_text: product.name }];
+    if (!images.length && product.image_url) images = [{ image_url: productImage(product), alt_text: product.name }];
     if (!images.length) images = [{ image_url: productImage(product), alt_text: product.name }];
     const variants = (product.variants || []).filter(v => v.active !== false);
     const available = variants.filter(v => Number(v.stock_qty) > 0 && v.stock_verified !== false);
@@ -368,13 +379,14 @@
       metaMarkup + colorMarkup + '<section class="detail-option-group"><h3>Size</h3><div class="product-sizes detail-sizes" id="detail-sizes">' + (sizeMarkup || '<span>No sizes have been added for this colour.</span>') + '</div></section>' +
       '<p class="detail-stock" id="detail-stock">' + (initialVariant?.stock_verified === false ? 'Stock verification pending' : initialVariant ? (Number(initialVariant.stock_qty) > 0 ? Number(initialVariant.stock_qty) + ' in stock' : 'Out of stock') : 'Size and stock information has not been added yet') + '</p>' +
       attributeMarkup + '<button type="button" class="button button-dark detail-add" id="detail-add" ' + (!initialVariant || initialVariant.stock_verified === false || Number(initialVariant.stock_qty) <= 0 || product.price_pending_conversion ? 'disabled' : '') + '>Add to bag</button>' +
-      '<div class="detail-benefits"><span>Return and exchange requests are reviewed by the BF SHOES team</span></div></div></div>';
+      '<div class="detail-benefits"><span>Return and exchange requests are reviewed by the BF SHOES team</span></div>' +
+      '<nav class="detail-help-links" aria-label="Product help"><a href="/size-guide.html">Size guide</a><a href="/fit-guide.html">Fit guide</a><a href="/shoe-care.html">Shoe care</a><a href="/shipping.html">Shipping</a><a href="/returns.html">Returns</a></nav></div></div>';
     modal.querySelector('.product-detail-close')?.focus();
     content.querySelectorAll('[data-detail-image]').forEach(button => button.addEventListener('click', () => {
       const index = Number(button.dataset.detailImage);
       const image = images[index];
       const stage = $('#detail-stage', content);
-      if (stage && image) stage.innerHTML = '<img id="detail-main-image" src="' + escapeHtml(image.image_url) + '" alt="' + escapeHtml(image.alt_text || product.name) + '">';
+      if (stage && image) stage.innerHTML = '<img id="detail-main-image" src="' + escapeHtml(image.image_url) + '" data-product-fallback="' + escapeHtml(productImage(product)) + '" alt="' + escapeHtml(image.alt_text || product.name) + '">';
       content.querySelectorAll('[data-detail-image]').forEach(item => item.classList.toggle('active', item === button));
     }));
     const updateDetailVariant = () => {
