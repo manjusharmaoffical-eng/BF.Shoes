@@ -6,7 +6,7 @@
   const PLACEHOLDER_IMAGE = '/assets/bf-product-placeholder.svg';
   const FALLBACK_IMAGES = [FALLBACK_IMAGE, PLACEHOLDER_IMAGE, '/bf-shoes-hero.svg'];
   let savedMarket = 'IN'; try { savedMarket = localStorage.getItem('bf-market') === 'AE' ? 'AE' : 'IN'; } catch {}
-  const state = { market: savedMarket, maxPriceCents: savedMarket === 'AE' ? 50000 : 499900, checkoutReady: false, products: [], cart: [], cartByMarket: { IN: [], AE: [] }, selectedSizes: {}, filter: 'all', search: '', categories: [], colors: [], sizes: [], sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null, marketConfig: null };
+  const state = { market: savedMarket, maxPriceCents: savedMarket === 'AE' ? 50000 : 499900, checkoutReady: false, products: [], cart: [], cartByMarket: { IN: [], AE: [] }, selectedSizes: {}, filter: 'all', search: '', categories: [], sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null, marketConfig: null };
   state.cart = state.cartByMarket[state.market];
   const cartStorageKey = market => `bf-shoes-cart:v1:${market === 'AE' ? 'AE' : 'IN'}`;
   function persistCart(market = state.market, cart = state.cart) {
@@ -161,7 +161,7 @@
       const matchesColor=!state.colors.length || state.colors.some(value=>productColors.some(color=>color.includes(value)));
       const matchesSize=!state.sizes.length || (product.variants||[]).some(v=>state.sizes.includes(String(v.size_label||'').replace(/^UK\s*/i,'').trim().toLowerCase()));
       const matchesPrice = Number(product.price_cents) <= state.maxPriceCents;
-      return (state.filter !== 'available' || inStock) && (state.filter !== 'saved' || state.wishlist.has(String(product.id))) && matchesSearch && matchesCategory && matchesColor && matchesSize && matchesPrice;
+      return (state.filter !== 'available' || inStock) && (state.filter !== 'saved' || state.wishlist.has(String(product.id))) && matchesSearch && matchesCategory && matchesPrice;
     });
 
     if (state.sort === 'price-low') products.sort((a,b) => Number(a.price_cents)-Number(b.price_cents));
@@ -498,8 +498,6 @@
   $('#price-range')?.addEventListener('input', event => { state.maxPriceCents = Number(event.target.value) * 100; if($('#price-range-value')) $('#price-range-value').textContent=money(state.maxPriceCents,state.market === 'AE' ? 'AED' : 'INR'); renderProducts(); });
   $$('.catalog-sidebar [data-category]').forEach(input => input.addEventListener('change', () => { state.categories=$$('.catalog-sidebar [data-category]:checked').map(x=>x.dataset.category.toLowerCase()); renderProducts(); }));
   $$('[data-category-jump]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); const category=String(link.dataset.categoryJump||'all').toLowerCase(); state.categories=category==='all'?[]:[category]; $$('.catalog-sidebar [data-category]').forEach(input=>{input.checked=state.categories.includes(input.dataset.category.toLowerCase());}); $$('.category-pills [data-category-jump]').forEach(pill=>pill.classList.toggle('active',pill.dataset.categoryJump===category)); renderProducts(); setMobileFilters(false); $('#shop')?.scrollIntoView({behavior:'smooth',block:'start'}); }));
-  $$('.catalog-sidebar [data-color]').forEach(input => input.addEventListener('change', () => { state.colors=$$('.catalog-sidebar [data-color]:checked').map(x=>x.dataset.color.toLowerCase()); renderProducts(); }));
-  $$('.catalog-sidebar [data-size]').forEach(input => input.addEventListener('change', () => { state.sizes=$$('.catalog-sidebar [data-size]:checked').map(x=>String(x.dataset.size||'').toLowerCase()); renderProducts(); }));
   $$('.view-mode').forEach(button=>button.addEventListener('click',()=>{$$('.view-mode').forEach(b=>b.classList.toggle('active',b===button));$('#product-grid')?.classList.toggle('list-view',button.textContent.trim()==='☷');}));
   $('#product-sort')?.addEventListener('change', event => { state.sort = event.target.value; renderProducts(); });
 
