@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
 const root = new URL('../frontend/', import.meta.url);
 
-test('BF SHOES customer website contains 25 separate HTML pages', async () => {
+test('BF SHOES customer website contains 27 separate HTML pages', async () => {
   const files = (await readdir(root)).filter(name => name.endsWith('.html'));
-  assert.equal(files.length, 25);
+  assert.equal(files.length, 27);
 });
 
 test('all 17 added pages have SEO metadata, canonical URLs and a route back to the store', async () => {
@@ -31,6 +31,17 @@ test('collection pages load live market-specific catalogue data without inventin
   assert.match(app, /api\/v1\/store\/products\?market=/);
   assert.match(app, /product\.price_verified \? money/);
   assert.match(app, /v\.stock_verified/);
+});
+
+test('direct cart and checkout URLs safely open the matching in-page overlay', async () => {
+  const app = await readFile(new URL('../frontend/app.js', import.meta.url), 'utf8');
+  const cart = await readFile(new URL('../frontend/cart.html', import.meta.url), 'utf8');
+  const checkout = await readFile(new URL('../frontend/checkout.html', import.meta.url), 'utf8');
+  assert.ok(app.includes("window.location.hash === '#cart'"));
+  assert.ok(app.includes("window.location.hash === '#checkout'"));
+  assert.ok(cart.includes("window.location.search + '#cart'"));
+  assert.ok(checkout.includes("window.location.search + '#checkout'"));
+  assert.ok(checkout.includes('Checkout remains unavailable'));
 });
 
 test('homepage and collection pages honour explicit market URLs and same-origin product images', async () => {
