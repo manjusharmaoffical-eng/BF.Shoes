@@ -48,3 +48,13 @@ test('footer preserves category, sizing, delivery and customer-support destinati
     assert.ok(html.includes('href="' + href + '"'), 'missing footer destination ' + href);
   }
 });
+
+test('product gallery normalizes legacy BF image-host URLs and falls back to the product primary image', () => {
+  assert.match(app, /const normalizeImageUrl = value =>/);
+  assert.match(app, /parsed\.hostname === 'bf-shoes\.vercel\.app'/);
+  assert.match(app, /data-product-fallback=/);
+  assert.match(app, /image\.dataset\.productFallback \|\| PLACEHOLDER_IMAGE/);
+});
+test('product detail includes direct links to sizing, care, shipping and returns guidance', () => {
+  for (const href of ['/size-guide.html','/fit-guide.html','/shoe-care.html','/shipping.html','/returns.html']) assert.ok(app.includes(href));
+});
