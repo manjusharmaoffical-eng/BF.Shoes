@@ -138,7 +138,7 @@ test("homepage product cards use local BF artwork when catalog image URLs are mi
   const app = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8");
   const css = await readFile(new URL("../frontend/styles.css", import.meta.url), "utf8");
   assert.match(app, /FALLBACK_IMAGE\s*=\s*['"]\/assets\/bf-speed-run-product\.jpeg['"]/);
-  assert.match(app, /const productImage = product => normalizeImageUrl\\(product\\?\\.image_url\\) \\|\\| productFallback\\(product\\)/);
+  assert.match(app, /const productImage = product => normalizeImageUrl\(product\?\.image_url\) \|\| productFallback\(product\)/);
   assert.match(app, /const productFallback = product => \/speed\[- \]run\/i/);
   const placeholder = await readFile(new URL("../frontend/assets/bf-product-placeholder.svg", import.meta.url), "utf8");
   assert.match(placeholder, /BF/);
