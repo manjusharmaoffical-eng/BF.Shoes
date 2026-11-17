@@ -33,8 +33,8 @@ test("all product illustrations carry BF branding and filters", async () => {
     assert.match(svg, /BF SHOES/);
     assert.match(svg, />BF<\/text>/);
   }
-  assert.match(html, /data-category-jump="heels"/);
-  assert.match(html, /data-category="stiletto"/);
+  assert.doesNotMatch(html, /data-category-jump=|data-category=/);
+  assert.doesNotMatch(html, /id="catalog-sidebar"|id="mobile-filter-trigger"|id="product-sort"/);
 });
 
 
