@@ -962,3 +962,17 @@ html,body{font-family:var(--bf-font)}
   .site-header .market-select { display:inline-flex; }
   .site-header .header-icon { display:inline-flex; }
 }
+
+/* Responsive category grid: keep the main Women/Men/Kids collection links together. */
+.everyday-nav { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:12px; }
+.everyday-nav-links { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:6px; }
+.everyday-nav-links a { display:flex; align-items:center; justify-content:center; min-height:36px; padding:7px 6px; border:1px solid #ececec; border-radius:4px; text-align:center; white-space:normal; }
+@media (max-width:1100px) {
+  .everyday-nav { display:grid; grid-template-columns:minmax(0,1fr); gap:8px; }
+  .everyday-nav-links { grid-template-columns:repeat(4,minmax(0,1fr)); overflow:visible; }
+}
+@media (max-width:600px) {
+  .everyday-nav { display:grid; grid-template-columns:minmax(0,1fr); padding:9px 12px; }
+  .everyday-nav-links { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; overflow:visible; padding:0; }
+  .everyday-nav-links a { min-height:36px; font-size:9px; letter-spacing:.04em; }
+}
