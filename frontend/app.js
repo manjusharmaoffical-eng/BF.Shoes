@@ -881,4 +881,10 @@
   loadActiveCampaign();
   syncCustomerWishlist();
   window.addEventListener('bf-customer-session', syncCustomerWishlist);
+  function openRequestedOverlay() {
+    if (window.location.hash === '#cart') setDrawer(true);
+    else if (window.location.hash === '#checkout') { setDrawer(false); setCheckout(true); }
+  }
+  window.addEventListener('hashchange', openRequestedOverlay);
+  openRequestedOverlay();
 })();
