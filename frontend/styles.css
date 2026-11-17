@@ -882,8 +882,6 @@ html,body{font-family:var(--bf-font)}
 
 /* BF SHOES navigation and product-option placement corrections */
 .everyday-nav { position:relative; top:auto; z-index:5; }
-.everyday-nav-links { flex-wrap:nowrap; overflow-x:auto; overscroll-behavior-x:contain; }
-.everyday-nav-links a { white-space:nowrap; }
 .product-view-link { margin:10px 0 2px; color:#b51220; font-size:11px; font-weight:700; letter-spacing:.02em; }
 .product-card { cursor:pointer; }
 .detail-colors { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 18px; }
@@ -976,3 +974,10 @@ html,body{font-family:var(--bf-font)}
   .everyday-nav-links { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; overflow:visible; padding:0; }
   .everyday-nav-links a { min-height:36px; font-size:9px; letter-spacing:.04em; }
 }
+
+/* Keep category navigation as real tiles at every viewport; never revert to a horizontal scroller. */
+.everyday-nav-links { display:grid; overflow:visible; flex-wrap:initial; }
+.everyday-nav-links a { white-space:normal; min-width:0; }
+@media (min-width:1101px) { .everyday-nav-links { grid-template-columns:repeat(6,minmax(0,1fr)); } }
+@media (min-width:601px) and (max-width:1100px) { .everyday-nav-links { grid-template-columns:repeat(4,minmax(0,1fr)); } }
+@media (max-width:600px) { .everyday-nav-links { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; } }
