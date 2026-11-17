@@ -8,7 +8,7 @@ test('BF SHOES customer website contains 28 separate HTML pages', async () => {
   assert.equal(files.length, 28);
 });
 
-test('all 17 added pages have SEO metadata, canonical URLs and a route back to the store', async () => {
+test('all 18 added pages have SEO metadata, canonical URLs and a route back to the store', async () => {
   const pages = ['collections','men','women','kids','sports','casual','running','sneakers','watches','eyewear','size-guide','fit-guide','shoe-care','shipping','returns','faq','about','contact'];
   for (const page of pages) {
     const html = await readFile(new URL('../frontend/' + page + '.html', import.meta.url), 'utf8');
@@ -54,6 +54,16 @@ test('homepage and collection pages honour explicit market URLs and same-origin 
   assert.ok(collection.includes("parsed.origin === window.location.origin"));
 });
 
+test('main category links render as a responsive grid and include Men, Women and Kids', async () => {
+  const html = await readFile(new URL('../frontend/index.html', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../frontend/styles.css', import.meta.url), 'utf8');
+  const start = html.indexOf('<nav class="everyday-nav"');
+  const nav = html.slice(start, html.indexOf('</nav>', start) + 6);
+  for (const href of ['/men.html','/women.html','/kids.html']) assert.ok(nav.includes('href="' + href + '"'));
+  assert.match(css, /\.everyday-nav-links \\{ display:grid; grid-template-columns:repeat\\(6,minmax\\(0,1fr\\)\\)/);
+  assert.match(css, /@media \\(max-width:600px\\)[\\s\\S]*?\.everyday-nav-links \\{ grid-template-columns:repeat\\(3,minmax\\(0,1fr\\)\\)/);
+});
+
 test('tablet header keeps market, account and wishlist controls visible', async () => {
   const css = await readFile(new URL('../frontend/styles.css', import.meta.url), 'utf8');
   assert.ok(css.includes('.site-header .market-select { display:inline-flex; }'));
@@ -63,7 +73,7 @@ test('tablet header keeps market, account and wishlist controls visible', async 
 test('homepage navigation and sitemap expose the added customer pages', async () => {
   const html = await readFile(new URL('../frontend/index.html', import.meta.url), 'utf8');
   const sitemap = await readFile(new URL('../frontend/sitemap.xml', import.meta.url), 'utf8');
-  for (const page of ['collections','men','women','sports','casual','running','sneakers','watches','eyewear','size-guide','fit-guide','shoe-care','shipping','returns','faq','about','contact']) {
+  for (const page of ['collections','men','women','kids','sports','casual','running','sneakers','watches','eyewear','size-guide','fit-guide','shoe-care','shipping','returns','faq','about','contact']) {
     assert.ok(html.includes('/' + page + '.html') || sitemap.includes('/' + page + '.html'), page + ' discoverability');
     assert.ok(sitemap.includes('https://www.bfshoes.online/' + page + '.html'), page + ' sitemap entry');
   }
