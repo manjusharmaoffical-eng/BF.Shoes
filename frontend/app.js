@@ -828,16 +828,6 @@
   updateCheckoutMarketForm();
   const initialDeliveryNote = $('#market-delivery-note');
   if (initialDeliveryNote) initialDeliveryNote.textContent = state.market === 'IN' ? 'Delivery to PIN 500052' : 'UAE delivery setup pending';
-  const initialRange = $('#price-range'), initialRangeValue = $('#price-range-value');
-  if (initialRange && initialRangeValue) {
-    initialRange.min = state.market === 'IN' ? '699' : '10';
-    initialRange.max = state.market === 'IN' ? '4999' : '500';
-    initialRange.value = initialRange.max;
-    state.maxPriceCents = Number(initialRange.value) * 100;
-    initialRangeValue.textContent = money(state.maxPriceCents, state.market === 'IN' ? 'INR' : 'AED');
-    const minValue = $('#price-range-min-value'); if (minValue) minValue.textContent = money(Number(initialRange.min) * 100, state.market === 'IN' ? 'INR' : 'AED');
-  }
-
   renderCart();
   loadProducts();
   loadCheckoutReadiness();
