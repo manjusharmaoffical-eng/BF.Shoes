@@ -73,8 +73,14 @@ async function main() {
   if (!process.env.DATABASE_URL) throw new Error('Set DATABASE_URL for the already-verified target database. No schema changes will be made.');
   const sql = await fs.readFile(path.join(root, 'schema.sql'), 'utf8');
   const expected = extractSchemaExpectations(sql);
+  let connectionString = process.env.DATABASE_URL;
+  if (process.env.DATABASE_SSL === 'true') {
+    const connectionUrl = new URL(connectionString);
+    if (['prefer', 'require', 'verify-ca'].includes(connectionUrl.searchParams.get('sslmode'))) connectionUrl.searchParams.set('sslmode', 'verify-full');
+    connectionString = connectionUrl.toString();
+  }
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString,
     ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: true } : undefined,
     max: 1,
     connectionTimeoutMillis: 10000,
@@ -84,11 +90,9 @@ async function main() {
   try {
     client = await pool.connect();
     await client.query('BEGIN READ ONLY');
-    const [tableRows, columnRows, indexRows] = await Promise.all([
-      client.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'"),
-      client.query("SELECT table_name,column_name FROM information_schema.columns WHERE table_schema='public'"),
-      client.query("SELECT indexname FROM pg_indexes WHERE schemaname='public'")
-    ]);
+    const tableRows = await client.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'");
+    const columnRows = await client.query("SELECT table_name,column_name FROM information_schema.columns WHERE table_schema='public'");
+    const indexRows = await client.query("SELECT indexname FROM pg_indexes WHERE schemaname='public'");
     await client.query('ROLLBACK');
     const actualTables = new Set(tableRows.rows.map(row => row.table_name));
     const actualColumns = new Map();

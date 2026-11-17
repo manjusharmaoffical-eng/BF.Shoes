@@ -21,6 +21,8 @@ test('schema drift checker discovers required tables, columns, and indexes from 
 test('schema drift checker is strictly read-only and never exposes the database URL', () => {
   assert.match(script, /BEGIN READ ONLY/);
   assert.match(script, /ROLLBACK/);
+  assert.ok(script.includes("connectionUrl.searchParams.set('sslmode', 'verify-full')"));
+  assert.doesNotMatch(script, /Promise\.all/);
   assert.doesNotMatch(script, /\b(?:INSERT INTO|UPDATE \w+ SET|DELETE FROM|ALTER TABLE|CREATE TABLE|DROP TABLE)\b/i);
   assert.doesNotMatch(script, /console\.log\(.*DATABASE_URL/);
 });

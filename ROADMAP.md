@@ -68,14 +68,16 @@ The owner has now selected PayU for India. Implement and test the PayU integrati
 
 ### P2 — Platform operations
 - [x] Add secure `backup-db.sh`, `pg_restore` verification, private permissions, daily systemd timer and restore runbook. Actual backup/restore drill still requires the confirmed database and VPS.
-- [x] Add read-only schema drift checker, schema safety regression tests and deployment rollback instructions. Production comparison/rollback drill waits for verified database identity and backup.
+- [x] Add read-only schema drift checker, schema safety regression tests and deployment rollback instructions. Local configured Neon connection reports only the wishlist table/index and gallery `view_angle` column missing; a focused additive migration is prepared but not applied. Production identity/backup still need confirmation.
 - [x] Health endpoint, Ultron monitoring and owner-only email outbox visibility/retry controls are implemented. Live third-party AI/media/email health checks depend on verified provider credentials.
 - [x] Document environment variables, PayU/PayTabs setup, backup and VPS operations without exposing secret values.
 - [x] Prepare a Docker Compose + PostgreSQL VPS deployment guide, private network, localhost-only app binding, health checks and separate migration step. Actual server provisioning, verified data restore and DNS cutover remain pending until the owner selects a server.
 
 ## Work completed in the 2026-11-17 continuation
 
-- [x] Add account-synced customer wishlists with per-customer ownership, active-product validation, idempotent save/remove, serialized 200-item cap and local-only anonymous fallback.
+- [x] Merge the latest `main` work: secure PayU hosted checkout/QR handoff page, PayTabs checkout path, product photo upload and multi-angle gallery. Both market checkout paths remain disabled until owner verification; COD/direct-order bypass is removed.
+
+- [x] Add account-synced customer wishlists with per-customer ownership, active-product validation, idempotent save/remove, serialized 200-item cap and local-only anonymous fallback. Return HTTP 503 gracefully when the target environment has not yet applied the additive migration.
 - [x] Add regression checks for staff-management authorization and production migration safety; schema safety checks reject table/column drops, truncation and record deletion.
 
 - [x] Owner-only inventory and order CSV downloads, separated by INR/AED.
@@ -91,10 +93,12 @@ The owner has now selected PayU for India. Implement and test the PayU integrati
 - [x] Vercel Cron email outbox worker with 32+ byte timing-safe CRON_SECRET authentication, bounded batch size, row locking and maximum retry count.
 - [x] Customer-facing order-status and return-status email messages are queued after successful state changes; internal notes are never emailed.
 - [x] Keep return/exchange fees unconfigured and non-chargeable until owner approval; remove an unsupported ₹100 fee assumption and remove unapproved return-window/packaging terms from the policy page.
-- [x] Automated Vercel build/test run: 196 tests passed in the latest complete local validation (2026-11-17); npm audit reported zero vulnerabilities.
+- [x] Automated Vercel build/test run: 198 tests passed in the latest complete local validation (2026-11-17); npm audit reported zero vulnerabilities.
 
 
 ## External inputs and production gates — do not fabricate
+
+- Focused additive migration prepared for the configured Neon database: `customer_wishlist`, its index and `product_images.view_angle`. The local connection is not confirmed as production; no migration has been applied. The connected Supabase project metadata is healthy, but its database introspection timed out.
 
 - PayU merchant onboarding and live credentials for India; PayTabs merchant onboarding and live credentials for UAE.
 - India GST registration and verified UAE VAT profile, plus owner-verified commercial prices/delivery settings.
