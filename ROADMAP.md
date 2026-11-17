@@ -45,7 +45,7 @@ These items are intentionally deferred until the owner is in India, verifies the
 
 ### P1 — Storefront and customer experience
 - Complete catalogue search, category/color filters, sorting and product detail presentation without breaking existing search.
-- Complete wishlist persistence and customer account order history.
+- [x] Complete customer account order history and cross-device wishlist sync. Anonymous wishlist saves remain local; signed-in wishlist uses customer-scoped authenticated APIs with a 200-item cap.
 - Complete order tracking UX and clear order-status notifications.
 - Build customer return/exchange request workflow with admin eligibility review, status history and customer updates. Do not issue refunds or charge return fees until the owner approves a verified policy and payment process.
 - Improve delivery, returns, privacy and terms pages using only owner-confirmed policy details; retain clear placeholders where details are not verified.
@@ -75,6 +75,9 @@ These items are intentionally deferred until the owner is in India, verifies the
 
 ## Work completed in the 2026-11-17 continuation
 
+- [x] Add account-synced customer wishlists with per-customer ownership, active-product validation, idempotent save/remove, serialized 200-item cap and local-only anonymous fallback.
+- [x] Add regression checks for staff-management authorization and production migration safety; schema safety checks reject table/column drops, truncation and record deletion.
+
 - [x] Owner-only inventory and order CSV downloads, separated by INR/AED.
 - [x] Owner-only finance P&L CSV export with date and currency filters; missing-cost profit stays explicitly incomplete.
 - [x] Add current inventory valuation to finance summary and CSV; inventory value is withheld whenever any stocked variant lacks an actual unit cost.
@@ -88,7 +91,7 @@ These items are intentionally deferred until the owner is in India, verifies the
 - [x] Vercel Cron email outbox worker with 32+ byte timing-safe CRON_SECRET authentication, bounded batch size, row locking and maximum retry count.
 - [x] Customer-facing order-status and return-status email messages are queued after successful state changes; internal notes are never emailed.
 - [x] Keep return/exchange fees unconfigured and non-chargeable until owner approval; remove an unsupported ₹100 fee assumption and remove unapproved return-window/packaging terms from the policy page.
-- [x] Automated build/test run: 169 tests passed in the latest scoped Vercel build validation (2026-11-17).
+- [x] Automated build/test run: 179 tests passed in the latest full Vercel build validation (2026-11-17).
 
 ## Definition of done
 

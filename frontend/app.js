@@ -323,6 +323,21 @@
     }
   }
 
+  async function syncCustomerWishlist() {
+    let customerToken = '';
+    try { customerToken = sessionStorage.getItem('bf_customer_token') || ''; } catch {}
+    if (!customerToken) return;
+    try {
+      const result = await request('/api/v1/customer-auth/wishlist', { headers: { Authorization: 'Bearer ' + customerToken } });
+      state.wishlist = new Set((result.data || []).map(item => String(item.product_id)));
+      try { localStorage.setItem('bf-shoes-wishlist', JSON.stringify([...state.wishlist])); } catch {}
+      renderProducts();
+    } catch (error) {
+      if (error.status === 401) { try { sessionStorage.removeItem('bf_customer_token'); } catch {} }
+      toast('Wishlist sync is unavailable right now. Your saved items remain on this device.');
+    }
+  }
+
   async function loadProducts() {
     state.loading = true;
     renderProducts();
@@ -351,8 +366,23 @@
       const wishlistButton = event.target.closest('[data-wishlist]');
       if (wishlistButton) {
         const id = String(wishlistButton.dataset.wishlist);
-        if (state.wishlist.has(id)) state.wishlist.delete(id); else state.wishlist.add(id);
+        const removing = state.wishlist.has(id);
+        if (removing) state.wishlist.delete(id); else state.wishlist.add(id);
         try { localStorage.setItem('bf-shoes-wishlist', JSON.stringify([...state.wishlist])); } catch {}
+        try {
+          const customerToken = sessionStorage.getItem('bf_customer_token') || '';
+          if (customerToken) {
+            request('/api/v1/customer-auth/wishlist/' + encodeURIComponent(id), {
+              method: removing ? 'DELETE' : 'PUT',
+              headers: { Authorization: 'Bearer ' + customerToken }
+            }).catch(error => {
+              if (error.status === 401) { try { sessionStorage.removeItem('bf_customer_token'); } catch {} }
+              toast('Saved on this device; account wishlist sync needs sign-in.');
+            });
+          } else if (!removing) {
+            toast('Saved on this device. Sign in to sync your wishlist across devices.');
+          }
+        } catch {}
         const count = $('#wishlist-count'); if (count) count.textContent = String(state.wishlist.size);
         const icon = wishlistButton.querySelector('i');
         const watched = state.wishlist.has(id);
@@ -616,4 +646,5 @@
   loadProducts();
   loadCheckoutReadiness();
   loadActiveCampaign();
+  syncCustomerWishlist();
 })();

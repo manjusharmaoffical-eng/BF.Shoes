@@ -170,3 +170,64 @@ customerAuthRouter.get("/orders", async (req, res, next) => {
     next(err);
   }
 });
+
+
+// A customer wishlist syncs across signed-in devices. Anonymous users retain local-only saves.
+customerAuthRouter.get("/wishlist", async (req, res, next) => {
+  try {
+    const session = await getCustomerSession(req);
+    if (!session) return res.status(401).json({ error: "Sign in to sync your wishlist." });
+    const result = await pool.query(
+      `SELECT w.product_id,w.created_at FROM customer_wishlist w
+       JOIN products p ON p.id=w.product_id AND p.active=true
+       WHERE w.customer_id=$1 ORDER BY w.created_at DESC LIMIT 200`,
+      [session.row.id]
+    );
+    res.set("Cache-Control", "no-store");
+    return res.json({ data: result.rows });
+  } catch (err) {
+    if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") return res.status(401).json({ error: "Your session expired. Please sign in again." });
+    next(err);
+  }
+});
+
+customerAuthRouter.put("/wishlist/:productId", async (req, res, next) => {
+  let client;
+  try {
+    const session = await getCustomerSession(req);
+    if (!session) return res.status(401).json({ error: "Sign in to sync your wishlist." });
+    const parsed = z.string().uuid().safeParse(req.params.productId);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid product id." });
+    client = await pool.connect();
+    await client.query("BEGIN");
+    // Serialize additions per customer so concurrent requests cannot exceed the 200-item cap.
+    await client.query("SELECT id FROM customer_accounts WHERE id=$1 AND active=true FOR UPDATE", [session.row.id]);
+    const product = await client.query("SELECT id FROM products WHERE id=$1 AND active=true", [parsed.data]);
+    if (!product.rowCount) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Product not found." }); }
+    const existing = await client.query("SELECT 1 FROM customer_wishlist WHERE customer_id=$1 AND product_id=$2", [session.row.id, parsed.data]);
+    if (existing.rowCount) { await client.query("COMMIT"); return res.status(200).json({ saved: true, product_id: parsed.data }); }
+    const count = await client.query("SELECT count(*)::int AS total FROM customer_wishlist WHERE customer_id=$1", [session.row.id]);
+    if (count.rows[0].total >= 200) { await client.query("ROLLBACK"); return res.status(409).json({ error: "Your wishlist has reached its 200-item limit." }); }
+    await client.query("INSERT INTO customer_wishlist(customer_id,product_id) VALUES($1,$2) ON CONFLICT DO NOTHING", [session.row.id, parsed.data]);
+    await client.query("COMMIT");
+    return res.status(200).json({ saved: true, product_id: parsed.data });
+  } catch (err) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
+    if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") return res.status(401).json({ error: "Your session expired. Please sign in again." });
+    next(err);
+  } finally { client?.release(); }
+});
+
+customerAuthRouter.delete("/wishlist/:productId", async (req, res, next) => {
+  try {
+    const session = await getCustomerSession(req);
+    if (!session) return res.status(401).json({ error: "Sign in to sync your wishlist." });
+    const parsed = z.string().uuid().safeParse(req.params.productId);
+    if (!parsed.success) return res.status(400).json({ error: "Invalid product id." });
+    await pool.query("DELETE FROM customer_wishlist WHERE customer_id=$1 AND product_id=$2", [session.row.id, parsed.data]);
+    return res.status(204).end();
+  } catch (err) {
+    if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") return res.status(401).json({ error: "Your session expired. Please sign in again." });
+    next(err);
+  }
+});

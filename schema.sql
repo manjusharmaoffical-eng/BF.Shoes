@@ -309,6 +309,15 @@ CREATE TABLE IF NOT EXISTS public.customer_sessions (
 CREATE INDEX IF NOT EXISTS customer_sessions_customer_idx ON public.customer_sessions(customer_id, expires_at DESC);
 CREATE INDEX IF NOT EXISTS customer_sessions_active_idx ON public.customer_sessions(id, expires_at) WHERE revoked_at IS NULL;
 
+-- Account-synced wishlist; independent of checkout and safe for anonymous browsing.
+CREATE TABLE IF NOT EXISTS public.customer_wishlist (
+  customer_id UUID NOT NULL REFERENCES public.customer_accounts(id) ON DELETE CASCADE,
+  product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (customer_id, product_id)
+);
+CREATE INDEX IF NOT EXISTS customer_wishlist_customer_created_idx ON public.customer_wishlist(customer_id, created_at DESC);
+
 -- Cover foreign-key columns used in joins and referential checks.
 CREATE INDEX IF NOT EXISTS api_keys_created_by_idx ON api_keys(created_by);
 CREATE INDEX IF NOT EXISTS campaigns_created_by_idx ON campaigns(created_by);
