@@ -44,6 +44,8 @@ test("owner and inventory staff can record an exact physical count safely", () =
 
 test("storefront and admin clearly label pending physical stock counts", () => {
   assert.match(app, /Stock check pending/);
-  assert.match(app, /Stock verification pending/);
+  assert.match(app, /Stock confirmation pending/);
+  assert.match(app, /checkout remains closed until stock is confirmed/);
+  assert.match(app, /variant\.stock_verified === false \? 10/);
   assert.match(admin, /Pending physical count/);
 });
