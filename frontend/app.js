@@ -816,16 +816,6 @@
     try { localStorage.setItem('bf-market', state.market); } catch {}
     const deliveryNote = $('#market-delivery-note');
     if (deliveryNote) deliveryNote.textContent = state.market === 'IN' ? 'Delivery to PIN 500052' : 'UAE delivery setup pending';
-    const range = $('#price-range');
-    const rangeValue = $('#price-range-value');
-    if (range && rangeValue) {
-      range.min = state.market === 'IN' ? '699' : '10';
-      range.max = state.market === 'IN' ? '4999' : '500';
-      range.value = range.max;
-      state.maxPriceCents = Number(range.value) * 100;
-      rangeValue.textContent = money(state.maxPriceCents, state.market === 'IN' ? 'INR' : 'AED');
-      const minValue = $('#price-range-min-value'); if (minValue) minValue.textContent = money(Number(range.min) * 100, state.market === 'IN' ? 'INR' : 'AED');
-    }
     const selectedCountry = $('#shipping-country');
     if (selectedCountry) selectedCountry.value = state.market;
     updateCheckoutMarketForm();
