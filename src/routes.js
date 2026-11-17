@@ -400,6 +400,14 @@ router.patch("/orders/:id/status", authenticate, requireScope("orders:write"), a
       [req.actor.type, req.actor.id, "order.status_change", "order", old.id]
     );
     await client.query("COMMIT");
+    try {
+      await deliverEmail({
+        kind: "order_status_update",
+        recipient: old.customer_email,
+        subject: `BF SHOES order #${old.order_number} update`,
+        textBody: `Your BF SHOES order #${old.order_number} status is now: ${nextStatus}. Track your order at ${process.env.PUBLIC_SITE_URL || "https://www.bfshoes.online"}/track-order.html.`
+      });
+    } catch { /* The order update must remain committed even if email queuing is unavailable. */ }
     res.json({ data: updated.rows[0] });
   } catch (err) { if (client) await client.query("ROLLBACK").catch(() => {}); next(err); }
   finally { client?.release(); }

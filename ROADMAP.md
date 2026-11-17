@@ -1,6 +1,6 @@
 # BF SHOES — Approved Website Completion Roadmap
 
-Last updated: 2026-11-12
+Last updated: 2026-11-17
 
 This roadmap records the owner's current direction: finish the website and all non-tax, non-payment features now. India GST registration details and payment-gateway activation will be completed only after the owner travels to India and verifies the GST number. Checkout must remain safely disabled until the owner verifies the required commercial settings.
 
@@ -52,8 +52,8 @@ These items are intentionally deferred until the owner is in India, verifies the
 - Complete mobile, tablet, desktop, keyboard and screen-reader checks.
 
 ### P1 — Customer communications and retention
-- Complete reliable queued email delivery for order confirmations and newsletter welcome messages.
-- Add customer order-status notifications and unsubscribe/consent controls.
+- [x] Implement queued order confirmation and newsletter welcome email delivery, bounded retry handling and scheduled outbox processing. Live sending remains gated until Resend credentials and sender verification are configured.
+- [x] Add queued customer order-status and return-status email notifications; newsletter unsubscribe is signed and verified. Live sending remains provider-dependent.
 - Add abandoned-cart recovery only with clear customer consent and verified email delivery.
 - Connect coupon and campaign records to safe storefront presentation; never invent discounts or advertising spend.
 - Add email delivery status, retry handling, suppression and admin visibility. Provider secrets remain server-side.
@@ -62,7 +62,9 @@ These items are intentionally deferred until the owner is in India, verifies the
 - Complete staff-management UI and verify owner-only actions.
 - Complete sales, inventory, product and campaign analytics with clear distinctions between revenue and profit.
 - Reconcile refunds, returns, operating expenses, COGS and ad spend in finance only when source records are real and verified.
-- Add exportable reports (CSV) with currency/date filters and audit trail.
+- [x] Add exportable inventory and order reports (CSV) with market filters; finance P&L CSV supports currency/date filters. Owner-only exports, no-store headers and spreadsheet-formula protection are implemented.
+- [x] Add owner-only API key management UI: scoped key creation, optional expiry, one-time secret display, copy and revoke; raw secrets are never listed.
+- [x] Add scheduled email outbox processing with bounded retries, row locking, owner-only manual retry and customer order/return status messages. Daily Vercel Cron (Hobby-compatible) and encrypted CRON_SECRET are configured; delivery still depends on verified Resend credentials and a verified sender.
 
 ### P2 — Platform operations
 - Database backup and restore runbook, scheduled backup verification and restore drills.
@@ -70,6 +72,16 @@ These items are intentionally deferred until the owner is in India, verifies the
 - Monitoring for API, database, email queue, AI provider and media storage failures.
 - Document environment variables and provider setup without exposing secret values.
 - VPS/own-server deployment guide and portability review; production remains on the currently configured hosting until the owner chooses otherwise.
+
+## Work completed in the 2026-11-17 continuation
+
+- [x] Owner-only inventory and order CSV downloads, separated by INR/AED.
+- [x] Owner-only finance P&L CSV export with date and currency filters; missing-cost profit stays explicitly incomplete.
+- [x] Owner-only API key management screen with least-privilege scope selection, expiry, one-time secret reveal and revocation.
+- [x] Spreadsheet formula-injection protection for all CSV exports.
+- [x] Vercel Cron email outbox worker with 32+ byte timing-safe CRON_SECRET authentication, bounded batch size, row locking and maximum retry count.
+- [x] Customer-facing order-status and return-status email messages are queued after successful state changes; internal notes are never emailed.
+- [x] Automated build/test run: 147 tests passed at this checkpoint.
 
 ## Definition of done
 

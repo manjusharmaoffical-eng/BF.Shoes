@@ -4,6 +4,7 @@ import { pool } from './db.js';
 import { authenticate, requireScope } from './auth.js';
 import { getCustomerSession } from './customer-auth.js';
 import { canTransitionReturnStatus, RETURN_STATUSES, validateReturnItems } from './return-workflow.js';
+import { deliverEmail } from './email.js';
 
 export const returnsRouter = express.Router();
 
@@ -125,7 +126,7 @@ returnsRouter.patch('/admin/:id', authenticate, requireScope('orders:write'), as
   try {
     client = await pool.connect();
     await client.query('BEGIN');
-    const found = await client.query('SELECT id,status FROM return_requests WHERE id=$1 FOR UPDATE', [req.params.id]);
+    const found = await client.query('SELECT r.id,r.status,o.customer_email,o.order_number FROM return_requests r JOIN orders o ON o.id=r.order_id WHERE r.id=$1 FOR UPDATE OF r', [req.params.id]);
     if (!found.rowCount) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Return request not found.' }); }
     const previous = found.rows[0];
     if (!canTransitionReturnStatus(previous.status, parsed.data.status)) {
@@ -148,6 +149,16 @@ returnsRouter.patch('/admin/:id', authenticate, requireScope('orders:write'), as
       [req.actor.id, req.params.id]
     );
     await client.query('COMMIT');
+    if (parsed.data.customer_message) {
+      try {
+        await deliverEmail({
+          kind: 'return_status_update',
+          recipient: previous.customer_email,
+          subject: `BF SHOES return/exchange request for order #${previous.order_number}`,
+          textBody: `Your BF SHOES return/exchange request for order #${previous.order_number} is now: ${parsed.data.status}.\n\nMessage from BF SHOES: ${parsed.data.customer_message}\n\nThis update does not itself issue a refund, charge a fee or change stock.`
+        });
+      } catch { /* Keep the review committed; queue failures must not roll it back. */ }
+    }
     return res.json({ data: updated.rows[0], message: 'Request status updated. No refund, fee or inventory change was triggered.' });
   } catch (err) {
     if (client) await client.query('ROLLBACK').catch(() => {});

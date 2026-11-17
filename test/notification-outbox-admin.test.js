@@ -40,12 +40,23 @@ test("scheduled email worker claims rows with SKIP LOCKED and caps retries and b
   assert.match(email, /configured: false, processed: 0/);
 });
 
-test("scheduled email endpoint requires a timing-safe CRON_SECRET and Vercel runs every five minutes", async () => {
+test("scheduled email endpoint requires a timing-safe CRON_SECRET and Vercel runs daily on a Hobby-compatible schedule", async () => {
   const server = await readFile(new URL("../src/server.js", import.meta.url), "utf8");
   const vercel = JSON.parse(await readFile(new URL("../vercel.json", import.meta.url), "utf8"));
   assert.match(server, /app\.get\("\/api\/cron\/email-outbox"/);
   assert.match(server, /secret\.length >= 32/);
   assert.match(server, /timingSafeEqual/);
   assert.match(server, /processEmailOutbox\(\{ limit: 10 \}\)/);
-  assert.ok(vercel.crons.some(job => job.path === "/api/cron/email-outbox" && job.schedule === "*/5 * * * *"));
+  assert.ok(vercel.crons.some(job => job.path === "/api/cron/email-outbox" && job.schedule === "17 3 * * *"));
+});
+
+test("order and return status changes enqueue customer-facing email without exposing internal notes", async () => {
+  const routes = await readFile(new URL("../src/routes.js", import.meta.url), "utf8");
+  const returns = await readFile(new URL("../src/returns.js", import.meta.url), "utf8");
+  const schema = await readFile(new URL("../schema.sql", import.meta.url), "utf8");
+  assert.match(routes, /kind: "order_status_update"/);
+  assert.match(returns, /kind: 'return_status_update'/);
+  assert.match(returns, /if \(parsed\.data\.customer_message\)/);
+  assert.doesNotMatch(returns, /textBody:[^\n]*internal_note/);
+  assert.match(schema, /'order_status_update','return_status_update'/);
 });
