@@ -29,13 +29,10 @@ test('admin mobile form controls remain touch-friendly', () => {
 });
 
 
-test('homepage category pills and category cards actually filter the product catalogue', async () => {
+test('homepage avoids duplicate category panels and keeps category links in one navigation row', async () => {
   const home = await readFile(new URL('../frontend/index.html', import.meta.url), 'utf8');
-  const app = await readFile(new URL('../frontend/app.js', import.meta.url), 'utf8');
-  for (const category of ['all', 'men', 'women', 'sports', 'casual']) {
-    assert.match(home, new RegExp('data-category-jump="' + category + '"'));
-  }
-  assert.match(app, /\$\$\('\[data-category-jump\]'\)/);
-  assert.match(app, /state\.categories=category==='all'\?\[\]:\[category\]/);
-  assert.match(app, /input\.checked=state\.categories\.includes/);
+  assert.doesNotMatch(home, /class="category-showcase"|data-category-jump=/);
+  assert.equal((home.match(/href="\/men\.html"/g) || []).length, 1);
+  assert.equal((home.match(/href="\/women\.html"/g) || []).length, 1);
+  assert.equal((home.match(/href="\/collections\.html"/g) || []).length, 1);
 });
