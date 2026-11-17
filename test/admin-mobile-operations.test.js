@@ -32,10 +32,12 @@ test('admin mobile form controls remain touch-friendly', () => {
 test('homepage has one main category navigation and preserves the category links in the footer', async () => {
   const home = await readFile(new URL('../frontend/index.html', import.meta.url), 'utf8');
   assert.doesNotMatch(home, /class="category-showcase"|data-category-jump=/);
-  const nav = home.match(/<nav class="everyday-nav"[\\s\\S]*?<\\/nav>/)?.[0] || '';
-  const footer = home.match(/<div class="footer-bottom">[\\s\\S]*?<\\/div>/)?.[0] || '';
+  const navStart = home.indexOf('<nav class="everyday-nav"');
+  const nav = home.slice(navStart, home.indexOf('</nav>', navStart) + 6);
+  const footerStart = home.indexOf('<div class="footer-bottom">');
+  const footer = home.slice(footerStart, home.indexOf('</div>', footerStart) + 6);
   for (const href of ['/men.html','/women.html','/collections.html']) {
-    assert.ok(nav.includes('href="' + href + '"'));
-    assert.ok(footer.includes('href="' + href + '"'));
+    assert.equal(nav.split('href="' + href + '"').length - 1, 1);
+    assert.equal(footer.split('href="' + href + '"').length - 1, 1);
   }
 });
