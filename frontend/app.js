@@ -6,7 +6,7 @@
   const PLACEHOLDER_IMAGE = '/assets/bf-product-placeholder.svg';
   const FALLBACK_IMAGES = [FALLBACK_IMAGE, PLACEHOLDER_IMAGE, '/bf-shoes-hero.svg'];
   let savedMarket = 'IN'; try { savedMarket = localStorage.getItem('bf-market') === 'AE' ? 'AE' : 'IN'; } catch {}
-  const state = { market: savedMarket, maxPriceCents: savedMarket === 'AE' ? 50000 : 499900, checkoutReady: false, products: [], cart: [], cartByMarket: { IN: [], AE: [] }, selectedSizes: {}, filter: 'all', search: '', categories: [], sort: 'featured', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null, marketConfig: null };
+  const state = { market: savedMarket, checkoutReady: false, products: [], cart: [], cartByMarket: { IN: [], AE: [] }, selectedSizes: {}, filter: 'all', search: '', wishlist: new Set(), loading: true, busy: false, pendingCheckout: null, marketConfig: null };
   state.cart = state.cartByMarket[state.market];
   const cartStorageKey = market => `bf-shoes-cart:v1:${market === 'AE' ? 'AE' : 'IN'}`;
   function persistCart(market = state.market, cart = state.cart) {
@@ -153,12 +153,7 @@
       const inStock = availableVariants(product).length > 0;
       const query = state.search.trim().toLowerCase();
       const matchesSearch = !query || [product.name, product.brand, product.description, product.slug].some(value => String(value || '').toLowerCase().includes(query));
-      const category=String(product.category || product.category_name || '').toLowerCase();
-      const audience=String(product.audience || '').toLowerCase();
-      const productType=String(product.product_type || '').toLowerCase();
-      const matchesCategory=!state.categories.length || state.categories.some(value=>value===category || value===audience || productType.includes(value));
-      const matchesPrice = Number(product.price_cents) <= state.maxPriceCents;
-      return (state.filter !== 'available' || inStock) && (state.filter !== 'saved' || state.wishlist.has(String(product.id))) && matchesSearch && matchesCategory && matchesPrice;
+      return (state.filter !== 'available' || inStock) && (state.filter !== 'saved' || state.wishlist.has(String(product.id))) && matchesSearch;
     });
 
     if (state.sort === 'price-low') products.sort((a,b) => Number(a.price_cents)-Number(b.price_cents));
