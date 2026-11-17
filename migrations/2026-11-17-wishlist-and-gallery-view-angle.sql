@@ -1,14 +1,22 @@
 -- Additive, idempotent schema delta for account-synced wishlists and gallery angles.
--- Apply only after confirming the target database and taking/verifying a backup.
+-- A verified custom-format backup must exist before applying this to production.
 BEGIN;
 
 ALTER TABLE public.product_images
   ADD COLUMN IF NOT EXISTS view_angle TEXT NOT NULL DEFAULT 'detail';
-ALTER TABLE public.product_images
-  DROP CONSTRAINT IF EXISTS product_images_view_angle_check;
-ALTER TABLE public.product_images
-  ADD CONSTRAINT product_images_view_angle_check
-  CHECK (view_angle IN ('front','back','top','bottom','detail'));
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'product_images_view_angle_check'
+      AND conrelid = 'public.product_images'::regclass
+  ) THEN
+    ALTER TABLE public.product_images
+      ADD CONSTRAINT product_images_view_angle_check
+      CHECK (view_angle IN ('front','back','top','bottom','detail'));
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.customer_wishlist (
   customer_id UUID NOT NULL REFERENCES public.customer_accounts(id) ON DELETE CASCADE,

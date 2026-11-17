@@ -11,7 +11,7 @@ test('wishlist/gallery schema delta is additive, idempotent and transaction-wrap
   assert.match(migration, /COMMIT;\s*$/);
 });
 
-test('schema delta never drops tables/columns or deletes/truncates business data', () => {
-  assert.doesNotMatch(migration, /DROP\s+TABLE\b|DROP\s+COLUMN\b|DELETE\s+FROM\b|TRUNCATE\b/i);
-  assert.match(migration, /DROP CONSTRAINT IF EXISTS product_images_view_angle_check/);
+test('schema delta never drops tables/columns/constraints or deletes/truncates business data', () => {
+  assert.doesNotMatch(migration, /DROP\s+TABLE\b|DROP\s+COLUMN\b|DROP\s+CONSTRAINT\b|DELETE\s+FROM\b|TRUNCATE\b/i);
+  assert.match(migration, /IF NOT EXISTS \([\s\S]*?product_images_view_angle_check[\s\S]*?ADD CONSTRAINT product_images_view_angle_check/);
 });
