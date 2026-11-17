@@ -98,3 +98,46 @@ export async function retryQueuedEmail(id) {
     return { found: true, configured: true, sent: false, attempts: row.attempts };
   }
 }
+
+
+// Scheduled, bounded delivery worker for Vercel Cron or a self-hosted scheduler.
+// SKIP LOCKED lets concurrent invocations safely claim disjoint rows.
+export async function processEmailOutbox({ limit = 10 } = {}) {
+  if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
+    return { configured: false, processed: 0, sent: 0, failed: 0 };
+  }
+  const batchSize = Math.max(1, Math.min(25, Number.isInteger(limit) ? limit : 10));
+  const claimed = await pool.query(
+    `WITH picked AS (
+       SELECT id FROM notification_outbox
+       WHERE status IN ('pending','failed') AND attempts < 5
+       ORDER BY created_at ASC
+       FOR UPDATE SKIP LOCKED LIMIT $1
+     )
+     UPDATE notification_outbox n SET status='pending',attempts=n.attempts+1,last_error=NULL
+     FROM picked WHERE n.id=picked.id
+     RETURNING n.id,n.kind,n.recipient,n.subject,n.text_body,n.attempts`,
+    [batchSize]
+  );
+  const summary = { configured: true, processed: claimed.rowCount, sent: 0, failed: 0 };
+  for (const row of claimed.rows) {
+    try {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + process.env.RESEND_API_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ from: process.env.EMAIL_FROM, to: [row.recipient], subject: row.subject, text: row.text_body })
+      });
+      if (!response.ok) {
+        await pool.query("UPDATE notification_outbox SET status='failed',last_error=$1 WHERE id=$2", ["Email provider returned HTTP " + response.status, row.id]);
+        summary.failed++;
+      } else {
+        await pool.query("UPDATE notification_outbox SET status='sent',sent_at=now(),last_error=NULL WHERE id=$1", [row.id]);
+        summary.sent++;
+      }
+    } catch {
+      await pool.query("UPDATE notification_outbox SET status='failed',last_error='Email provider request failed' WHERE id=$1", [row.id]).catch(() => {});
+      summary.failed++;
+    }
+  }
+  return summary;
+}

@@ -2,5 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": [
     "bom1"
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/email-outbox",
+      "schedule": "*/5 * * * *"
+    }
   ]
 }

@@ -15,6 +15,8 @@ import { ultronRouter } from "./ultron.js";
 import { invoicesRouter } from "./invoices.js";
 import { warehouseRouter } from "./warehouse.js";
 import { returnsRouter } from "./returns.js";
+import { timingSafeEqual } from "node:crypto";
+import { processEmailOutbox } from "./email.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -69,6 +71,20 @@ async function healthCheck(_req, res) {
 }
 app.get("/health", healthCheck);
 app.get("/api/v1/health", healthCheck);
+app.get("/api/cron/email-outbox", async (req, res) => {
+  const secret = process.env.CRON_SECRET || "";
+  const supplied = req.get("authorization") || "";
+  const expected = secret ? `Bearer ${secret}` : "";
+  const authorized = secret.length >= 32 && supplied.length === expected.length && timingSafeEqual(Buffer.from(supplied), Buffer.from(expected));
+  if (!authorized) return res.status(secret ? 401 : 503).json({ error: "Scheduled worker is not available" });
+  try {
+    const result = await processEmailOutbox({ limit: 10 });
+    if (!result.configured) return res.status(503).json({ error: "Email provider is not configured", processed: 0 });
+    res.set("Cache-Control", "no-store").json({ data: result });
+  } catch {
+    res.status(500).json({ error: "Email queue processing failed" });
+  }
+});
 
 app.use("/api/v1/auth/login", rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false }));
 // Public storefront endpoints are deliberately separated from admin/integration routes.

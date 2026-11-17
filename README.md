@@ -8,7 +8,7 @@ Express API, storefront, admin dashboard, PostgreSQL schema, inventory/order wor
 - PostgreSQL reachable from the API; keep database credentials server-side.
 - A strong `JWT_SECRET` (at least 32 bytes).
 - A public domain and TLS reverse proxy for production. The Compose file binds the API to `127.0.0.1:3000` so it is not directly exposed to the Internet.
-- Optional `OPENAI_API_KEY` for AI copy/image generation; optional Cloudinary credentials for persistent generated-image hosting; optional Resend `RESEND_API_KEY` and verified `EMAIL_FROM` for email.
+- Optional `OPENAI_API_KEY` for AI copy/image generation; optional Cloudinary credentials for persistent generated-image hosting; optional Resend `RESEND_API_KEY` and verified `EMAIL_FROM` for email. Scheduled email delivery uses the Vercel Cron job in `vercel.json`; set a random `CRON_SECRET` of at least 32 bytes in the deployment environment. Without Resend credentials the outbox safely remains queued.
 
 ## Configure a new environment
 

@@ -31,3 +31,21 @@ test("admin email queue has manual retry controls and explicit owner-only guidan
   assert.match(js, /data-notification-retry/);
   assert.match(js, /confirm\('Retry delivery of this queued email/);
 });
+
+test("scheduled email worker claims rows with SKIP LOCKED and caps retries and batch size", () => {
+  assert.match(email, /export async function processEmailOutbox/);
+  assert.match(email, /FOR UPDATE SKIP LOCKED/);
+  assert.match(email, /attempts < 5/);
+  assert.match(email, /Math\.min\(25/);
+  assert.match(email, /configured: false, processed: 0/);
+});
+
+test("scheduled email endpoint requires a timing-safe CRON_SECRET and Vercel runs every five minutes", async () => {
+  const server = await readFile(new URL("../src/server.js", import.meta.url), "utf8");
+  const vercel = JSON.parse(await readFile(new URL("../vercel.json", import.meta.url), "utf8"));
+  assert.match(server, /app\.get\("\/api\/cron\/email-outbox"/);
+  assert.match(server, /secret\.length >= 32/);
+  assert.match(server, /timingSafeEqual/);
+  assert.match(server, /processEmailOutbox\(\{ limit: 10 \}\)/);
+  assert.ok(vercel.crons.some(job => job.path === "/api/cron/email-outbox" && job.schedule === "*/5 * * * *"));
+});
