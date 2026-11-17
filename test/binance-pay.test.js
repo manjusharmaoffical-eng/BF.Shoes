@@ -61,7 +61,8 @@ test("UAE storefront keeps PayTabs as the selected but gated merchant provider",
   assert.match(storefront, /UAE_PAYMENT_PROVIDER !== "binance"/);
   assert.match(storefront, /PayTabs is selected and checkout remains disabled/);
   assert.doesNotMatch(frontend, /\/orders\/binance|pay\.binance\.com/);
-  assert.match(frontend, /payment_method: state\.market === 'AE' \? 'paytabs' : String\(formData\.get\('payment_method'\) \|\| 'payu'\)/);
+  assert.match(frontend, /payment_method: String\(formData\.get\('payment_method'\)/);
+  assert.match(frontend, /payload\.payment_method === 'cod'/);
   assert.match(html, /id="payment-paytabs-option"/);
   assert.doesNotMatch(html, /payment-binance-option|Binance Pay/);
 });

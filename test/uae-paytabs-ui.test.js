@@ -11,8 +11,10 @@ test('UAE checkout identifies PayTabs and disables the payment control until rea
   assert.match(html, /id="payment-paytabs-option"/);
   assert.match(html, /value="paytabs" disabled/);
   assert.match(html, /<strong>Pay securely with PayTabs<\/strong>/);
-  assert.match(app, /payment_method: state\.market === 'AE' \? 'paytabs' : String\(formData\.get\('payment_method'\) \|\| 'payu'\)/);
-  assert.match(app, /paytabsInput\.disabled = !\(state\.market === 'AE' && state\.checkoutReady\)/);
+  assert.match(app, /payment_method: String\(formData\.get\('payment_method'\)/);
+  assert.match(app, /paytabsInput\.disabled = !\(state\.market === 'AE' && state\.onlineCheckoutReady\)/);
+  assert.match(app, /payload\.payment_method === 'cod'/);
+  assert.match(html, /id="payment-cod-option"/);
   assert.match(app, /placeOrder\.disabled = !state\.checkoutReady/);
   assert.doesNotMatch(app, /Binance Pay|\/orders\/binance|pay\.binance\.com/);
   assert.match(storefront, /paymentProvider: "PayTabs"/);

@@ -6,6 +6,7 @@ const storefront = await readFile(new URL('../src/storefront.js', import.meta.ur
 const html = await readFile(new URL('../frontend/index.html', import.meta.url), 'utf8');
 const app = await readFile(new URL('../frontend/app.js', import.meta.url), 'utf8');
 const policy = await readFile(new URL('../src/india-market-policy.js', import.meta.url), 'utf8');
+const cod = await readFile(new URL('../src/cod.js', import.meta.url), 'utf8');
 
 test('India market consistently reports the owner-selected PayU provider and never enables checkout here', () => {
   assert.match(storefront, /const indiaPayuConfigured = process\.env\.INDIA_PAYMENT_GATEWAY === "payu" && indiaPaymentMethods\.includes\("payu"\) && payuConfigured\(\)/);
@@ -35,17 +36,20 @@ test('separate AED catalog products do not block India pricing or trigger an inv
 });
 
 
-test('India checkout UI shows disabled PayU only and does not promise unconfigured COD', () => {
+test('India checkout exposes COD only when the server reports COD readiness', () => {
   assert.match(html, /id="payment-payu-option"/);
   assert.match(html, /value="payu"[^>]*disabled/);
-  assert.doesNotMatch(html, /payment-cod-option|Cash on Delivery available/);
-  assert.match(app, /payment_method: state\.market === 'AE' \? 'paytabs' : String\(formData\.get\('payment_method'\) \|\| 'payu'\)/);
-  assert.match(app, /Checkout opens after verified INR prices, delivery fee, GST profile and PayU merchant credentials are configured/);
+  assert.match(html, /id="payment-cod-option"/);
+  assert.match(app, /codInput\.disabled = !state\.codReady/);
+  assert.match(app, /payment_method: String\(formData\.get\('payment_method'\)/);
+  assert.match(app, /payload\.payment_method === 'cod'/);
+  assert.match(app, /Checkout opens after owner, delivery, pricing and GST verification/);
 });
 
 
 test('legacy direct order endpoint cannot bypass PayU or PayTabs market checkout gates', () => {
   assert.match(storefront, /storefrontRouter\.post\("\/orders", async/);
   assert.match(storefront, /Direct order creation is disabled/);
-  assert.doesNotMatch(storefront, /storefront_cod_order/);
+  assert.match(storefront, /codRouter/);
+  assert.match(cod, /codRouter\.post\("\/orders\/cod"/);
 });

@@ -502,23 +502,31 @@
   document.addEventListener('keydown', event => { if (event.key === 'Escape') setMobileFilters(false); });
 
   const countrySelect = $('#shipping-country');
+  document.querySelectorAll('input[name="payment_method"]').forEach(input => input.addEventListener('change', () => updateCheckoutMarketForm()));
 
   async function loadCheckoutReadiness() {
     try {
       const config = await request('/api/v1/store/market-config');
       const selected = (config.data || []).find(market => market.country === state.market);
       state.marketConfig = selected || null;
-      const indiaReady = state.market === 'IN' && selected && selected.checkoutEnabled && (!countrySelect || countrySelect.value === 'IN');
-      const uaeReady = state.market === 'AE' && selected && selected.checkoutEnabled && (!countrySelect || countrySelect.value === 'AE');
-      state.checkoutReady = Boolean(indiaReady || uaeReady);
+      const marketSelected = selected && (!countrySelect || countrySelect.value === state.market);
+      const onlineReady = Boolean(marketSelected && selected.checkoutEnabled);
+      const codReady = Boolean(marketSelected && selected.codEnabled);
+      state.checkoutReady = onlineReady || codReady;
+      state.codReady = codReady;
+      state.onlineCheckoutReady = onlineReady;
     } catch { state.checkoutReady = false; }
     const payuInput = $('#payment-payu-option input');
-    if (payuInput) payuInput.disabled = !(state.market === 'IN' && state.checkoutReady);
+    if (payuInput) payuInput.disabled = !(state.market === 'IN' && state.onlineCheckoutReady);
     const paytabsInput = $('#payment-paytabs-option input');
-    if (paytabsInput) paytabsInput.disabled = !(state.market === 'AE' && state.checkoutReady);
+    if (paytabsInput) paytabsInput.disabled = !(state.market === 'AE' && state.onlineCheckoutReady);
+    const codInput = $('#payment-cod-option input');
+    if (codInput) codInput.disabled = !state.codReady;
+    $('#payment-cod-option')?.classList.toggle('hidden', !state.codReady);
+    if (state.codReady && !state.onlineCheckoutReady && codInput) codInput.checked = true;
     const qrInput = $('#payment-upi-option input');
     if (qrInput) {
-      qrInput.disabled = !(state.market === 'IN' && state.checkoutReady && state.marketConfig?.paymentQrEnabled);
+      qrInput.disabled = !(state.market === 'IN' && state.onlineCheckoutReady && state.marketConfig?.paymentQrEnabled);
       $('#payment-upi-option')?.classList.toggle('payment-unavailable', qrInput.disabled);
       if (qrInput.disabled && qrInput.checked) {
         const payuFallback = $('#payment-payu-option input');
@@ -530,8 +538,9 @@
     if (checkoutButton) { checkoutButton.disabled = !state.checkoutReady; checkoutButton.textContent = state.checkoutReady ? 'Continue to checkout' : 'Checkout temporarily unavailable'; }
     if (placeOrder) placeOrder.disabled = !state.checkoutReady;
     if ($('#checkout-readiness-note')) $('#checkout-readiness-note').textContent = state.checkoutReady
-      ? "Checkout is ready only after this market's payment, delivery and tax settings are verified."
-      : state.market === 'AE' ? 'UAE shopping is available. UAE delivery, VAT and payment setup must be completed before checkout opens.' : 'Checkout opens after verified INR prices, delivery fee, GST profile and PayU merchant credentials are configured.';
+      ? (state.codReady && !state.onlineCheckoutReady ? 'Cash on Delivery is available for this market.' : "Checkout is ready only after this market's payment, delivery and tax settings are verified.")
+      : state.market === 'AE' ? 'UAE shopping is available. COD or online checkout opens after owner, delivery, pricing and VAT verification.' : 'Checkout opens after owner, delivery, pricing and GST verification.';
+    updateCheckoutMarketForm();
   }
 
   function updateCheckoutMarketForm() {
@@ -539,6 +548,9 @@
     const countryLabel = $('#shipping-country-label');
     if (countryLabel) countryLabel.value = isIndia ? 'India' : 'United Arab Emirates';
     $('#india-pin-field')?.classList.toggle('hidden', !isIndia);
+    $('#uae-emirate-field')?.classList.toggle('hidden', isIndia);
+    const emirate = $('#shipping-emirate');
+    if (emirate) { emirate.required = !isIndia; if (isIndia) emirate.value = ''; }
     const pin = $('#shipping-pincode');
     if (pin) { pin.required = isIndia; pin.value = isIndia ? '500052' : ''; }
     $('#payment-payu-option')?.classList.toggle('hidden', !isIndia);
@@ -548,18 +560,27 @@
     const paytabs = $('#payment-paytabs-option input');
     const payu = $('#payment-payu-option input');
     const payuQr = $('#payment-upi-option input');
-    if (payu) payu.disabled = !(isIndia && state.checkoutReady);
-    if (paytabs) paytabs.disabled = !( !isIndia && state.checkoutReady);
-    if (payuQr) payuQr.disabled = !(isIndia && state.checkoutReady && state.marketConfig?.paymentQrEnabled);
+    const cod = $('#payment-cod-option input');
+    $('#payment-cod-option')?.classList.toggle('hidden', !state.codReady);
+    if (cod) cod.disabled = !state.codReady;
+    if (payu) payu.disabled = !(isIndia && state.onlineCheckoutReady);
+    if (paytabs) paytabs.disabled = !(!isIndia && state.onlineCheckoutReady);
+    if (payuQr) payuQr.disabled = !(isIndia && state.onlineCheckoutReady && state.marketConfig?.paymentQrEnabled);
     $('#payment-upi-option')?.classList.toggle('payment-unavailable', Boolean(payuQr?.disabled));
-    if (isIndia && payu) payu.checked = true;
-    if (!isIndia && paytabs) paytabs.checked = true;
+    const currentPayment = document.querySelector('input[name="payment_method"]:checked');
+    if (!currentPayment || currentPayment.disabled || currentPayment.closest('.payment-choice')?.classList.contains('hidden')) {
+      if (state.codReady && cod) cod.checked = true;
+      else if (isIndia && payu && !payu.disabled) payu.checked = true;
+      else if (!isIndia && paytabs && !paytabs.disabled) paytabs.checked = true;
+    }
+    const selectedPayment = document.querySelector('input[name="payment_method"]:checked')?.value || 'cod';
     const note = $('#checkout-payment-note');
-    if (note) note.textContent = isIndia
-      ? 'Pay securely with PayU hosted checkout or scan a secure checkout QR. Delivery PIN: 500052.'
+    if (note) note.textContent = selectedPayment === 'cod'
+      ? 'Pay in cash when your order is delivered. Order placement is subject to verified stock and delivery coverage.'
+      : isIndia ? 'Pay securely with PayU hosted checkout or scan a secure checkout QR. Delivery PIN: 500052.'
       : 'PayTabs hosted checkout. AED pricing, delivery and VAT must be verified before payment.';
     const submit = $('#place-order');
-    if (submit) submit.innerHTML = isIndia ? 'Continue to PayU <span>↗</span>' : 'Continue to PayTabs <span>↗</span>';
+    if (submit) submit.innerHTML = selectedPayment === 'cod' ? 'Place COD order <span>↗</span>' : (isIndia ? 'Continue to PayU <span>↗</span>' : 'Continue to PayTabs <span>↗</span>');
     const cartNote = $('#cart-delivery-note');
     if (cartNote) cartNote.innerHTML = isIndia
       ? 'Flat delivery charge: ₹55 for PIN code 500052. See our <a href="/policies.html#shipping">Shipping Policy</a>.'
@@ -704,7 +725,8 @@
       shipping_address: String(formData.get('shipping_address') || '').trim(),
       shipping_country: String(formData.get('shipping_country') || state.market),
       shipping_pincode: state.market === 'IN' ? String(formData.get('shipping_pincode') || '') : '',
-      payment_method: state.market === 'AE' ? 'paytabs' : String(formData.get('payment_method') || 'payu'),
+      shipping_emirate: state.market === 'AE' ? String(formData.get('shipping_emirate') || '') : '',
+      payment_method: String(formData.get('payment_method') || (state.market === 'AE' ? 'paytabs' : 'payu')),
       items: state.cart.map(item => ({ sku: item.variant.sku, quantity: item.quantity }))
     };
 
@@ -715,6 +737,24 @@
 
     try {
       if (!state.checkoutReady) throw new Error(state.market === 'IN' ? 'India checkout is disabled until PayU merchant credentials, verified prices, delivery fee and GST are configured.' : 'UAE checkout is disabled until PayTabs merchant verification, verified AED prices, delivery fee and VAT are configured.');
+      if (payload.payment_method === 'cod') {
+        const result = await request(API_BASE + '/orders/cod', {
+          method: 'POST',
+          headers: { 'Idempotency-Key': state.pendingCheckout.key },
+          body: JSON.stringify(payload)
+        });
+        const orderNumber = result?.data?.order_number;
+        if (!orderNumber) throw new Error('COD order confirmation was not returned.');
+        state.cart = [];
+        state.cartByMarket[state.market] = [];
+        persistCart();
+        state.pendingCheckout = null;
+        renderCart();
+        setCheckout(false);
+        if ($('#success-order-number')) $('#success-order-number').textContent = String(orderNumber);
+        setSuccess(true);
+        return;
+      }
       if (state.market === 'AE') {
         const result = await request(API_BASE + '/orders/paytabs', {
           method: 'POST',

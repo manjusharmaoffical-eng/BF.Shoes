@@ -41,7 +41,8 @@ test("schema.sql contains the required business tables and columns", () => {
 
 test("checkout schema accepts PayU and PayTabs behind market behind verification gates", async () => {
   const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
-  assert.match(storefront, /payment_method:\s*z\.enum\(\["payu", "payu_qr", "paytabs"\]\)/, "Checkout schema must accept only PayU or PayTabs");
+  assert.match(storefront, /payment_method:\s*z\.enum\(\["payu", "payu_qr", "paytabs", "cod"\]\)/, "Checkout schema must accept the supported online methods and COD");
+  assert.match(storefront, /storefrontRouter\.use\(codRouter\)/);
   assert.match(storefront, /India online checkout is configured for PayU only/);
   assert.match(storefront, /paymentProvider: "PayU"/);
   assert.match(storefront, /payuConfigured\(\)/);
@@ -109,7 +110,7 @@ test("homepage has one current BF hero and no duplicate legacy hero markup or im
   assert.equal((html.match(/<main\b/g) || []).length, 1);
   assert.equal((html.match(/<section class="hero hero-reference"/g) || []).length, 1);
   assert.match(html, /WELCOME TO BF SHOES/);
-  assert.match(html, /href="#footer">About/);
+  assert.match(html, /href="\/about\.html">About/);
   assert.match(css, /background-image:url\('\/assets\/bf-home-hero\.jpeg'\)/);
   assert.doesNotMatch(css, /images\.unsplash\.com|banner-left-shoe\.jpg/);
   assert.match(css, /#c8102e/);
@@ -149,7 +150,7 @@ test("storefront catalog respects the active market currency", async () => {
   const app = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8");
   assert.ok(app.includes("const marketCurrency = state.market === 'AE' ? 'AED' : 'INR'"));
   assert.match(app, /const marketProducts = state\.products\.filter\(product => product\.currency === marketCurrency\)/);
-  assert.match(app, /state\.checkoutReady = Boolean\(indiaReady \|\| uaeReady\)/);
+  assert.match(app, /state\.checkoutReady = onlineReady \|\| codReady/);
 });
 
 
@@ -237,7 +238,7 @@ test("secure PayU checkout QR is transaction-specific, time-limited and status-c
   const app = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8");
   const html = await readFile(new URL("../frontend/index.html", import.meta.url), "utf8");
   const payPage = await readFile(new URL("../frontend/pay.js", import.meta.url), "utf8");
-  assert.match(storefront, /payment_method: z\.enum\(\["payu", "payu_qr", "paytabs"\]\)/);
+  assert.match(storefront, /payment_method: z\.enum\(\["payu", "payu_qr", "paytabs", "cod"\]\)/);
   assert.match(storefront, /randomBytes\(24\)\.toString\("hex"\)/);
   assert.match(storefront, /qr_expires_at/);
   assert.match(storefront, /qrUrl\.hash/);
@@ -247,7 +248,8 @@ test("secure PayU checkout QR is transaction-specific, time-limited and status-c
   assert.match(storefront, /storefrontRouter\.get\("\/payments\/payu\/qr"/);
   assert.match(storefront, /storefrontRouter\.get\("\/payments\/payu\/qr-status"/);
   assert.match(storefront, /order_reservations WHERE order_id=\$1/);
-  assert.match(app, /payment_method: state\.market === 'AE' \? 'paytabs' : String\(formData\.get\('payment_method'\)/);
+  assert.match(app, /payment_method: String\(formData\.get\('payment_method'\)/);
+  assert.match(app, /payload\.payment_method === 'cod'/);
   assert.match(app, /payu-qr-status/);
   assert.match(html, /value="payu_qr"/);
   assert.match(payPage, /https:\/\/secure\.payu\.in\/_payment/);
