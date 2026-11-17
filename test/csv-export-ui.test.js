@@ -25,3 +25,12 @@ test('inventory and order exports are owner-only and currency-filtered', () => {
   assert.match(routes, /businessRouter\.get\("\/exports\/orders\.csv", ownerOnly/);
   assert.match(routes, /currency: z\.enum\(\["INR", "AED"\]\)/);
 });
+
+test('finance P&L export preserves incomplete-cost warning and selected market/date scope', async () => {
+  const finance = await readFile(new URL('../src/finance.js', import.meta.url), 'utf8');
+  assert.match(html, /id="export-finance"/);
+  assert.match(js, /\/finance\/export\.csv\?/);
+  assert.match(finance, /financeRouter\.get\("\/export\.csv"/);
+  assert.match(finance, /Profit withheld because actual unit costs are missing/);
+  assert.match(finance, /Invalid date range or currency/);
+});

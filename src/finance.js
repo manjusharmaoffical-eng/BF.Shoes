@@ -4,6 +4,7 @@ import { pool } from "./db.js";
 import { authenticate } from "./auth.js";
 import { calculateProfit } from "./finance-math.js";
 import { parseFinanceCurrency } from "./finance-validation.js";
+import { toCsv } from "./csv-export.js";
 
 export const financeRouter = express.Router();
 financeRouter.use(authenticate);
@@ -44,3 +45,30 @@ financeRouter.get("/funding",async(req,res,next)=>{const parsed=parseFinanceCurr
 financeRouter.post("/funding",async(req,res,next)=>{const p=fundingSchema.safeParse(req.body);if(!p.success)return res.status(400).json({error:"Invalid funding record",details:p.error.flatten()});try{const v=p.data;const r=await pool.query("INSERT INTO finance_funding(kind,source_name,principal_cents,currency,interest_rate_bps,start_date,due_date,notes,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *",[v.kind,v.source_name,v.principal_cents,v.currency,v.interest_rate_bps,v.start_date,v.due_date||null,v.notes,req.actor.id]);await audit(req,"finance.funding.create","finance_funding",r.rows[0].id);res.status(201).json({data:r.rows[0]})}catch(e){next(e)}});
 financeRouter.get("/funding/:id/repayments",async(req,res,next)=>{try{const r=await pool.query("SELECT * FROM finance_repayments WHERE funding_id=$1 ORDER BY paid_date DESC",[req.params.id]);res.json({data:r.rows})}catch(e){next(e)}});
 financeRouter.post("/funding/:id/repayments",async(req,res,next)=>{const p=repaymentSchema.safeParse(req.body);if(!p.success)return res.status(400).json({error:"Invalid repayment",details:p.error.flatten()});const v=p.data;const c=await pool.connect();try{await c.query("BEGIN");const f=await c.query("SELECT principal_cents,COALESCE((SELECT sum(principal_cents) FROM finance_repayments WHERE funding_id=$1),0)::bigint AS repaid FROM finance_funding WHERE id=$1 FOR UPDATE",[req.params.id]);if(!f.rowCount){await c.query("ROLLBACK");return res.status(404).json({error:"Funding record not found"})}if(v.principal_cents>Number(f.rows[0].principal_cents)-Number(f.rows[0].repaid)){await c.query("ROLLBACK");return res.status(400).json({error:"Principal repayment exceeds outstanding balance"})}const r=await c.query("INSERT INTO finance_repayments(funding_id,amount_cents,principal_cents,interest_cents,paid_date,notes,created_by) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *",[req.params.id,v.amount_cents,v.principal_cents,v.interest_cents,v.paid_date,v.notes,req.actor.id]);await c.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES('admin',$1,'finance.repayment.create','finance_repayment',$2)",[req.actor.id,r.rows[0].id]);await c.query("COMMIT");res.status(201).json({data:r.rows[0]})}catch(e){await c.query("ROLLBACK").catch(()=>{});next(e)}finally{c.release()}});
+
+
+// Download a one-row, currency/date-scoped P&L snapshot. Missing costs remain explicit.
+financeRouter.get("/export.csv",async(req,res,next)=>{
+ const parsed=dateQuery.safeParse(req.query);
+ if(!parsed.success)return res.status(400).json({error:"Invalid date range or currency"});
+ const {from=null,to=null,currency}=parsed.data;
+ try{
+  const [sales,expenses,interest]=await Promise.all([
+   pool.query(`SELECT count(*)::int AS orders,COALESCE(sum(o.subtotal_cents::bigint+o.delivery_fee_cents::bigint),0)::bigint AS revenue_cents,
+    COALESCE(sum(oi.units_missing_cost),0)::int AS missing_cost_units,COALESCE(sum(oi.cogs_cents),0)::bigint AS cogs_cents
+    FROM orders o LEFT JOIN (SELECT order_id,sum(quantity) FILTER(WHERE unit_cost_cents IS NULL)::int AS units_missing_cost,
+    sum(quantity::bigint*unit_cost_cents::bigint) FILTER(WHERE unit_cost_cents IS NOT NULL)::bigint AS cogs_cents
+    FROM order_items GROUP BY order_id) oi ON oi.order_id=o.id
+    WHERE o.status='delivered' AND o.currency=$3 AND ($1::date IS NULL OR COALESCE(o.delivered_at,o.updated_at)::date >= $1)
+    AND ($2::date IS NULL OR COALESCE(o.delivered_at,o.updated_at)::date <= $2)`,[from,to,currency]),
+   pool.query("SELECT COALESCE(sum(amount_cents),0)::bigint AS expenses_cents FROM finance_expenses WHERE currency=$3 AND ($1::date IS NULL OR expense_date >= $1) AND ($2::date IS NULL OR expense_date <= $2)",[from,to,currency]),
+   pool.query("SELECT COALESCE(sum(r.interest_cents),0)::bigint AS interest_cents FROM finance_repayments r JOIN finance_funding f ON f.id=r.funding_id WHERE f.currency=$3 AND ($1::date IS NULL OR r.paid_date >= $1) AND ($2::date IS NULL OR r.paid_date <= $2)",[from,to,currency])
+  ]);
+  const s=sales.rows[0],e=expenses.rows[0],i=interest.rows[0];
+  const profit=calculateProfit({revenueCents:s.revenue_cents,cogsCents:s.cogs_cents,expensesCents:e.expenses_cents,interestCents:i.interest_cents,missingCostUnits:Number(s.missing_cost_units)});
+  const row={currency,from:from||"all",to:to||"all",delivered_orders:s.orders,revenue_cents:s.revenue_cents,cogs_cents:s.cogs_cents,expenses_cents:e.expenses_cents,interest_paid_cents:i.interest_cents,missing_cost_units:s.missing_cost_units,profit_complete:profit.complete,gross_profit_cents:profit.complete?profit.gross_profit_cents:"",operating_profit_cents:profit.complete?profit.operating_profit_cents:"",net_profit_cents:profit.complete?profit.net_profit_cents:"",note:profit.complete?"Based on recorded data only":"Profit withheld because actual unit costs are missing"};
+  const columns=Object.keys(row).map(key=>({key,label:key.replaceAll("_"," ").toUpperCase()}));
+  res.set({"Content-Type":"text/csv; charset=utf-8","Content-Disposition":`attachment; filename="bf-shoes-finance-${currency.toLowerCase()}.csv"`,"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"});
+  res.send("\uFEFF"+toCsv([row],columns));
+ }catch(err){next(err)}
+});
