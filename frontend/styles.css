@@ -878,3 +878,35 @@ html,body{font-family:var(--bf-font)}
   .add-row .button { font-size:8px; }
   .store-page-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
+
+
+/* BF SHOES navigation and product-option placement corrections */
+.everyday-nav { position:relative; top:auto; z-index:5; }
+.everyday-nav-links { flex-wrap:wrap; }
+.everyday-nav-links a { white-space:nowrap; }
+.product-view-link { margin:10px 0 2px; color:#b51220; font-size:11px; font-weight:700; letter-spacing:.02em; }
+.product-card { cursor:pointer; }
+.detail-colors { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 18px; }
+.detail-color-option { min-height:36px; padding:0 13px; border:1px solid #cfd1d4; background:#fff; color:#161616; border-radius:3px; font-family:inherit; font-size:12px; font-weight:600; cursor:pointer; }
+.detail-color-option.selected { border:2px solid #b51220; box-shadow:0 0 0 1px #b51220 inset; }
+@media (min-width:781px) and (max-width:1440px) { .site-header { gap:12px; padding-left:3%; padding-right:3%; } .site-header .main-nav { gap:clamp(10px,1.2vw,18px); margin-left:12px; } .site-header .main-nav a { font-size:10px; white-space:nowrap; } .site-header .header-search { flex:0 1 190px; min-width:120px; } }
+@media (min-width:601px) and (max-width:1024px) {
+ .site-header { grid-template-columns:minmax(135px,1fr) minmax(130px,1.3fr) minmax(95px,.7fr) 34px 34px 92px; }
+ .site-header .header-icon:nth-of-type(1) { grid-column:4; grid-row:1; }
+ .site-header #header-wishlist { grid-column:5; grid-row:1; }
+ .site-header .cart-trigger { grid-column:6; grid-row:1; }
+ .everyday-nav { position:relative; top:auto; }
+}
+@media (min-width:601px) and (max-width:780px) {
+ #bf-reference-hero, .hero-reference { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+ #bf-reference-hero .hero-product { grid-column:2; inset:0 0 0 47%; width:auto; background-size:contain; background-position:center right; }
+}
+@media (max-width:620px) {
+ .everyday-nav { position:relative; top:auto; padding:9px 14px; }
+ .everyday-nav-title { display:block; margin-bottom:6px; }
+ .everyday-nav-links { flex-wrap:nowrap; overflow-x:auto; }
+ #bf-reference-hero { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,.9fr); height:430px; min-height:430px; }
+ #bf-reference-hero .hero-copy { grid-column:1; grid-row:1; padding:42px 6px 100px 18px; min-width:0; }
+ #bf-reference-hero .hero-product { grid-column:2; grid-row:1; inset:0; width:100%; background-size:contain; background-position:center right; opacity:1; }
+ #bf-reference-hero .hero-script { right:2%; top:7%; font-size:34px; }
+}
