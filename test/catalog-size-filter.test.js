@@ -19,6 +19,11 @@ test('homepage and catalogue do not expose global size or colour filters', () =>
   }
   assert.match(html, /href="\/api\/v1\/store\/website-qr\.png"/);
   assert.match(html, /Customer Support/);
+  const footerStart = html.indexOf('<div class="footer-bottom">');
+  const footer = html.slice(footerStart, html.indexOf('</div>', footerStart) + 6);
+  assert.match(footer, /SUPPORT/);
+  assert.match(footer, /TRACK ORDER/);
+
   assert.match(html, /href="\/shipping\.html"/);
   assert.match(html, /href="\/returns\.html"/);
   assert.doesNotMatch(app, /matchesSize|matchesColor/);
