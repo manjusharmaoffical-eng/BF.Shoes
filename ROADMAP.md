@@ -93,3 +93,10 @@ These items are intentionally deferred until the owner is in India, verifies the
 ## Definition of done
 
 A feature is complete only when code is merged, migrations are safely applied if needed, automated tests pass, production deployment is READY, and the relevant live flow is verified without changing real business data. If a step requires the owner to provide a verified fact, real product image, purchase cost, warehouse details, account login or legal detail, record it as an owner input rather than fabricating it.
+
+### 2026-11-17 preview verification
+
+- [x] Feature branch pushed to GitHub and Vercel preview deployment `dpl_6nzqzY9f5g41esfHTNd289TGWzVt` reached READY. Preview homepage, `/health`, `/admin.html`, market config and India product listing returned HTTP 200.
+- [x] Preview market config reports India PayU and UAE PayTabs selected, both payment/checkout readiness flags false. Public product responses do not expose `unit_cost_cents`.
+- [x] Canceled the earlier preview build before it could run schema migrations. Vercel builds now require an explicit production-only `RUN_MIGRATIONS=true` gate; preview builds never migrate.
+- [ ] Production deployment and database migration remain separate from preview. The local `.env.local` database schema differs from the preview API schema; do not assume it is the production database or migrate it blindly.
