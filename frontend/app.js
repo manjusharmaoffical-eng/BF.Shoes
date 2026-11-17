@@ -23,10 +23,11 @@
     const currency = state.market === 'AE' ? 'AED' : 'INR';
     state.cart = saved.flatMap(entry => {
       if (!entry || typeof entry.sku !== 'string') return [];
-      const product = state.products.find(item => item.currency === currency && !item.price_pending_conversion && (item.variants || []).some(variant => variant.sku === entry.sku));
+      const product = state.products.find(item => item.currency === currency && (item.variants || []).some(variant => variant.sku === entry.sku));
       const variant = product?.variants?.find(item => item.sku === entry.sku);
       const stock = Math.max(0, Math.floor(Number(variant?.stock_qty) || 0));
-      const quantity = Math.min(10, stock, Math.floor(Number(entry.quantity) || 0));
+      const canReserveInCart = variant && (variant.stock_verified === false || stock > 0);
+      const quantity = canReserveInCart ? Math.min(10, Math.floor(Number(entry.quantity) || 0)) : 0;
       return product && variant && quantity > 0 ? [{ product, variant, quantity }] : [];
     });
     state.cartByMarket[state.market] = state.cart;
@@ -197,7 +198,7 @@
 
       return `<article class="product-card" data-product="${escapeHtml(product.id)}">
         <div class="product-image"><img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(product.name)}" loading="${index < 3 ? 'eager' : 'lazy'}" decoding="async" /><span class="product-tag">${status}</span><button class="wishlist-toggle ${watched ? 'saved' : ''}" type="button" data-wishlist="${escapeHtml(product.id)}" aria-label="${watched ? 'Remove from wishlist' : 'Add to wishlist'}" aria-pressed="${watched}" title="${watched ? 'Remove from wishlist' : 'Add to wishlist'}"><i class="${watched ? 'fa-solid' : 'fa-regular'} fa-heart" aria-hidden="true"></i></button></div>
-        <div class="product-info"><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.brand || 'BF SHOES')} · ${escapeHtml(product.short_description || product.description || 'Everyday sneaker').slice(0, 58)}</p></div><div class="product-price-wrap"><strong class="product-price">${product.price_pending_conversion ? 'Price verification pending' : money(product.price_cents, product.currency)}</strong>${hasDiscount ? `<del class="product-mrp">${money(mrpCents, product.currency)}</del>` : ''}</div></div>
+        <div class="product-info"><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.brand || 'BF SHOES')} · ${escapeHtml(product.short_description || product.description || 'Everyday sneaker').slice(0, 58)}</p></div><div class="product-price-wrap"><strong class="product-price">${money(product.price_cents, product.currency)}</strong>${hasDiscount ? `<del class="product-mrp">${money(mrpCents, product.currency)}</del>` : ''}</div></div>
         <p class="product-view-link">View details &amp; options <span aria-hidden="true">↗</span></p>
       </article>`;
     }).join('');
@@ -226,11 +227,12 @@
 
   function addToCart(product, variant) {
     const activeCurrency = state.market === 'AE' ? 'AED' : 'INR';
-    if (product?.price_pending_conversion || product?.currency !== activeCurrency) return toast('This product needs a verified price for the selected market before it can be ordered.');
-    if (!variant || Number(variant.stock_qty) <= 0) return toast('That size is out of stock.');
+    if (!product || product.currency !== activeCurrency) return toast('This product is not available in the selected market.');
+    if (!variant || (variant.stock_verified !== false && Number(variant.stock_qty) <= 0)) return toast('That size is out of stock.');
     const current = state.cart.find(item => item.variant.sku === variant.sku);
     const already = current?.quantity || 0;
-    if (already >= Math.min(10, Number(variant.stock_qty))) return toast('Maximum available quantity reached.');
+    const cartLimit = variant.stock_verified === false ? 10 : Math.min(10, Number(variant.stock_qty));
+    if (already >= cartLimit) return toast('Maximum cart quantity reached.');
     if (current) current.quantity += 1; else state.cart.push({ product, variant, quantity: 1 });
     state.cartByMarket[state.market] = state.cart;
     persistCart();
@@ -343,9 +345,7 @@
     let selectedColor = String(initialVariant?.color_name || '');
     let selectedSku = initialVariant?.sku || '';
     const colorNames = [...new Set(variants.map(v => String(v.color_name || '').trim()).filter(Boolean))];
-    const moneyLine = product.price_pending_conversion
-      ? '<p class="detail-price-pending">Price verification pending for this market</p>'
-      : '<p class="detail-price">' + money(product.price_cents, product.currency) + '</p>';
+    const moneyLine = '<p class="detail-price">' + money(product.price_cents, product.currency) + '</p>';
     const mrpLine = Number(product.mrp_cents) > Number(product.price_cents)
       ? '<p class="detail-mrp">MRP <del>' + money(product.mrp_cents, product.currency) + '</del></p>'
       : '';
@@ -377,8 +377,8 @@
       '</div><div class="product-detail-copy"><p class="eyebrow">BF SHOES · PRODUCT DETAILS</p><h2>' + escapeHtml(product.name) + '</h2>' + moneyLine + mrpLine +
       '<p class="detail-description">' + escapeHtml(product.description || product.short_description || 'Product description has not been added yet.') + '</p>' +
       metaMarkup + colorMarkup + '<section class="detail-option-group"><h3>Size</h3><div class="product-sizes detail-sizes" id="detail-sizes">' + (sizeMarkup || '<span>No sizes have been added for this colour.</span>') + '</div></section>' +
-      '<p class="detail-stock" id="detail-stock">' + (initialVariant?.stock_verified === false ? 'Stock verification pending' : initialVariant ? (Number(initialVariant.stock_qty) > 0 ? Number(initialVariant.stock_qty) + ' in stock' : 'Out of stock') : 'Size and stock information has not been added yet') + '</p>' +
-      attributeMarkup + '<button type="button" class="button button-dark detail-add" id="detail-add" ' + (!initialVariant || initialVariant.stock_verified === false || Number(initialVariant.stock_qty) <= 0 || product.price_pending_conversion ? 'disabled' : '') + '>Add to bag</button>' +
+      '<p class="detail-stock" id="detail-stock">' + (initialVariant?.stock_verified === false ? 'Stock confirmation pending — add to bag is available; checkout remains closed until stock is confirmed.' : initialVariant ? (Number(initialVariant.stock_qty) > 0 ? Number(initialVariant.stock_qty) + ' in stock' : 'Out of stock') : 'Size and stock information has not been added yet') + '</p>' +
+      attributeMarkup + '<button type="button" class="button button-dark detail-add" id="detail-add" ' + (!initialVariant || (initialVariant.stock_verified !== false && Number(initialVariant.stock_qty) <= 0) || product.currency !== (state.market === 'AE' ? 'AED' : 'INR') ? 'disabled' : '') + '>Add to bag</button>' +
       '<div class="detail-benefits"><span>Return and exchange requests are reviewed by the BF SHOES team</span></div>' +
       '<nav class="detail-help-links" aria-label="Product help"><a href="/size-guide.html">Size guide</a><a href="/fit-guide.html">Fit guide</a><a href="/shoe-care.html">Shoe care</a><a href="/shipping.html">Shipping</a><a href="/returns.html">Returns</a></nav></div></div>';
     modal.querySelector('.product-detail-close')?.focus();
@@ -392,8 +392,8 @@
     const updateDetailVariant = () => {
       const variant = variants.find(v => v.sku === selectedSku) || null;
       const stock = $('#detail-stock', content), add = $('#detail-add', content);
-      if (stock) stock.textContent = !variant ? 'Size and stock information has not been added yet' : variant.stock_verified === false ? 'Stock verification pending' : Number(variant.stock_qty) > 0 ? Number(variant.stock_qty) + ' in stock' : 'Out of stock';
-      if (add) add.disabled = !variant || variant.stock_verified === false || Number(variant.stock_qty) <= 0 || product.price_pending_conversion;
+      if (stock) stock.textContent = !variant ? 'Size and stock information has not been added yet' : variant.stock_verified === false ? 'Stock confirmation pending — you can add this size to your bag, but checkout stays closed until stock is confirmed.' : Number(variant.stock_qty) > 0 ? Number(variant.stock_qty) + ' in stock' : 'Out of stock';
+      if (add) add.disabled = !variant || (variant.stock_verified !== false && Number(variant.stock_qty) <= 0) || product.currency !== (state.market === 'AE' ? 'AED' : 'INR');
       const sku = content.querySelector('.detail-meta dd:last-child');
       if (sku) sku.textContent = variant?.sku || 'Select a size';
       state.selectedSizes[product.id] = selectedSku;
@@ -417,8 +417,8 @@
     }));
     $('#detail-add', content)?.addEventListener('click', () => {
       const sku = selectedSku || state.selectedSizes[product.id] || '';
-      const variant = availableVariants(product).find(v => v.sku === sku && v.stock_verified !== false);
-      if (!variant) return toast('Select an available size first.');
+      const variant = variants.find(v => v.sku === sku);
+      if (!variant || (variant.stock_verified !== false && Number(variant.stock_qty) <= 0)) return toast('Select a size that is not marked out of stock.');
       addToCart(product, variant);
       renderCart();
       renderProducts();
