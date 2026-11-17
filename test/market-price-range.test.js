@@ -6,9 +6,8 @@ const [html, app] = await Promise.all([
   readFile(new URL('../frontend/app.js', import.meta.url), 'utf8')
 ]);
 
-test('catalog price range labels update with the selected INR or AED market', () => {
-  assert.match(html, /id="price-range-min-value"/);
-  assert.match(app, /range\.min = state\.market === 'IN' \? '699' : '10'/);
-  assert.match(app, /range\.max = state\.market === 'IN' \? '4999' : '500'/);
-  assert.match(app, /minValue\.textContent = money\(Number\(range\.min\) \* 100, state\.market === 'IN' \? 'INR' : 'AED'\)/);
+test('catalogue does not expose or silently apply a global price/category filter', () => {
+  assert.doesNotMatch(html, /price-range|sort-label|product-sort|catalog-sidebar|mobile-filter-trigger/);
+  assert.doesNotMatch(app, /matchesPrice|matchesCategory|state\.maxPriceCents|state\.categories/);
+  assert.match(app, /const marketProducts = state\.products\.filter\(product => product\.currency === marketCurrency\)/);
 });
