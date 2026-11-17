@@ -341,7 +341,7 @@
     const attributeEntries = Object.entries(product.attributes && typeof product.attributes === 'object' ? product.attributes : {})
       .filter(([key, value]) => /^[a-z0-9 _-]{1,50}$/i.test(key) && ['string','number','boolean'].includes(typeof value) && String(value).trim() !== '');
     const attributeMarkup = attributeEntries.length
-      ? '<section class="detail-specifications"><h3>Product information</h3><dl>' + attributeEntries.map(([key,value]) => '<div><dt>' + escapeHtml(key.replace(/[_-]+/g,' ').replace(/\\b\\w/g,letter=>letter.toUpperCase())) + '</dt><dd>' + escapeHtml(value) + '</dd></div>').join('') + '</dl></section>'
+      ? '<section class="detail-specifications"><h3>Product information</h3><dl>' + attributeEntries.map(([key,value]) => '<div><dt>' + escapeHtml(key.replace(/[_-]+/g,' ').split(' ').map(word=>word.charAt(0).toUpperCase()+word.slice(1)).join(' ')) + '</dt><dd>' + escapeHtml(value) + '</dd></div>').join('') + '</dl></section>'
       : '';
     const detailMeta = [
       ['Brand', product.brand || 'BF SHOES'],
