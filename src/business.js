@@ -5,6 +5,7 @@ import { pool } from "./db.js";
 import { authenticate, requireScope } from "./auth.js";
 import { parseAnalyticsCurrency } from "./analytics.js";
 import { retryQueuedEmail } from "./email.js";
+import { toCsv } from "./csv-export.js";
 
 export const businessRouter = express.Router();
 businessRouter.use(authenticate);
@@ -233,5 +234,52 @@ businessRouter.post("/notifications/:id/retry", ownerOnly, async (req, res, next
     );
     if (!result.sent) return res.status(502).json({ error: "Email provider could not deliver this notification", attempts: result.attempts });
     res.json({ data: { id: req.params.id, status: "sent", attempts: result.attempts } });
+  } catch (err) { next(err); }
+});
+
+
+// Owner-only CSV exports. Exports are read-only, market-separated, and formula-safe.
+function sendCsv(res, filename, rows, columns) {
+  res.set({
+    "Content-Type": "text/csv; charset=utf-8",
+    "Content-Disposition": `attachment; filename="${filename}"`,
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff"
+  });
+  res.send("\uFEFF" + toCsv(rows, columns));
+}
+
+businessRouter.get("/exports/inventory.csv", ownerOnly, async (req, res, next) => {
+  const parsed = z.object({ currency: z.enum(["INR", "AED"]).default("AED") }).safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ error: "currency must be INR or AED" });
+  try {
+    const result = await pool.query(
+      `SELECT p.name AS product_name,p.currency,v.sku,v.size_label,v.color_name,v.stock_qty,v.active
+       FROM variants v JOIN products p ON p.id=v.product_id
+       WHERE p.currency=$1 ORDER BY p.name,v.color_name,v.size_label,v.sku`, [parsed.data.currency]
+    );
+    sendCsv(res, `bf-shoes-inventory-${parsed.data.currency.toLowerCase()}.csv`, result.rows,
+      ["product_name","currency","sku","size_label","color_name","stock_qty","active"].map(key => ({ key, label: key.replaceAll("_", " ").toUpperCase() })));
+  } catch (err) { next(err); }
+});
+
+businessRouter.get("/exports/orders.csv", ownerOnly, async (req, res, next) => {
+  const parsed = z.object({
+    currency: z.enum(["INR", "AED"]).default("AED"),
+    from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
+  }).strict().refine(v => !v.from || !v.to || v.from <= v.to).safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({ error: "Provide INR or AED and a valid date range" });
+  try {
+    const result = await pool.query(
+      `SELECT order_number,created_at,customer_name,customer_email,customer_phone,currency,
+        subtotal_cents,delivery_fee_cents,vat_cents,total_cents,status,shipping_country,shipping_emirate,payment_method
+       FROM orders WHERE currency=$1 AND ($2::date IS NULL OR created_at >= $2::date)
+        AND ($3::date IS NULL OR created_at < ($3::date + interval '1 day'))
+       ORDER BY created_at DESC LIMIT 10000`,
+      [parsed.data.currency, parsed.data.from || null, parsed.data.to || null]
+    );
+    sendCsv(res, `bf-shoes-orders-${parsed.data.currency.toLowerCase()}.csv`, result.rows,
+      ["order_number","created_at","customer_name","customer_email","customer_phone","currency","subtotal_cents","delivery_fee_cents","vat_cents","total_cents","status","shipping_country","shipping_emirate","payment_method"].map(key => ({ key, label: key.replaceAll("_", " ").toUpperCase() })));
   } catch (err) { next(err); }
 });
