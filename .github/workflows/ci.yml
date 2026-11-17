@@ -27,4 +27,8 @@ jobs:
       - name: Check JavaScript syntax
         run: find . -type f -name '*.js' -not -path './node_modules/*' -print0 | xargs -0 -n1 node --check
       - name: Run automated tests
+        env:
+          # Unit tests use injected DB mocks; this only initializes pg.Pool and is never a real database.
+          DATABASE_URL: postgresql://bf_shoes_test:bf_shoes_test@127.0.0.1:5432/bf_shoes_test
+          DATABASE_SSL: "false"
         run: npm test
