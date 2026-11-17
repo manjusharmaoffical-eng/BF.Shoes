@@ -917,3 +917,17 @@ html,body{font-family:var(--bf-font)}
 /* Filter-free catalogue: let product cards use the full content width. */
 .catalog-layout{display:block;grid-template-columns:minmax(0,1fr)}
 .catalog-layout .catalog-results{width:100%;min-width:0}
+
+
+/* Mobile product detail: stack gallery and options instead of collapsing the gallery. */
+@media(max-width:600px){
+ .product-detail-modal{padding:8px;align-items:center}
+ .product-detail-panel{width:100%;max-height:94vh;padding:14px;border-radius:12px}
+ .product-detail-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+ .product-detail-gallery,.product-detail-stage{width:100%;min-width:0}
+ .product-detail-stage,.product-detail-stage>img{width:100%;min-height:220px;height:220px}
+ .product-detail-copy{min-width:0;padding:8px 2px}
+ .product-detail-copy h2{font-size:26px}
+ .detail-description{margin:12px 0;line-height:1.55}
+ .product-detail-copy h3{margin:14px 0 8px}
+}
