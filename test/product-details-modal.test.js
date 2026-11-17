@@ -1,18 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-const [html, app] = await Promise.all([
+const [html, app, css] = await Promise.all([
   readFile(new URL('../frontend/index.html', import.meta.url), 'utf8'),
-  readFile(new URL('../frontend/app.js', import.meta.url), 'utf8')
+  readFile(new URL('../frontend/app.js', import.meta.url), 'utf8'),
+  readFile(new URL('../frontend/styles.css', import.meta.url), 'utf8')
 ]);
 
-test('product details modal exposes accessible dialog, specifications and four photo angles', () => {
-  assert.match(html, /id="product-detail-backdrop" aria-hidden="true"/);
-  assert.match(html, /role="dialog" aria-modal="true" aria-labelledby="product-detail-title"/);
-  for (const id of ['product-detail-image','product-detail-thumbs','product-detail-specs','product-detail-sizes','product-detail-note']) {
-    assert.match(html, new RegExp(`id="${id}"`));
-  }
-  for (const angle of ['front','back','top','bottom']) assert.match(app, new RegExp(`'${angle}'`));
+test('product details modal exposes an accessible dialog and a dynamic multi-image gallery', () => {
+  assert.match(html, /id="product-detail-modal"[^>]*role="dialog"[^>]*aria-modal="true"/);
+  assert.match(html, /id="product-detail-content"/);
+  assert.match(html, /data-detail-close/);
+  assert.match(app, /\/api\/v1\/store\/products\//);
+  assert.match(app, /\/images/);
+  assert.match(app, /data-detail-image/);
+  assert.match(app, /data-detail-size/);
+  assert.match(css, /product-detail-modal/);
 });
 
 test('product details modal traps focus, closes on Escape and returns focus to the opener', () => {
@@ -22,9 +25,9 @@ test('product details modal traps focus, closes on Escape and returns focus to t
   assert.match(app, /previousProductDetailsFocus\?\.focus\?\.\(\)/);
 });
 
-test('product specs and photo alt text are escaped; missing angles are labelled as pending', () => {
-  assert.match(app, /escapeHtml\(label\)/);
-  assert.match(app, /escapeHtml\(value\)/);
-  assert.match(app, /Photo pending/);
-  assert.match(app, /url === current \? 'active' : ''/);
+test('modal content escapes user-supplied product names, image URLs and size labels', () => {
+  assert.match(app, /escapeHtml\(image\.image_url\)/);
+  assert.match(app, /escapeHtml\(product\.name\)/);
+  assert.match(app, /escapeHtml\(v\.size_label\)/);
+  assert.doesNotMatch(app, /within 12 hours after delivery/);
 });

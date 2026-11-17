@@ -31,8 +31,8 @@
   const vatCents = () => null;
   const checkoutTotalCents = () => totalCents();
   const setupMessage = () => state.market === 'IN'
-    ? 'India checkout is pending PayU merchant credentials, verified INR prices, confirmed delivery fee and GST profile.'
-    : 'UAE checkout is pending PayTabs merchant onboarding, verified AED prices, delivery fee and VAT profile.';
+    ? 'India checkout is pending PayU merchant verification, verified INR prices, confirmed delivery fee and GST profile.'
+    : 'UAE checkout is pending PayTabs merchant verification, verified AED prices, delivery fee and VAT profile.';
   const randomKey = () => Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   const productImage = product => {
     const candidate = typeof product.image_url === 'string' && product.image_url.startsWith('https://') ? product.image_url : '';
@@ -174,89 +174,12 @@
 
       return `<article class="product-card" data-product="${escapeHtml(product.id)}">
         <div class="product-image"><img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(product.name)}" loading="${index < 3 ? 'eager' : 'lazy'}" decoding="async" /><span class="product-tag">${status}</span><button class="wishlist-toggle ${watched ? 'saved' : ''}" type="button" data-wishlist="${escapeHtml(product.id)}" aria-label="${watched ? 'Remove from wishlist' : 'Add to wishlist'}" aria-pressed="${watched}" title="${watched ? 'Remove from wishlist' : 'Add to wishlist'}"><i class="${watched ? 'fa-solid' : 'fa-regular'} fa-heart" aria-hidden="true"></i></button><button class="quick-add" type="button" data-quick-add="${escapeHtml(product.id)}" aria-label="Quick add ${escapeHtml(product.name)}" ${!available.length || product.price_pending_conversion ? 'disabled title="Price verification pending"' : ''}>+</button></div>
-        <div class="product-info"><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.brand || 'BF SHOES')} · ${escapeHtml(product.short_description || product.description || 'Everyday sneaker').slice(0, 58)}</p><button class="product-details-trigger" type="button" data-details="${escapeHtml(product.id)}">View full details ↗</button></div><div class="product-price-wrap"><strong class="product-price">${product.price_pending_conversion ? 'Price verification pending' : money(product.price_cents, product.currency)}</strong>${hasDiscount ? `<del class="product-mrp">${money(mrpCents, product.currency)}</del>` : ''}</div></div>
+        <div class="product-info"><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.brand || 'BF SHOES')} · ${escapeHtml(product.short_description || product.description || 'Everyday sneaker').slice(0, 58)}</p></div><div class="product-price-wrap"><strong class="product-price">${product.price_pending_conversion ? 'Price verification pending' : money(product.price_cents, product.currency)}</strong>${hasDiscount ? `<del class="product-mrp">${money(mrpCents, product.currency)}</del>` : ''}</div></div>
         <div class="product-sizes" aria-label="Choose size for ${escapeHtml(product.name)}">${sizes || '<span class="product-info"><p>No sizes listed</p></span>'}</div>
         <div class="add-row"><button class="button button-dark" type="button" data-add="${escapeHtml(product.id)}" ${!selectedVariant || product.price_pending_conversion ? 'disabled' : ''}>${product.price_pending_conversion ? 'Price pending' : selectedVariant ? 'Add to bag' : 'Out of stock'} <span>+</span></button></div>
       </article>`;
     }).join('');
   }
-
-  let previousProductDetailsFocus = null;
-  function openProductDetails(product) {
-    const backdrop = $('#product-detail-backdrop');
-    if (!backdrop || !product) return;
-    previousProductDetailsFocus = document.activeElement;
-    const attrs = product.attributes && typeof product.attributes === 'object' ? product.attributes : {};
-    const gallery = Array.isArray(product.gallery) ? product.gallery : [];
-    const angles = ['front','back','top','bottom'];
-    const angleNames = {front:'Front view',back:'Back view',top:'Top view',bottom:'Sole / bottom'};
-    const byAngle = new Map(gallery.map(item => [String(item.view_angle || '').toLowerCase(), item]));
-    const current = gallery[0]?.image_url || productImage(product);
-    $('#product-detail-title').textContent = product.name || 'BF SHOES';
-    $('#product-detail-price').textContent = money(product.price_cents, product.currency);
-    $('#product-detail-description').textContent = product.description || product.short_description || 'BF SHOES footwear style.';
-    const main = $('#product-detail-image');
-    main.src = current;
-    main.alt = product.name + ' product view';
-    $('#product-detail-thumbs').innerHTML = angles.map(angle => {
-      const item = byAngle.get(angle);
-      const url = item?.image_url || '';
-      return url
-        ? `<button type="button" class="product-angle-thumb ${url === current ? 'active' : ''}" data-angle-url="${escapeHtml(url)}"><img src="${escapeHtml(url)}" alt="${angleNames[angle]}"><span>${angleNames[angle]}</span></button>`
-        : `<div class="product-angle-missing" aria-label="${angleNames[angle]} photo not uploaded"><span>BF</span><small>${angleNames[angle]}</small><em>Photo pending</em></div>`;
-    }).join('');
-    const details = [
-      ['Style', attrs.style || product.product_type || 'Footwear'],
-      ['Occasion', attrs.occasion || 'Everyday styling'],
-      ['Closure', attrs.closure || 'Not specified'],
-      ['Upper material', attrs.upper_material || 'Not supplied by manufacturer'],
-      ['Lining', attrs.lining || 'Not supplied by manufacturer'],
-      ['Outsole', attrs.outsole_material || 'Not supplied by manufacturer'],
-      ['Heel height', attrs.heel_height || 'Not specified'],
-      ['Fit', attrs.fit_notes || 'Exact fit measurements not yet supplied'],
-      ['Care', attrs.care_instructions || 'Follow the maker care label']
-    ];
-    $('#product-detail-specs').innerHTML = details.map(([label,value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('');
-    const variants = Array.isArray(product.variants) ? product.variants : [];
-    $('#product-detail-sizes').innerHTML = '<strong>Available sizes</strong><p>' + (variants.length ? variants.map(v => escapeHtml(v.size_label) + (Number(v.stock_qty) > 0 ? '' : ' (out of stock)')).join(' · ') : 'Size options not listed') + '</p>';
-    const pending = angles.filter(angle => !byAngle.has(angle));
-    $('#product-detail-note').textContent = pending.length
-      ? 'Product photography is still pending for: ' + pending.map(angle => angleNames[angle]).join(', ') + '. These views will appear here once genuine product photos are added.'
-      : 'Four product views are available.';
-    backdrop.classList.add('visible');
-    backdrop.setAttribute('aria-hidden','false');
-    document.body.classList.add('locked');
-    $('#product-detail-close')?.focus();
-  }
-  function closeProductDetails() {
-    const backdrop = $('#product-detail-backdrop');
-    if (!backdrop) return;
-    backdrop.classList.remove('visible');
-    backdrop.setAttribute('aria-hidden','true');
-    document.body.classList.toggle('locked', $('#cart-drawer')?.classList.contains('open') || $('#checkout-backdrop')?.classList.contains('visible') || $('#success-backdrop')?.classList.contains('visible'));
-    previousProductDetailsFocus?.focus?.();
-    previousProductDetailsFocus = null;
-  }
-  document.addEventListener('keydown', event => {
-    const backdrop = $('#product-detail-backdrop');
-    if (!backdrop?.classList.contains('visible')) return;
-    if (event.key === 'Escape') { event.preventDefault(); closeProductDetails(); return; }
-    if (event.key !== 'Tab') return;
-    const focusable = [...backdrop.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')];
-    if (!focusable.length) { event.preventDefault(); return; }
-    const first = focusable[0], last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-  });
-  $('#product-detail-close')?.addEventListener('click', closeProductDetails);
-  $('#product-detail-backdrop')?.addEventListener('click', event => { if (event.target === $('#product-detail-backdrop')) closeProductDetails(); });
-  $('#product-detail-thumbs')?.addEventListener('click', event => {
-    const button = event.target.closest('[data-angle-url]');
-    if (!button) return;
-    const image = $('#product-detail-image');
-    image.src = button.dataset.angleUrl;
-    $$('#product-detail-thumbs .product-angle-thumb').forEach(item => item.classList.toggle('active', item === button));
-  });
 
   function renderCart() {
     const count = totalItems();
@@ -270,7 +193,7 @@
 
     const delivery=$('#cart-delivery-fee');
     const guidance=$('#cart-market-guidance');
-    if(guidance) guidance.textContent = state.market === 'IN' ? 'India delivery is currently limited to PIN 500052. Checkout remains closed until verified INR pricing, delivery fee, GST and PayU setup are complete.' : 'UAE delivery fee, VAT and PayTabs merchant setup are not yet verified. Checkout remains closed; India PIN and payment instructions do not apply.';
+    if(guidance) guidance.textContent = state.market === 'IN' ? 'India delivery is currently limited to PIN 500052. Checkout remains closed until verified INR pricing, delivery fee, GST and PayU setup are complete.' : 'UAE delivery fee, VAT and merchant gateway setup are not yet verified. Checkout remains closed; India PIN and payment instructions do not apply.';
     if(delivery) delivery.textContent='Not configured';
     if($('#checkout-total')) $('#checkout-total').textContent = money(checkoutTotalCents(), activeCurrency);
 
@@ -323,21 +246,6 @@
     }
   }
 
-  async function syncCustomerWishlist() {
-    let customerToken = '';
-    try { customerToken = sessionStorage.getItem('bf_customer_token') || ''; } catch {}
-    if (!customerToken) return;
-    try {
-      const result = await request('/api/v1/customer-auth/wishlist', { headers: { Authorization: 'Bearer ' + customerToken } });
-      state.wishlist = new Set((result.data || []).map(item => String(item.product_id)));
-      try { localStorage.setItem('bf-shoes-wishlist', JSON.stringify([...state.wishlist])); } catch {}
-      renderProducts();
-    } catch (error) {
-      if (error.status === 401) { try { sessionStorage.removeItem('bf_customer_token'); } catch {} }
-      toast('Wishlist sync is unavailable right now. Your saved items remain on this device.');
-    }
-  }
-
   async function loadProducts() {
     state.loading = true;
     renderProducts();
@@ -355,34 +263,130 @@
     }
   }
 
+  async function syncCustomerWishlist() {
+    let customerToken = '';
+    try { customerToken = sessionStorage.getItem('bf-shoes-customer-token') || ''; } catch {}
+    if (!customerToken) return;
+    try {
+      const response = await fetch('/api/v1/customer-auth/wishlist', {
+        headers: { Authorization: 'Bearer ' + customerToken, Accept: 'application/json' },
+        cache: 'no-store', credentials: 'same-origin'
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (response.status === 401) { try { sessionStorage.removeItem('bf-shoes-customer-token'); } catch {} }
+        throw new Error(data.error || 'Wishlist sync is unavailable.');
+      }
+      state.wishlist = new Set((data.data || []).map(item => String(item.product_id)));
+      try { localStorage.setItem('bf-shoes-wishlist', JSON.stringify([...state.wishlist])); } catch {}
+      const count = $('#wishlist-count'); if (count) count.textContent = String(state.wishlist.size);
+      $('#header-wishlist')?.setAttribute('aria-label', `Wishlist, ${state.wishlist.size} saved items`);
+      renderProducts();
+    } catch (error) {
+      toast('Account wishlist sync is unavailable. Your saved items remain on this device.');
+    }
+  }
+
+  let previousProductDetailsFocus = null;
+  async function openProductDetails(productId) {
+    previousProductDetailsFocus = document.activeElement;
+    const product = state.products.find(item => String(item.id) === String(productId));
+    const modal = $('#product-detail-modal');
+    const content = $('#product-detail-content');
+    if (!product || !modal || !content) return;
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('locked');
+    content.innerHTML = '<p class="product-detail-loading">Loading BF product details…</p>';
+    let images = [];
+    try {
+      const response = await fetch('/api/v1/store/products/' + encodeURIComponent(product.id) + '/images');
+      if (response.ok) { const data = await response.json(); images = Array.isArray(data.data) ? data.data : []; }
+    } catch {}
+    if (!images.length && product.image_url) images = [{ image_url: product.image_url, alt_text: product.name }];
+    if (!images.length) images = [{ image_url: productImage(product), alt_text: product.name }];
+    const variants = product.variants || [];
+    const available = availableVariants(product);
+    const selectedSku = state.selectedSizes[product.id] || (available[0] && available[0].sku) || '';
+    const selectedVariant = variants.find(v => v.sku === selectedSku && Number(v.stock_qty) > 0);
+    const galleryMarkup = images.map((image, index) => '<button type="button" class="detail-thumb ' + (index === 0 ? 'active' : '') + '" data-detail-image="' + index + '" aria-label="View product angle ' + (index + 1) + '"><img src="' + escapeHtml(image.image_url) + '" alt="' + escapeHtml(image.alt_text || product.name) + '"></button>').join('');
+    const sizeMarkup = variants.map(v => '<button type="button" class="size-option ' + (v.sku === selectedSku ? 'selected' : '') + '" data-detail-size="' + escapeHtml(v.sku) + '" ' + (Number(v.stock_qty) <= 0 ? 'disabled' : '') + '>' + escapeHtml(v.size_label) + '</button>').join('');
+    content.innerHTML = '<div class="product-detail-layout"><div class="product-detail-gallery"><div class="product-detail-stage" id="detail-stage">' +
+      '<img id="detail-main-image" src="' + escapeHtml(images[0].image_url) + '" alt="' + escapeHtml(images[0].alt_text || product.name) + '">' +
+      '</div><div class="detail-thumbnails">' + galleryMarkup + '</div>' +
+      '<p class="detail-viewer-note">Product photos · Select a thumbnail to view another angle</p>' +
+      '</div><div class="product-detail-copy"><p class="eyebrow">BF SHOES · PRODUCT DETAILS</p><h2>' + escapeHtml(product.name) + '</h2><p class="detail-price">' + (product.price_pending_conversion ? 'Price verification pending' : money(product.price_cents, product.currency)) + '</p><p class="detail-description">' + escapeHtml(product.description || product.short_description || 'BF SHOES footwear') + '</p><h3>Select size</h3><div class="product-sizes detail-sizes">' + (sizeMarkup || '<span>No sizes listed</span>') + '</div><p class="detail-stock" id="detail-stock">' + (selectedVariant ? Number(selectedVariant.stock_qty) + ' in stock' : 'Select an available size') + '</p><button type="button" class="button button-dark detail-add" id="detail-add" ' + (!selectedVariant || product.price_pending_conversion ? 'disabled' : '') + '>Add to bag</button><div class="detail-benefits"><span>Return and exchange requests are reviewed by the BF SHOES team</span></div></div></div>';
+    modal.querySelector('.product-detail-close')?.focus();
+    content.querySelectorAll('[data-detail-image]').forEach(button => button.addEventListener('click', () => {
+      const index = Number(button.dataset.detailImage);
+      const image = images[index];
+      const stage = $('#detail-stage', content);
+      if (stage && image) stage.innerHTML = '<img id="detail-main-image" src="' + escapeHtml(image.image_url) + '" alt="' + escapeHtml(image.alt_text || product.name) + '">';
+      content.querySelectorAll('[data-detail-image]').forEach(item => item.classList.toggle('active', item === button));
+    }));
+    content.querySelectorAll('[data-detail-size]').forEach(button => button.addEventListener('click', () => {
+      state.selectedSizes[product.id] = button.dataset.detailSize;
+      const variant = variants.find(v => v.sku === button.dataset.detailSize && Number(v.stock_qty) > 0);
+      content.querySelectorAll('[data-detail-size]').forEach(item => item.classList.toggle('selected', item === button));
+      const stock = $('#detail-stock', content), add = $('#detail-add', content);
+      if (stock) stock.textContent = variant ? Number(variant.stock_qty) + ' in stock' : 'Out of stock';
+      if (add) add.disabled = !variant || product.price_pending_conversion;
+    }));
+    $('#detail-add', content)?.addEventListener('click', () => {
+      const sku = state.selectedSizes[product.id] || selectedSku;
+      const variant = availableVariants(product).find(v => v.sku === sku);
+      if (!variant) return toast('Select an available size first.');
+      addToCart(product, variant);
+      renderCart();
+      renderProducts();
+      closeProductDetails();
+      toast('Added to your BF bag.');
+    });
+  }
+  function closeProductDetails() {
+    const modal = $('#product-detail-modal');
+    if (!modal) return;
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.toggle('locked', Boolean($('#cart-drawer')?.classList.contains('open') || $('#checkout-backdrop')?.classList.contains('visible') || $('#success-backdrop')?.classList.contains('visible') || $('#account-backdrop')?.classList.contains('visible')));
+    previousProductDetailsFocus?.focus?.();
+    previousProductDetailsFocus = null;
+  }
+  document.addEventListener('click', event => {
+    if (event.target.closest('[data-detail-close]')) closeProductDetails();
+    if (event.target === $('#product-detail-modal')) closeProductDetails();
+  });
+  document.addEventListener('keydown', event => {
+    const modal = $('#product-detail-modal');
+    if (!modal?.classList.contains('open')) return;
+    if (event.key === 'Escape') { event.preventDefault(); closeProductDetails(); return; }
+    if (event.key !== 'Tab') return;
+    const focusable = [...modal.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')];
+    if (!focusable.length) { event.preventDefault(); return; }
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  });
+
   if($('#product-grid')) {
     $('#product-grid').addEventListener('click', event => {
-      const detailButton = event.target.closest('[data-details]');
-      if (detailButton) {
-        const product = state.products.find(item => String(item.id) === String(detailButton.dataset.details));
-        if (product) openProductDetails(product);
-        return;
-      }
+      const productCard = event.target.closest('.product-card');
+      if (productCard && !event.target.closest('button')) { openProductDetails(productCard.dataset.product); return; }
       const wishlistButton = event.target.closest('[data-wishlist]');
       if (wishlistButton) {
         const id = String(wishlistButton.dataset.wishlist);
         const removing = state.wishlist.has(id);
         if (removing) state.wishlist.delete(id); else state.wishlist.add(id);
         try { localStorage.setItem('bf-shoes-wishlist', JSON.stringify([...state.wishlist])); } catch {}
-        try {
-          const customerToken = sessionStorage.getItem('bf_customer_token') || '';
-          if (customerToken) {
-            request('/api/v1/customer-auth/wishlist/' + encodeURIComponent(id), {
-              method: removing ? 'DELETE' : 'PUT',
-              headers: { Authorization: 'Bearer ' + customerToken }
-            }).catch(error => {
-              if (error.status === 401) { try { sessionStorage.removeItem('bf_customer_token'); } catch {} }
-              toast('Saved on this device; account wishlist sync needs sign-in.');
-            });
-          } else if (!removing) {
-            toast('Saved on this device. Sign in to sync your wishlist across devices.');
-          }
-        } catch {}
+        let customerToken = ''; try { customerToken = sessionStorage.getItem('bf-shoes-customer-token') || ''; } catch {}
+        if (customerToken) {
+          fetch('/api/v1/customer-auth/wishlist/' + encodeURIComponent(id), {
+            method: removing ? 'DELETE' : 'PUT', credentials: 'same-origin',
+            headers: { Authorization: 'Bearer ' + customerToken, Accept: 'application/json' }
+          }).then(async response => {
+            if (!response.ok) { const data = await response.json().catch(() => ({})); if (response.status === 401) { try { sessionStorage.removeItem('bf-shoes-customer-token'); } catch {} } throw new Error(data.error || 'Wishlist sync failed'); }
+          }).catch(() => toast('Saved on this device; account wishlist sync needs sign-in.'));
+        } else if (!removing) toast('Saved on this device. Sign in to sync your wishlist across devices.');
         const count = $('#wishlist-count'); if (count) count.textContent = String(state.wishlist.size);
         const icon = wishlistButton.querySelector('i');
         const watched = state.wishlist.has(id);
@@ -431,8 +435,8 @@
   $('#scrim')?.addEventListener('click', () => setDrawer(false));
   $('#continue-shopping')?.addEventListener('click', () => setDrawer(false));
   $('#checkout-button')?.addEventListener('click', () => { if (!state.cart.length) return; setDrawer(false); setCheckout(true); });
-  $('#close-checkout')?.addEventListener('click', () => setCheckout(false));
-  $('#checkout-backdrop')?.addEventListener('click', event => { if (event.target === $('#checkout-backdrop')) setCheckout(false); });
+  $('#close-checkout')?.addEventListener('click', () => { stopPayuQrPolling(); setCheckout(false); });
+  $('#checkout-backdrop')?.addEventListener('click', event => { if (event.target === $('#checkout-backdrop')) { stopPayuQrPolling(); setCheckout(false); } });
   $('#finish-order')?.addEventListener('click', () => { setSuccess(false); state.cart = []; renderCart(); renderProducts(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
   $('#success-backdrop')?.addEventListener('click', event => { if (event.target === $('#success-backdrop')) setSuccess(false); });
 
@@ -442,9 +446,9 @@
   $('#header-wishlist')?.addEventListener('click', () => { state.filter='saved'; $$('.filter').forEach(b=>b.classList.toggle('active',b.dataset.filter==='saved')); renderProducts(); $('#shop')?.scrollIntoView({behavior:'smooth',block:'start'}); });
   $('#price-range')?.addEventListener('input', event => { state.maxPriceCents = Number(event.target.value) * 100; if($('#price-range-value')) $('#price-range-value').textContent=money(state.maxPriceCents,state.market === 'AE' ? 'AED' : 'INR'); renderProducts(); });
   $$('.catalog-sidebar [data-category]').forEach(input => input.addEventListener('change', () => { state.categories=$$('.catalog-sidebar [data-category]:checked').map(x=>x.dataset.category.toLowerCase()); renderProducts(); }));
-  $$('.catalog-sidebar [data-size]').forEach(input => input.addEventListener('change', () => { state.sizes=$$('.catalog-sidebar [data-size]:checked').map(x=>String(x.dataset.size).trim().toLowerCase()); renderProducts(); }));
   $$('[data-category-jump]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); const category=String(link.dataset.categoryJump||'all').toLowerCase(); state.categories=category==='all'?[]:[category]; $$('.catalog-sidebar [data-category]').forEach(input=>{input.checked=state.categories.includes(input.dataset.category.toLowerCase());}); $$('.category-pills [data-category-jump]').forEach(pill=>pill.classList.toggle('active',pill.dataset.categoryJump===category)); renderProducts(); setMobileFilters(false); $('#shop')?.scrollIntoView({behavior:'smooth',block:'start'}); }));
   $$('.catalog-sidebar [data-color]').forEach(input => input.addEventListener('change', () => { state.colors=$$('.catalog-sidebar [data-color]:checked').map(x=>x.dataset.color.toLowerCase()); renderProducts(); }));
+  $$('.catalog-sidebar [data-size]').forEach(input => input.addEventListener('change', () => { state.sizes=$$('.catalog-sidebar [data-size]:checked').map(x=>String(x.dataset.size||'').toLowerCase()); renderProducts(); }));
   $$('.view-mode').forEach(button=>button.addEventListener('click',()=>{$$('.view-mode').forEach(b=>b.classList.toggle('active',b===button));$('#product-grid')?.classList.toggle('list-view',button.textContent.trim()==='☷');}));
   $('#product-sort')?.addEventListener('change', event => { state.sort = event.target.value; renderProducts(); });
 
@@ -478,13 +482,26 @@
       const uaeReady = state.market === 'AE' && selected && selected.checkoutEnabled && (!countrySelect || countrySelect.value === 'AE');
       state.checkoutReady = Boolean(indiaReady || uaeReady);
     } catch { state.checkoutReady = false; }
+    const payuInput = $('#payment-payu-option input');
+    if (payuInput) payuInput.disabled = !(state.market === 'IN' && state.checkoutReady);
+    const paytabsInput = $('#payment-paytabs-option input');
+    if (paytabsInput) paytabsInput.disabled = !(state.market === 'AE' && state.checkoutReady);
+    const qrInput = $('#payment-upi-option input');
+    if (qrInput) {
+      qrInput.disabled = !(state.market === 'IN' && state.checkoutReady && state.marketConfig?.paymentQrEnabled);
+      $('#payment-upi-option')?.classList.toggle('payment-unavailable', qrInput.disabled);
+      if (qrInput.disabled && qrInput.checked) {
+        const payuFallback = $('#payment-payu-option input');
+        if (payuFallback) payuFallback.checked = true;
+      }
+    }
     const checkoutButton = $('#checkout-button');
     const placeOrder = $('#place-order');
     if (checkoutButton) { checkoutButton.disabled = !state.checkoutReady; checkoutButton.textContent = state.checkoutReady ? 'Continue to checkout' : 'Checkout temporarily unavailable'; }
     if (placeOrder) placeOrder.disabled = !state.checkoutReady;
     if ($('#checkout-readiness-note')) $('#checkout-readiness-note').textContent = state.checkoutReady
       ? "Checkout is ready only after this market's payment, delivery and tax settings are verified."
-      : state.market === 'AE' ? 'UAE shopping is available. PayTabs merchant onboarding, UAE delivery, AED pricing and VAT setup must be completed before checkout opens.' : 'Checkout opens after verified INR prices, delivery fee, GST profile and PayU merchant credentials are configured.';
+      : state.market === 'AE' ? 'UAE shopping is available. UAE delivery, VAT and payment setup must be completed before checkout opens.' : 'Checkout opens after verified INR prices, delivery fee, GST profile and PayU merchant credentials are configured.';
   }
 
   function updateCheckoutMarketForm() {
@@ -495,23 +512,110 @@
     const pin = $('#shipping-pincode');
     if (pin) { pin.required = isIndia; pin.value = isIndia ? '500052' : ''; }
     $('#payment-payu-option')?.classList.toggle('hidden', !isIndia);
-    const payu = $('#payment-payu-option input');
+    $('#payment-card-option')?.classList.add('hidden');
+    $('#payment-upi-option')?.classList.toggle('hidden', !isIndia);
     $('#payment-paytabs-option')?.classList.toggle('hidden', isIndia);
     const paytabs = $('#payment-paytabs-option input');
+    const payu = $('#payment-payu-option input');
+    const payuQr = $('#payment-upi-option input');
+    if (payu) payu.disabled = !(isIndia && state.checkoutReady);
+    if (paytabs) paytabs.disabled = !( !isIndia && state.checkoutReady);
+    if (payuQr) payuQr.disabled = !(isIndia && state.checkoutReady && state.marketConfig?.paymentQrEnabled);
+    $('#payment-upi-option')?.classList.toggle('payment-unavailable', Boolean(payuQr?.disabled));
     if (isIndia && payu) payu.checked = true;
     if (!isIndia && paytabs) paytabs.checked = true;
     const note = $('#checkout-payment-note');
     if (note) note.textContent = isIndia
-      ? 'PayU hosted checkout is not enabled yet. Delivery PIN: 500052. Delivery charges are listed in our Shipping Policy.'
-      : 'PayTabs hosted checkout is not enabled yet. Merchant onboarding, verified AED prices, delivery and VAT setup are still pending.';
+      ? 'Pay securely with PayU hosted checkout or scan a secure checkout QR. Delivery PIN: 500052.'
+      : 'PayTabs hosted checkout. AED pricing, delivery and VAT must be verified before payment.';
     const submit = $('#place-order');
     if (submit) submit.innerHTML = isIndia ? 'Continue to PayU <span>↗</span>' : 'Continue to PayTabs <span>↗</span>';
     const cartNote = $('#cart-delivery-note');
     if (cartNote) cartNote.innerHTML = isIndia
-      ? 'Delivery is available only for PIN code 500052. See our <a href="/policies.html#shipping">Shipping Policy</a> for delivery charges.'
+      ? 'Flat delivery charge: ₹55 for PIN code 500052. See our <a href="/policies.html#shipping">Shipping Policy</a>.'
       : 'UAE delivery is subject to verified delivery coverage and the fee shown before payment.';
-    $('#cart-cod-note')?.classList.toggle('hidden', !isIndia);
+    $('#cart-payu-note')?.classList.toggle('hidden', !isIndia);
   }
+
+  let payuQrPollTimer = null;
+  function stopPayuQrPolling() {
+    if (payuQrPollTimer) window.clearTimeout(payuQrPollTimer);
+    payuQrPollTimer = null;
+  }
+  function showPayuQrPanel(show) {
+    const panel = $('#payu-qr-panel');
+    if (!panel) return;
+    panel.classList.toggle('hidden', !show);
+    for (const selector of ['.form-grid', '.payment-options', '.checkout-summary', '#place-order', '.privacy-note']) {
+      const element = $('#checkout-form ' + selector);
+      if (element) element.classList.toggle('hidden', show);
+    }
+    if (show) $('#checkout-error')?.classList.add('hidden');
+  }
+  function startPayuQrPolling(token, expiresAt) {
+    stopPayuQrPolling();
+    const poll = async () => {
+      try {
+        if (Date.now() >= Date.parse(expiresAt)) {
+          const message = $('#payu-qr-status');
+          const action = $('#payu-qr-back');
+          if (message) message.textContent = 'This payment QR has expired. Create a fresh checkout QR.';
+          if (action) { action.textContent = 'Try again'; action.dataset.action = 'retry'; }
+          state.pendingCheckout = null;
+          stopPayuQrPolling();
+          return;
+        }
+        const response = await fetch('/api/v1/store/payments/payu/qr-status', {
+          method: 'GET', credentials: 'same-origin', cache: 'no-store',
+          headers: { Accept: 'application/json', Authorization: 'Bearer ' + token }
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Unable to check payment status.');
+        const result = payload;
+        const status = String(result?.data?.status || 'pending');
+        const message = $('#payu-qr-status');
+        const action = $('#payu-qr-back');
+        if (status === 'paid') {
+          if (message) message.textContent = 'Payment verified. Order #' + String(result.data.order_number || '') + ' is now being processed.';
+          if (action) { action.textContent = 'Continue shopping'; action.dataset.action = 'done'; }
+          state.cart = [];
+          state.pendingCheckout = null;
+          renderCart();
+          renderProducts();
+          stopPayuQrPolling();
+          return;
+        }
+        if (status === 'review') {
+          if (message) message.textContent = 'Payment status needs BF SHOES verification. Do not pay again; your order is under review.';
+          if (action) { action.textContent = 'Close'; action.dataset.action = 'done'; }
+          stopPayuQrPolling();
+          return;
+        }
+        if (status === 'failed' || status === 'expired') {
+          if (message) message.textContent = status === 'expired' ? 'This payment QR has expired. Create a fresh checkout QR.' : 'PayU did not confirm this payment. You can try again.';
+          if (action) { action.textContent = 'Try again'; action.dataset.action = 'retry'; }
+          state.pendingCheckout = null;
+          stopPayuQrPolling();
+          return;
+        }
+        if (message) message.textContent = 'Waiting for secure PayU payment confirmation…';
+      } catch {
+        const message = $('#payu-qr-status');
+        if (message) message.textContent = 'Checking payment status securely…';
+      }
+      payuQrPollTimer = window.setTimeout(poll, 5000);
+    };
+    poll();
+  }
+  $('#payu-qr-back')?.addEventListener('click', () => {
+    stopPayuQrPolling();
+    const action = $('#payu-qr-back')?.dataset.action || 'close';
+    if (action === 'retry') {
+      showPayuQrPanel(false);
+      return;
+    }
+    setCheckout(false);
+  });
 
   if (countrySelect) {
     countrySelect.addEventListener('change', () => {
@@ -570,7 +674,7 @@
       shipping_address: String(formData.get('shipping_address') || '').trim(),
       shipping_country: String(formData.get('shipping_country') || state.market),
       shipping_pincode: state.market === 'IN' ? String(formData.get('shipping_pincode') || '') : '',
-      payment_method: state.market === 'AE' ? 'paytabs' : 'payu',
+      payment_method: state.market === 'AE' ? 'paytabs' : String(formData.get('payment_method') || 'payu'),
       items: state.cart.map(item => ({ sku: item.variant.sku, quantity: item.quantity }))
     };
 
@@ -580,11 +684,57 @@
     }
 
     try {
-      if (!state.checkoutReady) throw new Error(state.market === 'IN' ? 'India checkout is disabled until PayU merchant credentials, verified prices, delivery fee and GST are configured.' : 'UAE checkout is disabled until PayTabs merchant onboarding, verified AED prices, delivery fee and VAT are configured.');
+      if (!state.checkoutReady) throw new Error(state.market === 'IN' ? 'India checkout is disabled until PayU merchant credentials, verified prices, delivery fee and GST are configured.' : 'UAE checkout is disabled until PayTabs merchant verification, verified AED prices, delivery fee and VAT are configured.');
       if (state.market === 'AE') {
-        throw new Error('PayTabs UAE checkout remains disabled until merchant onboarding and end-to-end verification are complete.');
+        const result = await request(API_BASE + '/orders/paytabs', {
+          method: 'POST',
+          headers: { 'Idempotency-Key': state.pendingCheckout.key },
+          body: JSON.stringify(payload)
+        });
+        const checkoutUrl = result?.data?.checkout?.redirect_url;
+        let securePayTabsUrl = false;
+        try { const parsed = new URL(checkoutUrl); securePayTabsUrl = parsed.protocol === 'https:' && parsed.hostname === 'secure.paytabs.com'; } catch {}
+        if (!securePayTabsUrl) throw new Error('PayTabs did not return a valid secure checkout link.');
+        window.location.assign(checkoutUrl);
+        return;
       }
-      throw new Error('PayU India checkout remains disabled until merchant onboarding and end-to-end verification are complete.');
+      const result = await request(API_BASE + '/orders/payu', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': state.pendingCheckout.key },
+        body: JSON.stringify(payload)
+      });
+      const checkout = result?.data?.checkout;
+      if (checkout?.type === 'qr') {
+        if (!checkout.qr_data_url || !checkout.token || !checkout.expires_at) throw new Error('PayU did not return a valid secure payment QR.');
+        const qrImage = $('#payu-qr-image');
+        if (qrImage) qrImage.src = checkout.qr_data_url;
+        if ($('#payu-qr-order-number')) $('#payu-qr-order-number').textContent = String(result?.data?.order_number || '—');
+        if ($('#payu-qr-expiry')) $('#payu-qr-expiry').textContent = 'QR expires: ' + new Date(checkout.expires_at).toLocaleString();
+        if ($('#payu-qr-status')) $('#payu-qr-status').textContent = 'Scan with another phone camera to open the secure PayU checkout page.';
+        if ($('#payu-qr-back')) { $('#payu-qr-back').textContent = 'Close QR'; $('#payu-qr-back').dataset.action = 'close'; }
+        showPayuQrPanel(true);
+        startPayuQrPolling(checkout.token, checkout.expires_at);
+        return;
+      }
+      const allowedPayUActions = ['https://test.payu.in/_payment', 'https://secure.payu.in/_payment'];
+      if (!checkout || checkout.method !== 'POST' || !allowedPayUActions.includes(checkout.action) || !checkout.fields || typeof checkout.fields !== 'object' || !checkout.fields.hash || !checkout.fields.txnid) {
+        throw new Error('PayU did not return a valid secure checkout request.');
+      }
+      const payuForm = document.createElement('form');
+      payuForm.method = 'POST';
+      payuForm.action = checkout.action;
+      payuForm.acceptCharset = 'UTF-8';
+      for (const [name, value] of Object.entries(checkout.fields)) {
+        if (value === undefined || value === null) continue;
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = String(value);
+        payuForm.append(input);
+      }
+      document.body.append(payuForm);
+      payuForm.submit();
+      return;
 
     } catch (error) {
       showCheckoutError(error.message || 'Failed to place order. Please try again.');
@@ -592,7 +742,7 @@
       state.busy = false;
       if(submit) {
         submit.disabled = !state.checkoutReady;
-        submit.innerHTML = state.market === 'AE' ? 'Continue to PayTabs <span>↗</span>' : 'Place COD order <span>↗</span>';
+        submit.innerHTML = state.market === 'AE' ? 'Continue to PayTabs <span>↗</span>' : 'Continue to PayU <span>↗</span>';
       }
     }
   });
@@ -647,4 +797,5 @@
   loadCheckoutReadiness();
   loadActiveCampaign();
   syncCustomerWishlist();
+  window.addEventListener('bf-customer-session', syncCustomerWishlist);
 })();

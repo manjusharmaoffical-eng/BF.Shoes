@@ -5,11 +5,13 @@ import { aggregateStorefrontItems, storefrontRequestFingerprint } from "./storef
 import { deliverEmail } from "./email.js";
 import { parseIndiaMarketEnv, calculateIndiaTotals } from "./india-market-policy.js";
 import { randomBytes } from "node:crypto";
+import QRCode from "qrcode";
 import { payuConfigured, publicBaseUrl, payuPaymentUrl, payuRequestHash, payuResponseHash, safeHashEqual, verifyPayuPayment } from "./payu.js";
 import { paytabsConfigured, createPaytabsPayment, paytabsSignatureValid, verifyPaytabsPayment } from "./paytabs.js";
 import { allocateOrderWarehouseStock } from "./warehouse-stock.js";
 import { calculateUaeTotals } from "./uae-market-policy.js";
 import { binancePayConfigured, createBinancePayOrder, getBinancePayCertificate, queryBinancePayOrder, verifyBinanceWebhookSignature } from "./binance-pay.js";
+
 
 export const storefrontRouter = express.Router();
 
@@ -26,10 +28,26 @@ const checkoutSchema = z.object({
   shipping_address: z.string().trim().min(10).max(1000),
   shipping_country: z.enum(["IN", "AE"]).default("IN"),
   shipping_pincode: z.string().trim().optional().default(""),
-  payment_method: z.literal("cod").optional().default("cod"),
+  payment_method: z.enum(["payu", "payu_qr", "paytabs"]),
   items: z.array(z.object({ sku: z.string().trim().min(2).max(80), quantity: z.number().int().min(1).max(10) })).min(1).max(20)
 }).strict();
 const binanceCheckoutSchema = checkoutSchema.extend({ payment_method: z.literal("binance").default("binance") });
+
+storefrontRouter.get("/website-qr.png", async (_req, res, next) => {
+  try {
+    const baseUrl = publicBaseUrl() || "https://bfshoes.online";
+    const qr = await QRCode.toBuffer(new URL("/", baseUrl).toString(), {
+      type: "png",
+      width: 360,
+      margin: 2,
+      errorCorrectionLevel: "H",
+      color: { dark: "#050608", light: "#ffffff" }
+    });
+    res.set("Content-Type", "image/png");
+    res.set("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
+    return res.send(qr);
+  } catch (err) { return next(err); }
+});
 
 storefrontRouter.get("/campaigns/active", async (_req, res, next) => {
   try {
@@ -62,28 +80,57 @@ storefrontRouter.get("/market-config", async (_req, res, next) => {
       `SELECT
          EXISTS (SELECT 1 FROM products WHERE active = true AND currency = 'INR') AS india_pricing_configured,
          EXISTS (SELECT 1 FROM products WHERE active = true AND currency = 'AED') AS uae_pricing_configured,
-         EXISTS (SELECT 1 FROM tax_profiles WHERE active = true AND jurisdiction = 'IN_GST') AS india_tax_profile_configured,
+         (SELECT count(*) = 1 AND COALESCE(bool_and(currency = 'INR' AND trim(registration_number) <> '' AND trim(seller_state) <> '' AND tax_rate_bps BETWEEN 1 AND 10000), false) FROM tax_profiles WHERE active = true AND jurisdiction = 'IN_GST') AS india_tax_profile_configured,
          EXISTS (SELECT 1 FROM tax_profiles WHERE active = true AND jurisdiction = 'AE_VAT') AS uae_tax_profile_configured`
     );
     const row = result.rows[0];
     const feeConfigured = value => value !== undefined && /^\d+$/.test(value) && Number.isSafeInteger(Number(value));
     const indiaPricingVerified = process.env.INDIA_PRICING_VERIFIED === "true" && row.india_pricing_configured;
     const indiaFeeConfigured = process.env.INDIA_DELIVERY_FEE_VERIFIED === "true" && feeConfigured(process.env.INDIA_DELIVERY_FEE_PAISE);
-    const indiaPayuConfigured = process.env.INDIA_PAYMENT_GATEWAY === "payu" && payuConfigured();
-    // Payment credentials alone do not activate checkout: order creation, callback
-    // verification, webhook reconciliation and tax/price readiness must all pass.
-    const indiaCheckoutEnabled = false;
+    const indiaPaymentMethods = String(process.env.INDIA_PAYMENT_METHODS || "").split(",").map(value => value.trim().toLowerCase());
+    const indiaPayuConfigured = process.env.INDIA_PAYMENT_GATEWAY === "payu" && indiaPaymentMethods.includes("payu") && payuConfigured();
+    // Credentials alone never activate checkout; owner verification, prices, delivery,
+    // GST profile and the server-side PayU callback/Verify Payment flow are all required.
+    const indiaCheckoutEnabled = process.env.INDIA_CHECKOUT_VERIFIED === "true" && indiaPricingVerified && indiaFeeConfigured && row.india_tax_profile_configured && indiaPayuConfigured;
     const uaeFeeConfigured = feeConfigured(process.env.UAE_DELIVERY_FEE_FILS);
     const uaePaytabsConfigured = process.env.UAE_PAYMENT_PROVIDER === "paytabs" && paytabsConfigured();
     const uaePricingVerified = process.env.UAE_PRICING_VERIFIED === "true" && row.uae_pricing_configured;
     const uaeFeeVerified = process.env.UAE_DELIVERY_FEE_VERIFIED === "true" && uaeFeeConfigured;
-    const uaeCheckoutEnabled = false; // Keep closed until the PayTabs merchant flow is end-to-end verified.
+    const uaeCheckoutEnabled = process.env.UAE_CHECKOUT_VERIFIED === "true" && uaePricingVerified && uaeFeeVerified && row.uae_tax_profile_configured && uaePaytabsConfigured;
     res.set("Cache-Control", "no-store");
     return res.json({ data: [
-      { country: "IN", currency: "INR", pricingConfigured: indiaPricingVerified, deliveryFeeConfigured: indiaFeeConfigured, tax: "GST", taxProfileConfigured: row.india_tax_profile_configured, paymentProvider: "PayU", paymentConfigured: indiaPayuConfigured, paymentPublicKey: null, checkoutEnabled: indiaCheckoutEnabled },
+      { country: "IN", currency: "INR", pricingConfigured: indiaPricingVerified, deliveryFeeConfigured: indiaFeeConfigured, tax: "GST", taxProfileConfigured: row.india_tax_profile_configured, paymentProvider: "PayU", paymentConfigured: indiaPayuConfigured, paymentQrEnabled: indiaPayuConfigured, checkoutEnabled: indiaCheckoutEnabled },
       { country: "AE", currency: "AED", pricingConfigured: uaePricingVerified, deliveryFeeConfigured: uaeFeeVerified, tax: "VAT", taxProfileConfigured: row.uae_tax_profile_configured, paymentProvider: "PayTabs", paymentConfigured: uaePaytabsConfigured, checkoutEnabled: uaeCheckoutEnabled }
     ] });
   } catch (err) { next(err); }
+});
+
+// Public, read-only product gallery endpoint. The owner-only AI Studio API must never be used by shoppers.
+storefrontRouter.get("/products/:id/images", async (req, res, next) => {
+  const productId = z.string().uuid().safeParse(req.params.id);
+  if (!productId.success) return res.status(404).json({ data: [] });
+  try {
+    const result = await pool.query(
+      `SELECT pi.image_url, pi.alt_text
+       FROM product_images pi
+       JOIN products p ON p.id = pi.product_id
+       WHERE pi.product_id = $1 AND p.active = true
+       ORDER BY pi.sort_order, pi.created_at, pi.id`,
+      [productId.data]
+    );
+    res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+    return res.json({ data: result.rows });
+  } catch (err) {
+    // Older environments may not have the optional gallery migration yet.
+    if (err.code === "42P01" && /product_images/i.test(err.message || "")) {
+      try {
+        const fallback = await pool.query("SELECT image_url, name AS alt_text FROM products WHERE id=$1 AND active=true", [productId.data]);
+        res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+        return res.json({ data: fallback.rows.filter(row => row.image_url) });
+      } catch (fallbackError) { return next(fallbackError); }
+    }
+    return next(err);
+  }
 });
 
 storefrontRouter.get("/products", async (req, res, next) => {
@@ -102,10 +149,7 @@ storefrontRouter.get("/products", async (req, res, next) => {
         (p.currency <> $1) AS price_pending_conversion,
         COALESCE(json_agg(json_build_object('id', v.id, 'sku', v.sku, 'size_label', v.size_label,
           'color_name', v.color_name, 'stock_qty', v.stock_qty)
-          ORDER BY v.size_label) FILTER (WHERE v.id IS NOT NULL AND v.active = true), '[]') AS variants,
-        COALESCE((SELECT json_agg(json_build_object('image_url', pi.image_url, 'alt_text', pi.alt_text,
-          'view_angle', pi.view_angle) ORDER BY pi.sort_order, pi.created_at, pi.id)
-          FROM product_images pi WHERE pi.product_id = p.id), '[]'::json) AS gallery
+          ORDER BY v.size_label) FILTER (WHERE v.id IS NOT NULL AND v.active = true), '[]') AS variants
        FROM products p LEFT JOIN variants v ON v.product_id = p.id
        WHERE p.active = true AND p.currency = $1 GROUP BY p.id ORDER BY p.created_at DESC LIMIT 100`,
       [currency]
@@ -123,7 +167,9 @@ async function getIndiaMarketConfig(db = pool) {
   if (!env.deliveryPincodes.includes("500052")) reasons.push("pin_500052_not_configured");
   if (env.gstStatus === "unconfigured") reasons.push("gst_status_not_confirmed");
   const currencies = await db.query("SELECT currency, count(*)::int AS product_count FROM products WHERE active=TRUE GROUP BY currency");
-  // INR and AED are separate market catalogs; the presence of AED products must never force a conversion.
+  // INR and AED are separate market catalogs; AED products never trigger an India conversion.
+  // India and UAE catalogs are intentionally separate. AED products must not block
+  // India checkout; the order route independently rejects any non-INR SKU.
   if (!currencies.rows.some(row => row.currency === "INR" && Number(row.product_count) > 0)) reasons.push("no_inr_priced_products");
   if (!env.paymentMethods.length) reasons.push("payment_method_not_confirmed");
   let taxProfile = null, taxRate = 0;
@@ -132,11 +178,10 @@ async function getIndiaMarketConfig(db = pool) {
     if (r.rowCount !== 1 || r.rows[0].currency !== "INR" || !String(r.rows[0].registration_number || "").trim() || !String(r.rows[0].seller_state || "").trim() || !Number.isSafeInteger(Number(r.rows[0].tax_rate_bps)) || Number(r.rows[0].tax_rate_bps) <= 0 || Number(r.rows[0].tax_rate_bps) > 10000) reasons.push("valid_in_gst_profile_required");
     else { taxProfile = r.rows[0]; taxRate = Number(r.rows[0].tax_rate_bps); }
   }
-  const onlineReady = env.paymentGateway === "payu" && payuConfigured();
+  const onlineReady = env.paymentGateway === "payu" && env.paymentMethods.includes("payu") && payuConfigured();
   if (!onlineReady) reasons.push("payu_credentials_not_configured");
-  // Keep the public readiness flag false until a separately approved live checkout release.
-  reasons.push("checkout_activation_pending");
-  return { currency: "INR", country: "IN", delivery_pincodes: env.deliveryPincodes, target_pincode: "500052", delivery_fee_paise: env.deliveryFeePaise, payment_methods: env.paymentMethods, payment_gateway: env.paymentGateway, online_payment_ready: onlineReady, online_payment_note: onlineReady ? "PayU credentials are configured; checkout remains closed until order, callback and reconciliation flows pass end-to-end verification." : "PayU merchant credentials are required before online payments can be accepted.", gst_status: env.gstStatus, gst_rate_bps: env.gstStatus === "registered" ? (taxProfile ? taxRate : null) : (env.gstStatus === "not_registered" ? 0 : null), checkout_ready: reasons.length === 0, setup_required: [...new Set(reasons)], tax_profile: taxProfile };
+  if (process.env.INDIA_CHECKOUT_VERIFIED !== "true") reasons.push("india_checkout_not_owner_verified");
+  return { currency: "INR", country: "IN", delivery_pincodes: env.deliveryPincodes, target_pincode: "500052", delivery_fee_paise: env.deliveryFeePaise, payment_methods: env.paymentMethods, payment_gateway: env.paymentGateway, online_payment_ready: onlineReady, online_payment_note: onlineReady ? "PayU credentials are configured; checkout remains closed until owner, GST, price and delivery verification plus end-to-end payment testing are complete." : "PayU merchant key, salt, enablement and HTTPS callback URL are required before online payments can be accepted.", gst_status: env.gstStatus, gst_rate_bps: env.gstStatus === "registered" ? (taxProfile ? taxRate : null) : (env.gstStatus === "not_registered" ? 0 : null), checkout_ready: reasons.length === 0, setup_required: [...new Set(reasons)], tax_profile: taxProfile };
 }
 
 storefrontRouter.get("/config", async (_req, res, next) => {
@@ -173,7 +218,9 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
   const suppliedKey = req.get("idempotency-key");
   if (!suppliedKey || suppliedKey.length < 16 || suppliedKey.length > 120 || !/^[a-zA-Z0-9._:-]+$/.test(suppliedKey)) return res.status(400).json({ error: "A valid Idempotency-Key is required" });
   const d = parsed.data;
-  return res.status(503).json({ error: "India online checkout is disabled until PayU merchant credentials, verified prices and tax details are ready." });
+  const indiaPaymentConfig = parseIndiaMarketEnv(process.env);
+  if (!["payu", "payu_qr"].includes(d.payment_method) || indiaPaymentConfig.paymentGateway !== "payu" || !indiaPaymentConfig.paymentMethods.includes("payu")) return res.status(503).json({ error: "India online checkout is configured for PayU only. Select PayU and verify the merchant configuration." });
+  if (process.env.INDIA_CHECKOUT_VERIFIED !== "true") return res.status(503).json({ error: "India checkout remains disabled until the owner verifies the PayU, tax, price and delivery setup." });
   if (d.shipping_country !== "IN") return res.status(400).json({ error: "PayU India checkout is only configured for the India market." });
   if (d.shipping_pincode !== "500052") return res.status(400).json({ error: "BF SHOES currently delivers only to PIN code 500052." });
   const allowedPins = new Set((process.env.INDIA_DELIVERY_PINCODES || "500052").split(",").map(value => value.trim()).filter(Boolean));
@@ -206,6 +253,15 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
       if (attempt.rows[0]?.status === "pending") {
         const reservation = await pool.query("SELECT count(*)::int AS total,count(*) FILTER (WHERE expires_at>now())::int AS active FROM order_reservations WHERE order_id=$1",[order.id]);
         if (reservation.rows[0].total > 0 && reservation.rows[0].active === reservation.rows[0].total) {
+          if (order.payment_method === "payu_qr" && attempt.rows[0].checkout_params?.qr_token) {
+            const token = attempt.rows[0].checkout_params.qr_token;
+            const expiresAt = attempt.rows[0].checkout_params.qr_expires_at;
+            if (!expiresAt || Date.parse(expiresAt) <= Date.now()) return res.status(409).json({ error: "This payment QR has expired. Start a fresh checkout session." });
+            const qrUrl = new URL("/pay.html", baseUrl);
+            qrUrl.hash = "token=" + encodeURIComponent(token);
+            const qrDataUrl = await QRCode.toDataURL(qrUrl.toString(), { width: 320, margin: 2, errorCorrectionLevel: "H", color: { dark: "#050608", light: "#ffffff" } });
+            return res.status(200).json({ data: { order_number: order.order_number, checkout: { type: "qr", qr_data_url: qrDataUrl, token, expires_at: expiresAt }, idempotent_replay: true } });
+          }
           return res.status(200).json({ data: { order_number: order.order_number, checkout: { action: payuPaymentUrl(), method: "POST", fields: attempt.rows[0].checkout_params }, idempotent_replay: true } });
         }
         await pool.query("UPDATE payment_attempts SET status='review' WHERE txnid=$1 AND status='pending'",[attempt.rows[0].txnid]);
@@ -215,7 +271,7 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
       return res.status(409).json({ error: "A previous payment attempt is no longer pending. Start a fresh checkout session." });
     }
     await client.query("DELETE FROM order_reservations WHERE expires_at<=now()");
-    const tax = await client.query("SELECT EXISTS (SELECT 1 FROM tax_profiles WHERE active=true AND jurisdiction='IN_GST') AS configured");
+    const tax = await client.query("SELECT count(*) = 1 AND COALESCE(bool_and(currency='INR' AND trim(registration_number)<>'' AND trim(seller_state)<>'' AND tax_rate_bps BETWEEN 1 AND 10000),false) AS configured FROM tax_profiles WHERE active=true AND jurisdiction='IN_GST'");
     if (!tax.rows[0].configured) {
       await client.query("ROLLBACK");
       return res.status(503).json({ error: "An active India GST tax profile is required before checkout." });
@@ -245,9 +301,9 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
     const inserted=await client.query(
       `INSERT INTO orders(customer_name,customer_email,customer_phone,shipping_address,payment_method,payment_status,status,
         currency,subtotal_cents,delivery_fee_cents,total_cents,idempotency_key,request_fingerprint)
-       VALUES($1,$2,$3,$4,'payu','pending','pending_payment','INR',$5,$6,$7,$8,$9)
+       VALUES($1,$2,$3,$4,$5,'pending','pending_payment','INR',$6,$7,$8,$9,$10)
        RETURNING id,order_number,status,payment_status,subtotal_cents,delivery_fee_cents,total_cents,currency,created_at`,
-      [d.customer_name,d.customer_email.toLowerCase(),d.customer_phone,d.shipping_address+", India PIN: "+d.shipping_pincode,subtotal,deliveryFeeCents,totalCents,idempotencyKey,requestFingerprint]
+      [d.customer_name,d.customer_email.toLowerCase(),d.customer_phone,d.shipping_address+", India PIN: "+d.shipping_pincode,d.payment_method,subtotal,deliveryFeeCents,totalCents,idempotencyKey,requestFingerprint]
     );
     const order=inserted.rows[0];
     for(const [sku,qty] of quantities){
@@ -255,7 +311,7 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
       await client.query(
         `INSERT INTO order_items(order_id,variant_id,sku,product_name,size_label,color_name,unit_price_cents,quantity,line_total_cents,unit_cost_cents)
          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-        [order.id,v.variant_id,sku,v.product_name,v.size_label,v.color_name,v.price_cents,qty,Number(v.price_cents)*qty,v.unit_cost_cents??null]
+        [order.id,v.variant_id,sku,v.product_name,v.size_label,v.color_name,v.price_cents,qty,Number(v.price_cents)*qty,v.unit_cost_cents ?? null]
       );
       await client.query("INSERT INTO order_reservations(order_id,variant_id,quantity,expires_at) VALUES($1,$2,$3,now()+interval '20 minutes')",[order.id,v.variant_id,qty]);
     }
@@ -270,19 +326,103 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
       udf1:String(order.order_number),udf2:String(order.id),udf3:"",udf4:"",udf5:""
     };
     fields.hash=payuRequestHash(fields,process.env.PAYU_MERCHANT_SALT);
+    let checkoutParams = fields, qrToken = null, qrExpiresAt = null, qrDataUrl = null;
+    if (d.payment_method === "payu_qr") {
+      qrToken = randomBytes(24).toString("hex");
+      const reservationExpiry = await client.query("SELECT min(expires_at) AS expires_at FROM order_reservations WHERE order_id=$1", [order.id]);
+      qrExpiresAt = new Date(reservationExpiry.rows[0]?.expires_at || Date.now()).toISOString();
+      checkoutParams = { ...fields, qr_token: qrToken, qr_expires_at: qrExpiresAt };
+      const qrUrl = new URL("/pay.html", baseUrl);
+      qrUrl.hash = "token=" + encodeURIComponent(qrToken);
+      qrDataUrl = await QRCode.toDataURL(qrUrl.toString(), { width: 320, margin: 2, errorCorrectionLevel: "H", color: { dark: "#050608", light: "#ffffff" } });
+    }
     await client.query("INSERT INTO payment_attempts(order_id,provider,txnid,amount_cents,currency,status,checkout_params) VALUES($1,'payu',$2,$3,'INR','pending',$4::jsonb)",
-      [order.id,txnid,totalCents,JSON.stringify(fields)]);
+      [order.id,txnid,totalCents,JSON.stringify(checkoutParams)]);
     await client.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES('system',NULL,'storefront.payment.initiated','order',$1)",[String(order.id)]);
     await client.query("COMMIT");
-    res.status(201).json({data:{order_number:order.order_number,checkout:{action:payuPaymentUrl(),method:"POST",fields}}});
+    if (qrToken) return res.status(201).json({data:{order_number:order.order_number,checkout:{type:"qr",qr_data_url:qrDataUrl,token:qrToken,expires_at:qrExpiresAt}}});
+    return res.status(201).json({data:{order_number:order.order_number,checkout:{action:payuPaymentUrl(),method:"POST",fields}}});
   }catch(err){if(client)await client.query("ROLLBACK").catch(()=>{});next(err);}
   finally{client?.release();}
 });
 
-storefrontRouter.post("/payments/payu/callback", express.urlencoded({extended:false,limit:"30kb"}), async(req,res,next)=>{
+async function expirePayuQrAttempt(token) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const locked = await client.query(
+      `SELECT pa.id,pa.status,o.id AS order_id,o.payment_status
+       FROM payment_attempts pa JOIN orders o ON o.id=pa.order_id
+       WHERE pa.provider='payu' AND pa.checkout_params->>'qr_token'=$1
+       FOR UPDATE OF pa,o`,
+      [token]
+    );
+    const row = locked.rows[0];
+    if (row?.status === "pending" && row.payment_status === "pending") {
+      await client.query("UPDATE payment_attempts SET status='failed',callback_payload=jsonb_build_object('reason','qr_expired') WHERE id=$1 AND status='pending'", [row.id]);
+      await client.query("UPDATE orders SET payment_status='failed',status='cancelled',updated_at=now() WHERE id=$1 AND payment_status='pending'", [row.order_id]);
+      await client.query("DELETE FROM order_reservations WHERE order_id=$1", [row.order_id]);
+      await client.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES('system',NULL,'payment.qr.expired','order',$1)", [String(row.order_id)]);
+    }
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw err;
+  } finally { client.release(); }
+}
+
+storefrontRouter.get("/payments/payu/qr", async (req, res, next) => {
+  const token = String(req.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  if (!/^[a-f0-9]{48}$/i.test(token)) return res.status(404).json({ error: "Payment link not found." });
+  try {
+    const found = await pool.query(
+      `SELECT pa.checkout_params,pa.status,o.id AS order_id,o.payment_status
+       FROM payment_attempts pa JOIN orders o ON o.id=pa.order_id
+       WHERE pa.provider='payu' AND pa.checkout_params->>'qr_token'=$1 LIMIT 1`,
+      [token]
+    );
+    if (!found.rowCount) return res.status(404).json({ error: "Payment link not found." });
+    const attempt = found.rows[0];
+    if (attempt.status !== "pending" || attempt.payment_status !== "pending") return res.status(410).json({ error: "This payment link is no longer active." });
+    if (!attempt.checkout_params.qr_expires_at || Date.parse(attempt.checkout_params.qr_expires_at) <= Date.now()) { await expirePayuQrAttempt(token); return res.status(410).json({ error: "This payment link has expired." }); }
+    const reservation = await pool.query("SELECT count(*)::int AS total,count(*) FILTER (WHERE expires_at>now())::int AS active FROM order_reservations WHERE order_id=$1", [attempt.order_id]);
+    if (!reservation.rows[0]?.total || reservation.rows[0].total !== reservation.rows[0].active) { await expirePayuQrAttempt(token); return res.status(410).json({ error: "The stock reservation for this payment link has expired." }); }
+    const { qr_token, qr_expires_at, ...fields } = attempt.checkout_params;
+    res.set("Cache-Control", "no-store");
+    return res.json({ data: { action: payuPaymentUrl(), method: "POST", fields } });
+  } catch (err) { return next(err); }
+});
+
+storefrontRouter.get("/payments/payu/qr-status", async (req, res, next) => {
+  const token = String(req.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  if (!/^[a-f0-9]{48}$/i.test(token)) return res.status(404).json({ error: "Payment status not found." });
+  try {
+    const found = await pool.query(
+      `SELECT pa.status,pa.checkout_params,pa.callback_payload,o.id AS order_id,o.payment_status,o.order_number
+       FROM payment_attempts pa JOIN orders o ON o.id=pa.order_id
+       WHERE pa.provider='payu' AND pa.checkout_params->>'qr_token'=$1 LIMIT 1`,
+      [token]
+    );
+    if (!found.rowCount) return res.status(404).json({ error: "Payment status not found." });
+    const row = found.rows[0];
+    let status = row.status === "paid_stock_review" || row.payment_status === "review" ? "review" : row.status;
+    const qrExpired = !row.checkout_params.qr_expires_at || Date.parse(row.checkout_params.qr_expires_at) <= Date.now();
+    if (status === "pending" && qrExpired) { await expirePayuQrAttempt(token); status = "expired"; }
+    if (status === "pending") {
+      const reservation = await pool.query("SELECT count(*)::int AS total,count(*) FILTER (WHERE expires_at>now())::int AS active FROM order_reservations WHERE order_id=$1", [row.order_id]);
+      if (!reservation.rows[0]?.total || reservation.rows[0].total !== reservation.rows[0].active) { await expirePayuQrAttempt(token); status = "expired"; }
+    }
+    if (status === "failed" && row.callback_payload?.reason === "qr_expired") status = "expired";
+    res.set("Cache-Control", "no-store");
+    return res.json({ data: { status, order_number: row.order_number } });
+  } catch (err) { return next(err); }
+});
+
+async function handlePayuCallback(req,res,next,{webhook=false}={}){
   const fields=req.body||{};
   const txnid=String(fields.txnid||"");
   const baseUrl=publicBaseUrl();
+  const respond=(status,orderNumber)=>webhook?res.status(200).json({received:true,status,order_number:orderNumber}):res.redirect(303,baseUrl+"/payment-result.html?status="+status+"&order="+encodeURIComponent(orderNumber));
   try{
     if(!baseUrl||!txnid||String(fields.key||"")!==String(process.env.PAYU_MERCHANT_KEY||""))return res.status(400).send("Invalid payment callback.");
     const found=await pool.query(
@@ -301,7 +441,7 @@ storefrontRouter.post("/payments/payu/callback", express.urlencoded({extended:fa
         await pool.query("UPDATE payment_attempts SET status='review',provider_payment_id=$1,callback_payload=$2::jsonb WHERE id=$3 AND status='pending'",
           [verified.providerPaymentId,JSON.stringify(fields),attempt.id]);
         await pool.query("UPDATE orders SET payment_status='review',updated_at=now() WHERE id=$1 AND payment_status='pending'",[attempt.order_id]);
-        return res.redirect(303,baseUrl+"/payment-result.html?status=review&order="+encodeURIComponent(attempt.order_number));
+        return respond("review",attempt.order_number);
       }
       let client;let stockReview=false;
       try{
@@ -311,7 +451,7 @@ storefrontRouter.post("/payments/payu/callback", express.urlencoded({extended:fa
         if(["paid","paid_stock_review"].includes(locked.rows[0]?.status)||["paid","review"].includes(order.rows[0]?.payment_status)){
           await client.query("COMMIT");
           const resultStatus = locked.rows[0]?.status === "paid_stock_review" || order.rows[0]?.payment_status === "review" ? "review" : "success";
-          return res.redirect(303,baseUrl+"/payment-result.html?status="+resultStatus+"&order="+encodeURIComponent(attempt.order_number));
+          return respond(resultStatus,attempt.order_number);
         }
         const reservations=await client.query("SELECT variant_id,quantity FROM order_reservations WHERE order_id=$1 ORDER BY variant_id FOR UPDATE",[attempt.order_id]);
         const itemCount=await client.query("SELECT count(DISTINCT variant_id)::int AS count FROM order_items WHERE order_id=$1",[attempt.order_id]);
@@ -344,7 +484,7 @@ storefrontRouter.post("/payments/payu/callback", express.urlencoded({extended:fa
       }catch(err){if(client)await client.query("ROLLBACK").catch(()=>{});throw err;}
       finally{client?.release();}
       if(!stockReview){try{await deliverEmail({kind:"order_confirmation",recipient:attempt.customer_email,subject:"BF SHOES payment received for order #"+attempt.order_number,textBody:"Your BF SHOES payment has been verified. Order #"+attempt.order_number+" is now being processed."});}catch{}}
-      return res.redirect(303,baseUrl+"/payment-result.html?status="+(stockReview?"review":"success")+"&order="+encodeURIComponent(attempt.order_number));
+      return respond(stockReview?"review":"success",attempt.order_number);
     }
     if(fields.status==="failure"){
       const client=await pool.connect();
@@ -356,11 +496,15 @@ storefrontRouter.post("/payments/payu/callback", express.urlencoded({extended:fa
         await client.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES('system',NULL,'payment.failed','order',$1)",[String(attempt.order_id)]);
         await client.query("COMMIT");
       }catch(err){await client.query("ROLLBACK").catch(()=>{});throw err;}finally{client.release();}
-      return res.redirect(303,baseUrl+"/payment-result.html?status=failed&order="+encodeURIComponent(attempt.order_number));
+      return respond("failed",attempt.order_number);
     }
-    return res.redirect(303,baseUrl+"/payment-result.html?status=pending&order="+encodeURIComponent(attempt.order_number));
+    return respond("pending",attempt.order_number);
   }catch(err){next(err);}
-});
+}
+
+const payuCallbackParser = express.urlencoded({extended:false,limit:"30kb"});
+storefrontRouter.post("/payments/payu/callback", payuCallbackParser, (req,res,next)=>handlePayuCallback(req,res,next));
+storefrontRouter.post("/payments/payu/webhook", payuCallbackParser, (req,res,next)=>handlePayuCallback(req,res,next,{webhook:true}));
 
 
 
@@ -373,10 +517,10 @@ storefrontRouter.post("/orders/binance", async (req, res, next) => {
   const suppliedKey = req.get("idempotency-key");
   if (!suppliedKey || suppliedKey.length < 16 || suppliedKey.length > 120 || !/^[a-zA-Z0-9._:-]+$/.test(suppliedKey)) return res.status(400).json({ error: "A valid Idempotency-Key is required" });
   const d = parsed.data;
+  if (process.env.UAE_PAYMENT_PROVIDER !== "binance") return res.status(503).json({ error: "PayTabs is selected and checkout remains disabled until its merchant setup is verified." });
   if (d.shipping_country !== "AE") return res.status(400).json({ error: "Binance Pay checkout is currently for UAE orders only." });
   if (process.env.UAE_PRICING_VERIFIED !== "true") return res.status(503).json({ error: "UAE product pricing has not been owner-verified." });
   if (process.env.UAE_DELIVERY_FEE_VERIFIED !== "true") return res.status(503).json({ error: "UAE delivery fee has not been owner-verified." });
-  if (process.env.UAE_PAYMENT_PROVIDER !== "binance") return res.status(503).json({ error: "Binance Pay is not the selected UAE provider. PayTabs is selected and checkout remains disabled." });
   if (!binancePayConfigured()) return res.status(503).json({ error: "Binance Pay is not enabled for this verified merchant environment yet." });
   const deliveryFeeCents = Number(process.env.UAE_DELIVERY_FEE_FILS);
   if (!Number.isSafeInteger(deliveryFeeCents) || deliveryFeeCents < 0) return res.status(503).json({ error: "UAE delivery fee is not configured." });
@@ -436,7 +580,7 @@ storefrontRouter.post("/orders/binance", async (req, res, next) => {
     for (const [sku, qty] of quantities) {
       const v = found.rows.find(row => row.sku === sku);
       await client.query("INSERT INTO order_items(order_id,variant_id,sku,product_name,size_label,color_name,unit_price_cents,quantity,line_total_cents,unit_cost_cents) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
-        [order.id,v.variant_id,sku,v.product_name,v.size_label,v.color_name,v.price_cents,qty,Number(v.price_cents)*qty,v.unit_cost_cents??null]);
+        [order.id,v.variant_id,sku,v.product_name,v.size_label,v.color_name,v.price_cents,qty,Number(v.price_cents)*qty,v.unit_cost_cents ?? null]);
       await client.query("INSERT INTO order_reservations(order_id,variant_id,quantity,expires_at) VALUES($1,$2,$3,now()+interval '20 minutes')", [order.id,v.variant_id,qty]);
     }
     await client.query("COMMIT");
@@ -567,7 +711,8 @@ storefrontRouter.post("/orders/paytabs", async (req, res, next) => {
   const suppliedKey = req.get("idempotency-key");
   if (!suppliedKey || suppliedKey.length < 16 || suppliedKey.length > 120 || !/^[a-zA-Z0-9._:-]+$/.test(suppliedKey)) return res.status(400).json({ error: "A valid Idempotency-Key is required" });
   const d = parsed.data;
-  return res.status(503).json({ error: "UAE online checkout is disabled until the merchant gateway and credentials are confirmed." });
+  if (process.env.UAE_CHECKOUT_VERIFIED !== "true") return res.status(503).json({ error: "UAE online checkout remains disabled until the owner verifies PayTabs, VAT, AED pricing and delivery settings." });
+  if (d.payment_method !== "paytabs") return res.status(400).json({ error: "Select PayTabs for UAE online checkout." });
   if (d.shipping_country !== "AE") return res.status(400).json({ error: "PayTabs checkout is only for the UAE market." });
   if (process.env.UAE_PRICING_VERIFIED !== "true") return res.status(503).json({ error: "UAE product pricing has not been owner-verified." });
   if (process.env.UAE_DELIVERY_FEE_VERIFIED !== "true") return res.status(503).json({ error: "UAE delivery fee has not been owner-verified." });
@@ -618,7 +763,7 @@ storefrontRouter.post("/orders/paytabs", async (req, res, next) => {
     for (const [sku,qty] of quantities) {
       const v=found.rows.find(row=>row.sku===sku);
       await client.query("INSERT INTO order_items(order_id,variant_id,sku,product_name,size_label,color_name,unit_price_cents,quantity,line_total_cents,unit_cost_cents) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
-        [order.id,v.variant_id,sku,v.product_name,v.size_label,v.color_name,v.price_cents,qty,Number(v.price_cents)*qty,v.unit_cost_cents??null]);
+        [order.id,v.variant_id,sku,v.product_name,v.size_label,v.color_name,v.price_cents,qty,Number(v.price_cents)*qty,v.unit_cost_cents ?? null]);
       await client.query("INSERT INTO order_reservations(order_id,variant_id,quantity,expires_at) VALUES($1,$2,$3,now()+interval '20 minutes')",[order.id,v.variant_id,qty]);
     }
     await client.query("COMMIT");
@@ -700,110 +845,8 @@ storefrontRouter.post("/payments/paytabs/callback", async (req,res,next) => {
 });
 
 
-storefrontRouter.post("/orders", async (req, res, next) => {
+storefrontRouter.post("/orders", async (req, res) => {
   const parsed = checkoutSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Please check your checkout details", details: parsed.error.flatten() });
-  const suppliedKey = req.get("idempotency-key");
-  if (!suppliedKey || suppliedKey.length < 16 || suppliedKey.length > 120 || !/^[a-zA-Z0-9._:-]+$/.test(suppliedKey)) {
-    return res.status(400).json({ error: "A valid Idempotency-Key is required" });
-  }
-  const d = parsed.data;
-  if (d.shipping_country === "IN") {
-    if (d.shipping_pincode !== "500052") return res.status(400).json({ error: "BF SHOES currently supports delivery only to PIN 500052, India." });
-    return res.status(503).json({ error: "India checkout is blocked until PayU merchant credentials, verified INR prices, the confirmed delivery fee and the active GST profile are configured." });
-  }
-  return res.status(503).json({ error: "UAE checkout is blocked until a merchant gateway, verified AED prices, delivery fee and active VAT profile are configured." });
-  const idempotencyKey = `store:${suppliedKey}`;
-  const requestFingerprint = storefrontRequestFingerprint(d);
-  const quantities = aggregateStorefrontItems(d.items);
-  if ([...quantities.values()].some(q => q > 10)) return res.status(400).json({ error: "Maximum quantity per size is 10" });
-
-  let client;
-  try {
-    client = await pool.connect();
-    await client.query("BEGIN");
-    await client.query("SELECT pg_advisory_xact_lock(hashtext($1), hashtext('bf-shoes-order-idempotency'))", [idempotencyKey]);
-    const existing = await client.query("SELECT * FROM orders WHERE idempotency_key=$1", [idempotencyKey]);
-    if (existing.rowCount) {
-      await client.query("COMMIT");
-      if (existing.rows[0].request_fingerprint !== requestFingerprint) {
-        return res.status(409).json({ error: "This checkout key was already used for a different order. Refresh your cart and try again." });
-      }
-      return res.status(200).json({ data: { order_number: existing.rows[0].order_number, status: existing.rows[0].status, subtotal_cents: existing.rows[0].subtotal_cents, delivery_fee_cents: existing.rows[0].delivery_fee_cents, total_cents: existing.rows[0].total_cents, currency: existing.rows[0].currency }, idempotent_replay: true });
-    }
-
-    const skus = [...quantities.keys()].sort();
-    const found = await client.query(
-      `SELECT v.id AS variant_id, v.sku, v.size_label, v.color_name, v.stock_qty,
-              v.active AS variant_active, p.name AS product_name, p.price_cents, p.unit_cost_cents, p.currency, p.active AS product_active
-       FROM variants v JOIN products p ON p.id=v.product_id
-       WHERE v.sku = ANY($1::text[]) ORDER BY v.sku FOR UPDATE OF v`, [skus]
-    );
-    if (found.rowCount !== skus.length) { await client.query("ROLLBACK"); return res.status(400).json({ error: "One or more selected sizes are no longer available" }); }
-    const bySku = new Map(found.rows.map(row => [row.sku, row]));
-    let subtotal = 0;
-    for (const [sku, qty] of quantities) {
-      const v = bySku.get(sku);
-      if (!v.variant_active || !v.product_active) { await client.query("ROLLBACK"); return res.status(409).json({ error: "A selected item is no longer available" }); }
-      if (v.stock_qty < qty) { await client.query("ROLLBACK"); return res.status(409).json({ error: `Not enough stock for ${v.product_name} (size ${v.size_label})`, available: v.stock_qty }); }
-      subtotal += Number(v.price_cents) * qty;
-      if (!Number.isSafeInteger(subtotal) || subtotal > 2000000000) { await client.query("ROLLBACK"); return res.status(400).json({ error: "Order total exceeds limit" }); }
-    }
-    const currency = found.rows[0].currency;
-    if (found.rows.some(v => v.currency !== currency)) { await client.query("ROLLBACK"); return res.status(400).json({ error: "Mixed currencies are not supported" }); }
-    if (currency !== "INR") { await client.query("ROLLBACK"); return res.status(503).json({ error: "India checkout requires verified INR product prices." }); }
-    const deliveryFeeCents = Number(process.env.INDIA_DELIVERY_FEE_PAISE);
-    if (!Number.isSafeInteger(deliveryFeeCents) || deliveryFeeCents < 0) {
-      await client.query("ROLLBACK");
-      return res.status(503).json({ error: "India delivery fee is not configured. Checkout remains disabled." });
-    }
-
-    if (currency !== "INR") { await client.query("ROLLBACK"); return res.status(400).json({ error: "India checkout only accepts verified INR-priced products. Existing prices have not been converted." }); }
-    const deliveryFee = marketConfig.delivery_fee_paise;
-    const taxRate = marketConfig.gst_rate_bps || 0;
-    let totals;
-    try { totals = calculateIndiaTotals(subtotal, deliveryFee, taxRate); }
-    catch { await client.query("ROLLBACK"); return res.status(400).json({ error: "Order total exceeds limit" }); }
-    const vatCents = totals.tax_paise;
-    const total = totals.total_paise;
-    const paymentMethod = d.payment_method;
-    const inserted = await client.query(
-      `INSERT INTO orders(customer_name, customer_email, customer_phone, shipping_address, payment_method,
-         currency, subtotal_cents, delivery_fee_cents, vat_cents, tax_rate_bps, shipping_country, shipping_emirate,
-         total_cents, idempotency_key, request_fingerprint)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'IN','',$11,$12,$13)
-       RETURNING order_number, status, subtotal_cents, delivery_fee_cents, vat_cents, tax_rate_bps, total_cents, currency, shipping_country, shipping_emirate, created_at`,
-      [d.customer_name, d.customer_email.toLowerCase(), d.customer_phone, `${d.shipping_address}, PIN ${d.shipping_pincode}, India`, paymentMethod, currency, subtotal, deliveryFee, vatCents, taxRate, total, idempotencyKey, requestFingerprint]
-    );
-    const order = inserted.rows[0];
-    const orderIdResult = await client.query("SELECT id FROM orders WHERE order_number=$1", [order.order_number]);
-    const orderId = orderIdResult.rows[0].id;
-    for (const [sku, qty] of quantities) {
-      const v = bySku.get(sku);
-      await client.query("UPDATE variants SET stock_qty=stock_qty-$1, updated_at=now() WHERE id=$2", [qty, v.variant_id]);
-      await client.query(
-        `INSERT INTO order_items(order_id, variant_id, sku, product_name, size_label, color_name, unit_price_cents, quantity, line_total_cents, unit_cost_cents)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-        [orderId, v.variant_id, sku, v.product_name, v.size_label, v.color_name, v.price_cents, qty, Number(v.price_cents) * qty, v.unit_cost_cents ?? null]
-      );
-      await client.query("INSERT INTO inventory_movements(variant_id, delta, reason, reference_order_id) VALUES($1,$2,$3,$4)", [v.variant_id, -qty, "storefront_cod_order", orderId]);
-      await allocateOrderWarehouseStock(client, { orderId, variantId: v.variant_id, quantity: qty, reason: "storefront_cod_order" });
-    }
-    await client.query("INSERT INTO audit_events(actor_type, actor_id, action, resource_type, resource_id) VALUES('system', NULL, 'storefront.order.create', 'order', $1)", [String(orderId)]);
-    await client.query("COMMIT");
-    // Email is best-effort and must never roll back a committed order.
-    try {
-      await deliverEmail({ kind: "order_confirmation", recipient: d.customer_email.toLowerCase(), subject: `BF SHOES order #${order.order_number} confirmed`, textBody: `Hi ${d.customer_name},\
-\
-Your BF SHOES order #${order.order_number} has been received.\
-Total: ${order.currency} ${(Number(order.total_cents) / 100).toFixed(2)}\
-Payment: ${order.payment_method === "cod" ? "Cash on Delivery" : "Online"}\
-\
-We will update you as your order progresses.` });
-    } catch { /* order is committed; notification delivery is non-blocking */ }
-    res.status(201).json({ data: order });
-  } catch (err) {
-    if (client) await client.query("ROLLBACK").catch(() => {});
-    next(err);
-  } finally { client?.release(); }
+  return res.status(503).json({ error: "Direct order creation is disabled. Use the market-specific PayU or PayTabs route only after the owner verifies checkout setup." });
 });

@@ -26,7 +26,8 @@ if (!process.env.JWT_SECRET || Buffer.byteLength(process.env.JWT_SECRET) < 32) {
 
 const app = express();
 app.disable("x-powered-by");
-const trustProxyHops = Number(process.env.TRUST_PROXY_HOPS || 0);
+// Vercel terminates the public connection at its trusted platform proxy. Trust one hop there by default; keep the explicit override for self-hosted deployments.
+const trustProxyHops = Number(process.env.TRUST_PROXY_HOPS || (process.env.VERCEL ? 1 : 0));
 if (!Number.isInteger(trustProxyHops) || trustProxyHops < 0 || trustProxyHops > 10) {
   throw new Error("TRUST_PROXY_HOPS must be an integer between 0 and 10");
 }
@@ -38,7 +39,9 @@ app.use(helmet({
       // Product and campaign artwork is HTTPS-only at the API boundary.
       // Permit secure remote images while keeping scripts and connections same-origin.
       "img-src": ["'self'", "data:", "https:", "https://res.cloudinary.com"],
-      "connect-src": ["'self'", "https://api.cloudinary.com"]
+      "connect-src": ["'self'", "https://api.cloudinary.com"],
+      // PayU Hosted Checkout uses a browser form POST; allow only its official test/live endpoints.
+      "form-action": ["'self'", "https://test.payu.in", "https://secure.payu.in"]
     }
   }
 }));

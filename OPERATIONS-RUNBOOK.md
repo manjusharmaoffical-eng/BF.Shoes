@@ -53,3 +53,7 @@ pg_restore --no-owner --no-acl --exit-on-error \
 ### Vercel migration gate
 
 Vercel preview and production builds do **not** run database migrations by default. The build script runs `src/migrate.js` only when all three conditions are true: `VERCEL=1`, `VERCEL_ENV=production`, and the explicitly configured `RUN_MIGRATIONS=true`. Do not enable that variable until the SQL diff has been reviewed, a verified backup exists, and the target database has been confirmed. Remove `RUN_MIGRATIONS` immediately after the one approved migration deployment. Preview deployments must never share a production database for migration testing.
+
+## Read-only schema drift check
+
+After the operator has confirmed that `DATABASE_URL` points to the intended BF SHOES database, run `npm run schema-check`. The checker compares all schema-defined public tables, columns and indexes with PostgreSQL inside a `BEGIN READ ONLY` transaction. It never applies migrations or changes data. A mismatch report must be reviewed before any migration; do not point it at an unverified production database.

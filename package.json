@@ -12,7 +12,8 @@
     "migrate": "node src/migrate.js",
     "bootstrap-admin": "node src/bootstrap-admin.js",
     "test": "node --test test/*.test.js",
-    "vercel-build": "if [ \"$VERCEL\" = \"1\" ] && [ \"$VERCEL_ENV\" = \"production\" ] && [ \"$RUN_MIGRATIONS\" = \"true\" ]; then node src/migrate.js; fi && find src frontend test -type f -name \"*.js\" -print0 | xargs -0 -n1 node --check && npm test"
+    "vercel-build": "if [ \"$VERCEL\" = \"1\" ] && [ \"$VERCEL_ENV\" = \"production\" ] && [ \"$RUN_MIGRATIONS\" = \"true\" ]; then node src/migrate.js; fi && find src frontend test -type f -name \"*.js\" -print0 | xargs -0 -n1 node --check && npm test",
+    "schema-check": "node scripts/check-schema-drift.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

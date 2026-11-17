@@ -8,11 +8,11 @@ const app = await readFile(new URL('../frontend/app.js', import.meta.url), 'utf8
 const policy = await readFile(new URL('../src/india-market-policy.js', import.meta.url), 'utf8');
 
 test('India market consistently reports the owner-selected PayU provider and never enables checkout here', () => {
-  assert.match(storefront, /const indiaPayuConfigured = process\.env\.INDIA_PAYMENT_GATEWAY === "payu" && payuConfigured\(\)/);
+  assert.match(storefront, /const indiaPayuConfigured = process\.env\.INDIA_PAYMENT_GATEWAY === "payu" && indiaPaymentMethods\.includes\("payu"\) && payuConfigured\(\)/);
   assert.match(storefront, /paymentProvider: "PayU", paymentConfigured: indiaPayuConfigured/);
-  assert.match(storefront, /const onlineReady = env\.paymentGateway === "payu" && payuConfigured\(\)/);
-  assert.match(storefront, /const indiaCheckoutEnabled = false/);
-  assert.match(storefront, /reasons\.push\("checkout_activation_pending"\)/);
+  assert.match(storefront, /const onlineReady = env\.paymentGateway === "payu" && env\.paymentMethods\.includes\("payu"\) && payuConfigured\(\)/);
+  assert.match(storefront, /INDIA_CHECKOUT_VERIFIED === "true" && indiaPricingVerified && indiaFeeConfigured && row\.india_tax_profile_configured && indiaPayuConfigured/);
+  assert.match(storefront, /INDIA_CHECKOUT_VERIFIED !== "true"/);
   assert.match(storefront, /payu_credentials_not_configured/);
   assert.doesNotMatch(storefront, /Razorpay credentials|paymentProvider: "Razorpay"/);
 });
@@ -37,8 +37,15 @@ test('separate AED catalog products do not block India pricing or trigger an inv
 
 test('India checkout UI shows disabled PayU only and does not promise unconfigured COD', () => {
   assert.match(html, /id="payment-payu-option"/);
-  assert.match(html, /value="payu" disabled/);
+  assert.match(html, /value="payu"[^>]*disabled/);
   assert.doesNotMatch(html, /payment-cod-option|Cash on Delivery available/);
-  assert.match(app, /payment_method: state\.market === 'AE' \? 'paytabs' : 'payu'/);
-  assert.match(app, /PayU India checkout remains disabled/);
+  assert.match(app, /payment_method: state\.market === 'AE' \? 'paytabs' : String\(formData\.get\('payment_method'\) \|\| 'payu'\)/);
+  assert.match(app, /Checkout opens after verified INR prices, delivery fee, GST profile and PayU merchant credentials are configured/);
+});
+
+
+test('legacy direct order endpoint cannot bypass PayU or PayTabs market checkout gates', () => {
+  assert.match(storefront, /storefrontRouter\.post\("\/orders", async/);
+  assert.match(storefront, /Direct order creation is disabled/);
+  assert.doesNotMatch(storefront, /storefront_cod_order/);
 });

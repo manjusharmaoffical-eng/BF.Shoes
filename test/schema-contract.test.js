@@ -39,13 +39,20 @@ test("schema.sql contains the required business tables and columns", () => {
   }
 });
 
-test("checkout schema keeps India COD delivery disabled until prices are configured", async () => {
+test("checkout schema accepts PayU and PayTabs behind market behind verification gates", async () => {
   const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
-  assert.match(storefront, /payment_method:\s*z\.literal\(["']cod["']\)/, "Checkout schema must accept COD only");
-  assert.doesNotMatch(storefront, /payment_method:\s*z\.enum\([^)]*online/, "Online payment must not be accepted by checkout schema");
-  assert.match(storefront, /India online checkout is disabled until PayU merchant credentials/);
-  assert.match(storefront, /payment_method: z\.literal\("cod"\)/, "Storefront orders must remain COD-only");
+  assert.match(storefront, /payment_method:\s*z\.enum\(\["payu", "payu_qr", "paytabs"\]\)/, "Checkout schema must accept only PayU or PayTabs");
+  assert.match(storefront, /India online checkout is configured for PayU only/);
   assert.match(storefront, /paymentProvider: "PayU"/);
+  assert.match(storefront, /payuConfigured\(\)/);
+  assert.match(storefront, /INDIA_CHECKOUT_VERIFIED !== "true"/);
+  assert.ok(storefront.includes('storefrontRouter.post("/payments/payu/callback"'));
+  assert.ok(storefront.includes('storefrontRouter.post("/payments/payu/webhook"'));
+  assert.match(storefront, /verifyPayuPayment\(txnid/);
+  const app = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8");
+  assert.match(app, /\/orders\/payu/);
+  assert.match(app, /payuForm\.submit\(\)/);
+  assert.match(app, /https:\/\/secure\.payu\.in\/_payment/);
 });
 
 
@@ -121,6 +128,7 @@ test("CSP allows secure HTTPS product images without weakening script sources", 
   const server = await readFile(new URL("../src/server.js", import.meta.url), "utf8");
   assert.match(server, /"img-src":\s*\["\x27self\x27", "data:", "https:", "https:\/\/res\.cloudinary\.com"\]/);
   assert.match(server, /getDefaultDirectives\(\)/);
+  assert.match(server, /"form-action": \["'self'", "https:\/\/test\.payu\.in", "https:\/\/secure\.payu\.in"\]/);
   assert.doesNotMatch(server, /scriptSrc:\s*\[[^\]]*https:/);
 });
 
@@ -159,7 +167,7 @@ test("storefront never assumes a delivery fee amount", async () => {
   assert.doesNotMatch(storefront, /,\s*5000\s*,/);
 });
 
-test("storefront exposes separate UAE and India market configuration", async () => {
+test("storefront exposes separate UAE and India market configuration with owner-only checkout preview", async () => {
   const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
   assert.match(storefront, /storefrontRouter\.get\("\/market-config"/);
   assert.match(storefront, /currency: "INR"/);
@@ -170,10 +178,11 @@ test("storefront exposes separate UAE and India market configuration", async () 
   assert.match(storefront, /checkoutEnabled: indiaCheckoutEnabled/);
   assert.match(storefront, /checkoutEnabled: uaeCheckoutEnabled/);
   assert.match(storefront, /UAE_DELIVERY_FEE_FILS/);
-  assert.match(storefront, /storefrontRouter\.post\("\/orders\/binance"/);
-  assert.match(storefront, /storefrontRouter\.post\("\/payments\/binance\/webhook"/);
-  assert.match(storefront, /const indiaCheckoutEnabled = false/);
-  assert.match(storefront, /const uaeCheckoutEnabled = false/);
+  assert.match(storefront, /storefrontRouter\.post\("\/orders\/paytabs"/);
+  assert.match(storefront, /storefrontRouter\.post\("\/payments\/paytabs\/callback"/);
+  assert.match(storefront, /const indiaCheckoutEnabled = process\.env\.INDIA_CHECKOUT_VERIFIED === "true"/);
+  assert.match(storefront, /const uaeCheckoutEnabled = process\.env\.UAE_CHECKOUT_VERIFIED === "true"/);
+  assert.doesNotMatch(storefront, /const (?:india|uae)CheckoutEnabled = true/);
 });
 
 test("public product catalog selects currency by explicit market", async () => {
@@ -200,4 +209,56 @@ test("finance expenses and funding support INR and AED without combining currenc
   assert.match(finance, /finance_expenses WHERE currency=\$3/);
   assert.match(finance, /f\.currency=\$1/);
   assert.match(finance, /currency,sales:s/);
+});
+
+
+test("India checkout readiness is not blocked by the separate UAE AED catalog", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  assert.doesNotMatch(storefront, /currencies\.rows\.some\(row => row\.currency !== "INR"/);
+  assert.match(storefront, /no_inr_priced_products/);
+  assert.match(storefront, /v\.currency!=="INR"/);
+});
+
+test("website QR endpoint renders a real PNG for the official BF SHOES domain", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  assert.ok(packageJson.dependencies?.qrcode, "The QR renderer must be a production dependency");
+  assert.match(storefront, /QRCode\.toBuffer/);
+  assert.match(storefront, /storefrontRouter\.get\("\/website-qr\.png"/);
+  assert.match(storefront, /QRCode\.toBuffer/);
+  const html = await readFile(new URL("../frontend/index.html", import.meta.url), "utf8");
+  assert.match(html, /api\/v1\/store\/website-qr\.png/);
+  assert.match(html, /alt="QR code that opens the BF SHOES website"/);
+});
+
+
+test("secure PayU checkout QR is transaction-specific, time-limited and status-checkable", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  const app = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8");
+  const html = await readFile(new URL("../frontend/index.html", import.meta.url), "utf8");
+  const payPage = await readFile(new URL("../frontend/pay.js", import.meta.url), "utf8");
+  assert.match(storefront, /payment_method: z\.enum\(\["payu", "payu_qr", "paytabs"\]\)/);
+  assert.match(storefront, /randomBytes\(24\)\.toString\("hex"\)/);
+  assert.match(storefront, /qr_expires_at/);
+  assert.match(storefront, /qrUrl\.hash/);
+  assert.match(storefront, /expirePayuQrAttempt/);
+  assert.match(storefront, /payment\.qr\.expired/);
+  assert.match(storefront, /paymentQrEnabled: indiaPayuConfigured/);
+  assert.match(storefront, /storefrontRouter\.get\("\/payments\/payu\/qr"/);
+  assert.match(storefront, /storefrontRouter\.get\("\/payments\/payu\/qr-status"/);
+  assert.match(storefront, /order_reservations WHERE order_id=\$1/);
+  assert.match(app, /payment_method: state\.market === 'AE' \? 'paytabs' : String\(formData\.get\('payment_method'\)/);
+  assert.match(app, /payu-qr-status/);
+  assert.match(html, /value="payu_qr"/);
+  assert.match(payPage, /https:\/\/secure\.payu\.in\/_payment/);
+  assert.match(payPage, /form\.submit\(\)/);
+  assert.match(payPage, /new URLSearchParams\(window\.location\.hash/);
+  assert.match(payPage, /Authorization:/);
+});
+
+
+test("closing the payment QR panel does not expose an empty checkout error", async () => {
+  const app = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8");
+  assert.match(app, /for \(const selector of \['\.form-grid', '\.payment-options', '\.checkout-summary', '#place-order', '\.privacy-note'\]/);
+  assert.match(app, /if \(show\) \$\('#checkout-error'\)\?\.classList\.add\('hidden'\)/);
 });

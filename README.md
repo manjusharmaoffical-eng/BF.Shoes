@@ -67,3 +67,10 @@ Payment gateway modules include provider-side order/signature/webhook validation
 ## Self-hosted deployment
 
 A Docker Compose deployment path with PostgreSQL, health checks, private networking and a separate migration step is documented in `VPS-DEPLOYMENT.md`. It is prepared only; do not point DNS or move production data until a VPS is selected and a verified restore/cutover drill is approved.
+
+
+### PayU hosted checkout and QR
+
+India's selected provider is PayU Hosted Checkout. The implementation supports request/reverse SHA-512 hash validation, server-side payment verification, callback/webhook reconciliation, idempotent payment attempts, stock reservations, and time-limited QR handoff. PayU remains disabled until the owner has a merchant account, credentials, verified INR pricing, a valid GST profile, verified delivery settings and an explicitly approved checkout release. Never set `INDIA_CHECKOUT_VERIFIED=true` as a workaround for missing onboarding or tax information.
+
+The UAE provider selection is PayTabs, but its credentials, AED pricing, delivery and VAT profile remain unconfigured. UAE checkout stays disabled until each requirement is verified. No provider fallback is enabled.

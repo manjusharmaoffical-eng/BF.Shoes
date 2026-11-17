@@ -7,15 +7,16 @@ const [html, app, storefront] = await Promise.all([
   readFile(new URL('../src/storefront.js', import.meta.url), 'utf8')
 ]);
 
-test('UAE checkout UI consistently identifies PayTabs and keeps the option disabled', () => {
+test('UAE checkout identifies PayTabs and disables the payment control until readiness is verified', () => {
   assert.match(html, /id="payment-paytabs-option"/);
   assert.match(html, /value="paytabs" disabled/);
-  assert.match(html, /<strong>PayTabs<\/strong>/);
-  assert.match(app, /payment_method: state\.market === 'AE' \? 'paytabs' : 'payu'/);
-  assert.match(app, /PayTabs UAE checkout remains disabled/);
+  assert.match(html, /<strong>Pay securely with PayTabs<\/strong>/);
+  assert.match(app, /payment_method: state\.market === 'AE' \? 'paytabs' : String\(formData\.get\('payment_method'\) \|\| 'payu'\)/);
+  assert.match(app, /paytabsInput\.disabled = !\(state\.market === 'AE' && state\.checkoutReady\)/);
+  assert.match(app, /placeOrder\.disabled = !state\.checkoutReady/);
   assert.doesNotMatch(app, /Binance Pay|\/orders\/binance|pay\.binance\.com/);
   assert.match(storefront, /paymentProvider: "PayTabs"/);
-  assert.match(storefront, /const uaeCheckoutEnabled = false/);
-  assert.match(storefront, /UAE_PAYMENT_PROVIDER !== \"binance\"/);
+  assert.match(storefront, /UAE_CHECKOUT_VERIFIED/);
+  assert.match(storefront, /UAE_PAYMENT_PROVIDER !== "binance"/);
   assert.match(storefront, /PayTabs is selected and checkout remains disabled/);
 });

@@ -4,7 +4,7 @@ export function parseUaeMarketEnv(env = {}) {
   const feeRaw = env.UAE_DELIVERY_FEE_FILS;
   const fee = feeRaw !== undefined && String(feeRaw).trim() !== "" && /^\d+$/.test(String(feeRaw).trim()) ? Number(feeRaw) : null;
   const configuredEmirates = [...new Set(String(env.UAE_DELIVERY_EMIRATES || "").split(",").map(x => x.trim()).filter(x => UAE_EMIRATES.includes(x)))];
-  const paymentMethods = [...new Set(String(env.UAE_PAYMENT_METHODS || "").split(",").map(x => x.trim().toLowerCase()).filter(x => x === "cod"))];
+  const paymentMethods = [...new Set(String(env.UAE_PAYMENT_METHODS || "").split(",").map(x => x.trim().toLowerCase()).filter(x => x === "paytabs"))];
   const vatStatus = ["registered", "not_registered"].includes(env.UAE_VAT_STATUS) ? env.UAE_VAT_STATUS : "unconfigured";
   return { fee, configuredEmirates, paymentMethods, vatStatus };
 }

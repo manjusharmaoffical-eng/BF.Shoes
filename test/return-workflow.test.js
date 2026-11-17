@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { canTransitionReturnStatus, validateReturnItems } from '../src/return-workflow.js';
+import { readFile } from 'node:fs/promises';
 
 const orderItems = [
   { id: 'item-1', quantity: 2 },
@@ -48,4 +49,13 @@ test('return workflow does not initiate a refund, fee or inventory mutation', as
   const source = await readFile(new URL('../src/returns.js', import.meta.url), 'utf8');
   assert.match(source, /No refund, fee or stock change/);
   assert.doesNotMatch(source, /UPDATE variants|INSERT INTO inventory_movements|refund_payment|createRefund/i);
+});
+
+test('return requests do not impose an invented return window before owner policy is confirmed', async () => {
+  const workflow = await readFile(new URL('../src/return-workflow.js', import.meta.url), 'utf8');
+  const routes = await readFile(new URL('../src/returns.js', import.meta.url), 'utf8');
+  const policies = await readFile(new URL('../frontend/policies.html', import.meta.url), 'utf8');
+  assert.doesNotMatch(workflow, /RETURN_WINDOW|isWithinReturnWindow|12\s*\*\s*60/);
+  assert.match(routes, /order\.status !== 'delivered'/);
+  assert.match(policies, /return window, eligibility rules.*not yet configured/);
 });

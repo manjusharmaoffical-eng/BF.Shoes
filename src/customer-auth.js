@@ -187,6 +187,7 @@ customerAuthRouter.get("/wishlist", async (req, res, next) => {
     return res.json({ data: result.rows });
   } catch (err) {
     if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") return res.status(401).json({ error: "Your session expired. Please sign in again." });
+    if (err.code === "42P01" && /customer_wishlist/i.test(err.message || "")) return res.status(503).json({ error: "Account wishlist sync is not enabled in this environment yet. Your device-saved items remain available." });
     next(err);
   }
 });
@@ -214,6 +215,7 @@ customerAuthRouter.put("/wishlist/:productId", async (req, res, next) => {
   } catch (err) {
     if (client) await client.query("ROLLBACK").catch(() => {});
     if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") return res.status(401).json({ error: "Your session expired. Please sign in again." });
+    if (err.code === "42P01" && /customer_wishlist/i.test(err.message || "")) return res.status(503).json({ error: "Account wishlist sync is not enabled in this environment yet. Your device-saved items remain available." });
     next(err);
   } finally { client?.release(); }
 });
@@ -228,6 +230,7 @@ customerAuthRouter.delete("/wishlist/:productId", async (req, res, next) => {
     return res.status(204).end();
   } catch (err) {
     if (err.name === "JsonWebTokenError" || err.name === "TokenExpiredError") return res.status(401).json({ error: "Your session expired. Please sign in again." });
+    if (err.code === "42P01" && /customer_wishlist/i.test(err.message || "")) return res.status(503).json({ error: "Account wishlist sync is not enabled in this environment yet. Your device-saved items remain available." });
     next(err);
   }
 });

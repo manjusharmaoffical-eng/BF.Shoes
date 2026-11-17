@@ -15,7 +15,8 @@ test("India market defaults to PIN 500052 and keeps unknown delivery fee unknown
 test("India market rejects unlisted PINs and unsupported payment methods", () => {
   const c = parseIndiaMarketEnv({ INDIA_DELIVERY_PINCODES: "500052,110001", INDIA_PAYMENT_METHODS: "cod,card,online" });
   assert.deepEqual(c.deliveryPincodes, ["500052"]);
-  assert.deepEqual(c.paymentMethods, ["cod"], "Unsupported payment methods stay disabled");
+  assert.deepEqual(c.paymentMethods, [], "COD and unsupported payment methods stay disabled");
+  assert.deepEqual(parseIndiaMarketEnv({ INDIA_PAYMENT_METHODS: "cod" }).paymentMethods, [], "COD is not an approved India payment method");
   assert.deepEqual(parseIndiaMarketEnv({ INDIA_PAYMENT_METHODS: "online" }).paymentMethods, [], "Unknown online methods stay disabled");
   assert.deepEqual(parseIndiaMarketEnv({ INDIA_PAYMENT_GATEWAY: "payu", INDIA_PAYMENT_METHODS: "payu" }).paymentMethods, ["payu"]);
   assert.deepEqual(parseIndiaMarketEnv({ INDIA_PAYMENT_GATEWAY: "other", INDIA_PAYMENT_METHODS: "payu" }).paymentMethods, []);

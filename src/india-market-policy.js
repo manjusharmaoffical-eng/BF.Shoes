@@ -8,7 +8,7 @@ export function parseIndiaMarketEnv(env = {}) {
   const gstStatus = ["registered", "not_registered"].includes(env.INDIA_GST_STATUS) ? env.INDIA_GST_STATUS : "unconfigured";
   const paymentGateway = env.INDIA_PAYMENT_GATEWAY === "payu" ? "payu" : "unconfigured";
   const configuredMethods = String(env.INDIA_PAYMENT_METHODS || "").split(",").map(x => x.trim().toLowerCase());
-  const paymentMethods = [...new Set(configuredMethods.filter(method => method === "cod" || (method === "payu" && paymentGateway === "payu")))];
+  const paymentMethods = [...new Set(configuredMethods.filter(method => method === "payu" && paymentGateway === "payu"))];
   return { deliveryFeePaise, deliveryPincodes, paymentMethods, gstStatus, paymentGateway };
 }
 
