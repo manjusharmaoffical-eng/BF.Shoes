@@ -88,7 +88,7 @@ These items are intentionally deferred until the owner is in India, verifies the
 - [x] Vercel Cron email outbox worker with 32+ byte timing-safe CRON_SECRET authentication, bounded batch size, row locking and maximum retry count.
 - [x] Customer-facing order-status and return-status email messages are queued after successful state changes; internal notes are never emailed.
 - [x] Keep return/exchange fees unconfigured and non-chargeable until owner approval; remove an unsupported ₹100 fee assumption and remove unapproved return-window/packaging terms from the policy page.
-- [x] Automated build/test run: 168 tests passed in the latest scoped Vercel build validation (2026-11-17).
+- [x] Automated build/test run: 169 tests passed in the latest scoped Vercel build validation (2026-11-17).
 
 ## Definition of done
 

@@ -96,3 +96,5 @@ This creates a verified local backup daily. A VPS disk failure can still destroy
 ## Hosting compliance note
 
 The connected Vercel project is currently on the Hobby plan. Vercel states that Hobby is for personal, non-commercial use and positions Pro for businesses. BF SHOES is intended to be a commercial storefront, so do not treat Hobby as the long-term production hosting choice. Use a suitable commercial Vercel plan or deploy to a VPS. No paid upgrade or provider purchase has been made. See <https://vercel.com/pricing>.
+
+On Vercel, preview builds never run migrations. Production migration is also gated: only set `RUN_MIGRATIONS=true` for a reviewed, backed-up production migration deployment, then remove the variable. The VPS path uses the explicit `docker compose --profile tools run --rm migrate` command above.

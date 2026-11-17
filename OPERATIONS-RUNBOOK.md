@@ -49,3 +49,7 @@ pg_restore --no-owner --no-acl --exit-on-error \
 - Seller is currently operating as an individual. Keep GST and UAE VAT profiles in an unconfigured/pending state until the owner supplies verified registration details through the secure admin workflow.
 - Keep payment gateways and checkout gated until merchant onboarding, credentials, delivery coverage/fees, product prices, and applicable tax details are verified.
 - Never put provider secrets, passwords, OTPs, or database URLs into source control or chat.
+
+### Vercel migration gate
+
+Vercel preview and production builds do **not** run database migrations by default. The build script runs `src/migrate.js` only when all three conditions are true: `VERCEL=1`, `VERCEL_ENV=production`, and the explicitly configured `RUN_MIGRATIONS=true`. Do not enable that variable until the SQL diff has been reviewed, a verified backup exists, and the target database has been confirmed. Remove `RUN_MIGRATIONS` immediately after the one approved migration deployment. Preview deployments must never share a production database for migration testing.
