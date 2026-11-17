@@ -910,3 +910,5 @@ html,body{font-family:var(--bf-font)}
  #bf-reference-hero .hero-product { grid-column:2; grid-row:1; inset:0; width:100%; background-size:contain; background-position:center right; opacity:1; transform:none; }
  #bf-reference-hero .hero-script { right:2%; top:7%; font-size:34px; }
 }
+
+.detail-add { min-height:44px; }
