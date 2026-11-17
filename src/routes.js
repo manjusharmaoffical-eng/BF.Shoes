@@ -214,6 +214,35 @@ const stockSchema = z.object({
   delta: z.number().int().min(-1000000).max(1000000).refine(v => v !== 0),
   reason: z.string().trim().min(3).max(200)
 });
+router.put("/inventory/:sku/count", authenticate, requireScope("inventory:write"), async (req, res, next) => {
+  const parsed = z.object({
+    stock_qty: z.number().int().min(0).max(1000000),
+    reason: z.string().trim().min(3).max(200)
+  }).strict().safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid physical stock count", details: parsed.error.flatten() });
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query("BEGIN");
+    const found = await client.query("SELECT id,stock_qty FROM variants WHERE sku=$1 FOR UPDATE", [req.params.sku]);
+    if (!found.rowCount) { await client.query("ROLLBACK"); return res.status(404).json({ error: "SKU not found" }); }
+    const allocated = await client.query("SELECT COALESCE(sum(quantity),0)::int AS quantity FROM warehouse_inventory WHERE variant_id=$1", [found.rows[0].id]);
+    if (parsed.data.stock_qty < Number(allocated.rows[0].quantity)) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "Counted stock cannot be lower than warehouse-assigned units.", allocated: Number(allocated.rows[0].quantity) });
+    }
+    const delta = parsed.data.stock_qty - Number(found.rows[0].stock_qty);
+    const updated = await client.query("UPDATE variants SET stock_qty=$1,stock_verified=true,updated_at=now() WHERE id=$2 RETURNING *", [parsed.data.stock_qty, found.rows[0].id]);
+    if (delta !== 0) await client.query("INSERT INTO inventory_movements(variant_id,delta,reason,actor_admin_id) VALUES($1,$2,$3,$4)", [found.rows[0].id,delta,"physical_count:"+parsed.data.reason,req.actor.type === "admin" ? req.actor.id : null]);
+    await client.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES($1,$2,'inventory.stock.verified','variant',$3)", [req.actor.type,req.actor.id,String(found.rows[0].id)]);
+    await client.query("COMMIT");
+    return res.json({ data: updated.rows[0], delta, verified: true });
+  } catch (err) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
+    next(err);
+  } finally { client?.release(); }
+});
+
 router.patch("/inventory/:sku", authenticate, requireScope("inventory:write"), async (req, res, next) => {
   const parsed = stockSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid stock adjustment", details: parsed.error.flatten() });

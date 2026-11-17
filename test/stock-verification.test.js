@@ -10,6 +10,7 @@ const routes = read("../src/routes.js");
 const warehouse = read("../src/warehouse.js");
 const app = read("../frontend/app.js");
 const admin = read("../frontend/admin.js");
+const adminHtml = read("../frontend/admin.html");
 
 test("variant stock defaults to unverified and the migration is additive", () => {
   assert.match(schema, /stock_verified BOOLEAN NOT NULL DEFAULT FALSE/);
@@ -32,6 +33,13 @@ test("all shopper and staff order paths reject stock without a physical verifica
 test("manual inventory, warehouse and production counts mark only adjusted variants verified", () => {
   assert.match(routes, /UPDATE variants SET stock_qty=\$1, stock_verified=true/);
   assert.match(warehouse, /stock_verified=true/);
+});
+
+test("owner and inventory staff can record an exact physical count safely", () => {
+  assert.match(routes, /router\.put\("\/inventory\/:sku\/count"/);
+  assert.match(routes, /Counted stock cannot be lower than warehouse-assigned units/);
+  assert.match(admin, /stock-count-form/);
+  assert.match(adminHtml, /Counted quantity/);
 });
 
 test("storefront and admin clearly label pending physical stock counts", () => {
