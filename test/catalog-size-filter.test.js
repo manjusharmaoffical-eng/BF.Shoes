@@ -15,8 +15,12 @@ test('homepage and catalogue do not expose global size or colour filters', () =>
   const footer = html.slice(html.indexOf('<div class="footer-bottom">'), html.indexOf('</div>', html.indexOf('<div class="footer-bottom">')) + 6);
   for (const href of ['/men.html','/women.html','/collections.html']) {
     assert.equal(nav.split('href="' + href + '"').length - 1, 1);
-    assert.equal(footer.split('href="' + href + '"').length - 1, 1);
+    assert.equal(footer.split('href="' + href + '"').length - 1, 0);
   }
+  assert.match(html, /href="\/api\/v1\/store\/website-qr\.png"/);
+  assert.match(html, /Customer Support/);
+  assert.match(html, /href="\/shipping\.html"/);
+  assert.match(html, /href="\/returns\.html"/);
   assert.doesNotMatch(app, /matchesSize|matchesColor/);
 });
 
