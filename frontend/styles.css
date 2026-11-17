@@ -931,3 +931,23 @@ html,body{font-family:var(--bf-font)}
  .detail-description{margin:12px 0;line-height:1.55}
  .product-detail-copy h3{margin:14px 0 8px}
 }
+
+
+/* Product detail: clear variant selectors and complete product specifications. */
+.detail-option-group{margin:18px 0}
+.detail-option-group h3,.detail-specifications h3{margin:0 0 10px;font-size:13px;font-weight:900;letter-spacing:.04em}
+.detail-meta,.detail-specifications dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:18px 0}
+.detail-meta>div,.detail-specifications dl>div{min-width:0;padding:10px 12px;background:#f6f6f6;border:1px solid #e8e8e8;border-radius:7px}
+.detail-meta dt,.detail-specifications dt{font-size:10px;color:#777;text-transform:uppercase;letter-spacing:.08em}
+.detail-meta dd,.detail-specifications dd{margin:4px 0 0;font-size:12px;font-weight:700;overflow-wrap:anywhere}
+.detail-specifications{margin:18px 0}
+.detail-mrp{margin:3px 0 0;font-size:12px;color:#777}
+.detail-price-pending{margin:8px 0;color:#9b1827;font-size:13px;font-weight:800}
+.detail-colors .detail-color-option{min-height:40px}
+.detail-sizes .size-option{min-width:42px;min-height:42px}
+@media(max-width:600px){
+ .detail-meta,.detail-specifications dl{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+ .detail-meta>div,.detail-specifications dl>div{padding:8px}
+ .product-detail-panel{overflow-y:auto;overscroll-behavior:contain}
+ .product-detail-copy{padding-bottom:20px}
+}
