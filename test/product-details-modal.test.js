@@ -39,7 +39,7 @@ test('product details expose variant filters, product metadata and recorded attr
   assert.match(app, /detail-specifications/);
   assert.match(app, /product\.attributes/);
   assert.match(app, /product\.mrp_cents/);
-  assert.match(app, /stock_verification pending/i);
+  assert.match(app, /Stock verification pending/);
   assert.match(app, /data-detail-color/);
   assert.match(app, /data-detail-size/);
 });
