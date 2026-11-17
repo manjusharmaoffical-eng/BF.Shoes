@@ -11,11 +11,11 @@ test('homepage and catalogue do not expose global size or colour filters', () =>
   assert.doesNotMatch(html, /data-color=/);
   assert.doesNotMatch(html, /id="catalog-sidebar"|id="mobile-filter-trigger"|id="product-sort"|class="view-toggle"|id="product-search"/);
   assert.doesNotMatch(html, /class="category-showcase"|data-category-jump=/);
-  const nav = html.match(/<nav class="everyday-nav"[\\s\\S]*?<\\/nav>/)?.[0] || '';
-  const footer = html.match(/<div class="footer-bottom">[\\s\\S]*?<\\/div>/)?.[0] || '';
+  const nav = html.slice(html.indexOf('<nav class="everyday-nav"'), html.indexOf('</nav>', html.indexOf('<nav class="everyday-nav"')) + 6);
+  const footer = html.slice(html.indexOf('<div class="footer-bottom">'), html.indexOf('</div>', html.indexOf('<div class="footer-bottom">')) + 6);
   for (const href of ['/men.html','/women.html','/collections.html']) {
-    assert.equal((nav.match(new RegExp('href="' + href.replace('.', '\\\\.') + '"','g')) || []).length, 1);
-    assert.equal((footer.match(new RegExp('href="' + href.replace('.', '\\\\.') + '"','g')) || []).length, 1);
+    assert.equal(nav.split('href="' + href + '"').length - 1, 1);
+    assert.equal(footer.split('href="' + href + '"').length - 1, 1);
   }
   assert.doesNotMatch(app, /matchesSize|matchesColor/);
 });
