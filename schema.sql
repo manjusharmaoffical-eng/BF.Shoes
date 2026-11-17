@@ -47,11 +47,13 @@ CREATE TABLE IF NOT EXISTS variants (
   size_label TEXT NOT NULL,
   color_name TEXT NOT NULL,
   stock_qty INTEGER NOT NULL DEFAULT 0 CHECK (stock_qty >= 0),
+  stock_verified BOOLEAN NOT NULL DEFAULT FALSE,
   active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(product_id, size_label, color_name)
 );
+ALTER TABLE variants ADD COLUMN IF NOT EXISTS stock_verified BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS image_url TEXT;
 -- New products default to the primary UAE storefront; existing product currencies and prices are unchanged.
 ALTER TABLE products ALTER COLUMN currency SET DEFAULT 'AED';

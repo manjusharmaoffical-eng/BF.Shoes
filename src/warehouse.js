@@ -100,7 +100,7 @@ warehouseRouter.post("/warehouses/:id/stock",requireScope("inventory:write"),asy
     await client.query(`INSERT INTO warehouse_inventory(warehouse_id,variant_id,quantity,updated_at)
       VALUES($1,$2,$3,now()) ON CONFLICT(warehouse_id,variant_id)
       DO UPDATE SET quantity=EXCLUDED.quantity,updated_at=now()`,[req.params.id,v.rows[0].id,next]);
-    await client.query("UPDATE variants SET stock_qty=$1,updated_at=now() WHERE id=$2",[aggregate,v.rows[0].id]);
+    await client.query("UPDATE variants SET stock_qty=$1,stock_verified=true,updated_at=now() WHERE id=$2",[aggregate,v.rows[0].id]);
     await client.query("INSERT INTO inventory_movements(variant_id,delta,reason,actor_admin_id) VALUES($1,$2,$3,$4)",
       [v.rows[0].id,parsed.data.delta,"warehouse:"+parsed.data.reason,req.actor.type==="admin"?req.actor.id:null]);
     await client.query("INSERT INTO warehouse_stock_movements(warehouse_id,variant_id,delta,reason,actor_admin_id) VALUES($1,$2,$3,$4,$5)",
@@ -182,7 +182,7 @@ warehouseRouter.post("/production/batches/:id/complete",requireScope("inventory:
       await client.query(`INSERT INTO warehouse_inventory(warehouse_id,variant_id,quantity,updated_at)
         VALUES($1,$2,$3,now()) ON CONFLICT(warehouse_id,variant_id)
         DO UPDATE SET quantity=EXCLUDED.quantity,updated_at=now()`,[parsed.data.warehouse_id,batch.variant_id,next]);
-      await client.query("UPDATE variants SET stock_qty=$1,updated_at=now() WHERE id=$2",[aggregate,batch.variant_id]);
+      await client.query("UPDATE variants SET stock_qty=$1,stock_verified=true,updated_at=now() WHERE id=$2",[aggregate,batch.variant_id]);
       await client.query("INSERT INTO inventory_movements(variant_id,delta,reason,actor_admin_id) VALUES($1,$2,'production_completed',$3)",
         [batch.variant_id,parsed.data.good_qty,req.actor.type==="admin"?req.actor.id:null]);
       await client.query("INSERT INTO warehouse_stock_movements(warehouse_id,variant_id,delta,reason,reference_type,reference_id,actor_admin_id) VALUES($1,$2,$3,'production_completed','production_batch',$4,$5)",

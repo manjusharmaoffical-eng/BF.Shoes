@@ -147,15 +147,25 @@ storefrontRouter.get("/products", async (req, res, next) => {
         p.price_cents, p.currency, p.image_url, p.created_at,
         NULLIF(COALESCE(to_jsonb(p)->>'mrp_cents', to_jsonb(p)->>'compare_at_price_cents', to_jsonb(p)->>'original_price_cents'), '')::integer AS mrp_cents,
         (p.currency <> $1) AS price_pending_conversion,
+        COALESCE(bool_and(v.stock_verified) FILTER (WHERE v.id IS NOT NULL AND v.active = true), false) AS stock_verified,
         COALESCE(json_agg(json_build_object('id', v.id, 'sku', v.sku, 'size_label', v.size_label,
-          'color_name', v.color_name, 'stock_qty', v.stock_qty)
+          'color_name', v.color_name, 'stock_qty', CASE WHEN v.stock_verified THEN v.stock_qty ELSE 0 END,
+          'stock_verified', v.stock_verified)
           ORDER BY v.size_label) FILTER (WHERE v.id IS NOT NULL AND v.active = true), '[]') AS variants
        FROM products p LEFT JOIN variants v ON v.product_id = p.id
        WHERE p.active = true AND p.currency = $1 GROUP BY p.id ORDER BY p.created_at DESC LIMIT 100`,
       [currency]
     );
+    const pricingVerified = currency === "INR"
+      ? process.env.INDIA_PRICING_VERIFIED === "true"
+      : process.env.UAE_PRICING_VERIFIED === "true";
+    const products = result.rows.map(product => ({
+      ...product,
+      price_verified: pricingVerified && !product.price_pending_conversion,
+      price_pending_conversion: !pricingVerified || product.price_pending_conversion
+    }));
     res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
-    res.json({ data: result.rows, market, currency });
+    res.json({ data: products, market, currency });
   } catch (err) { next(err); }
 });
 
@@ -278,7 +288,7 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
     }
     const skus = [...quantities.keys()].sort();
     const found = await client.query(
-      `SELECT v.id AS variant_id,v.sku,v.size_label,v.color_name,v.stock_qty,
+      `SELECT v.id AS variant_id,v.sku,v.size_label,v.color_name,v.stock_qty,v.stock_verified,
         COALESCE((SELECT sum(r.quantity) FROM order_reservations r WHERE r.variant_id=v.id AND r.expires_at>now()),0)::int AS reserved_qty,
         v.active AS variant_active,p.name AS product_name,p.price_cents,p.unit_cost_cents,p.currency,p.active AS product_active
        FROM variants v JOIN products p ON p.id=v.product_id
@@ -290,6 +300,7 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
     for (const [sku,qty] of quantities) {
       const v=bySku.get(sku);
       if(!v.variant_active||!v.product_active){await client.query("ROLLBACK");return res.status(409).json({error:"A selected item is no longer available"});}
+      if(!v.stock_verified){await client.query("ROLLBACK");return res.status(409).json({error:"Stock for "+v.product_name+" size "+v.size_label+" has not been physically verified yet."});}
       const available=Number(v.stock_qty)-Number(v.reserved_qty);
       if(available<qty){await client.query("ROLLBACK");return res.status(409).json({error:"Not enough available stock for "+v.product_name+" (size "+v.size_label+").",available});}
       subtotal+=Number(v.price_cents)*qty;
@@ -553,7 +564,7 @@ storefrontRouter.post("/orders/binance", async (req, res, next) => {
     }
     const skus = [...quantities.keys()].sort();
     const found = await client.query(
-      `SELECT v.id AS variant_id,v.sku,v.size_label,v.color_name,v.stock_qty,
+      `SELECT v.id AS variant_id,v.sku,v.size_label,v.color_name,v.stock_qty,v.stock_verified,
        COALESCE((SELECT sum(r.quantity) FROM order_reservations r WHERE r.variant_id=v.id AND r.expires_at>now()),0)::int AS reserved_qty,
        v.active AS variant_active,p.name AS product_name,p.price_cents,p.unit_cost_cents,p.currency,p.active AS product_active
        FROM variants v JOIN products p ON p.id=v.product_id WHERE v.sku=ANY($1::text[]) ORDER BY v.sku FOR UPDATE OF v`, [skus]);
@@ -563,6 +574,7 @@ storefrontRouter.post("/orders/binance", async (req, res, next) => {
     let subtotal = 0;
     for (const [sku, qty] of quantities) {
       const v = found.rows.find(row => row.sku === sku);
+      if (!v.stock_verified) { await client.query("ROLLBACK"); return res.status(409).json({ error: "Stock for " + v.product_name + " size " + v.size_label + " has not been physically verified yet." }); }
       if (Number(v.stock_qty) - Number(v.reserved_qty) < qty) { await client.query("ROLLBACK"); return res.status(409).json({ error: "Insufficient available stock for " + v.product_name + " size " + v.size_label }); }
       subtotal += Number(v.price_cents) * qty;
       if (!Number.isSafeInteger(subtotal) || subtotal > 2000000000) { await client.query("ROLLBACK"); return res.status(400).json({ error: "Order total exceeds limit" }); }
@@ -739,7 +751,7 @@ storefrontRouter.post("/orders/paytabs", async (req, res, next) => {
     if (!tax.rows[0].configured) { await client.query("ROLLBACK"); return res.status(503).json({ error: "An active UAE VAT tax profile is required before checkout." }); }
     const skus = [...quantities.keys()].sort();
     const found = await client.query(
-      `SELECT v.id AS variant_id,v.sku,v.size_label,v.color_name,v.stock_qty,
+      `SELECT v.id AS variant_id,v.sku,v.size_label,v.color_name,v.stock_qty,v.stock_verified,
        COALESCE((SELECT sum(r.quantity) FROM order_reservations r WHERE r.variant_id=v.id AND r.expires_at>now()),0)::int AS reserved_qty,
        v.active AS variant_active,p.name AS product_name,p.price_cents,p.unit_cost_cents,p.currency,p.active AS product_active
        FROM variants v JOIN products p ON p.id=v.product_id WHERE v.sku=ANY($1::text[]) ORDER BY v.sku FOR UPDATE OF v`, [skus]);
@@ -749,6 +761,7 @@ storefrontRouter.post("/orders/paytabs", async (req, res, next) => {
     let subtotal=0;
     for (const [sku,qty] of quantities) {
       const v=found.rows.find(row=>row.sku===sku);
+      if (!v.stock_verified) { await client.query("ROLLBACK"); return res.status(409).json({error:"Stock for "+v.product_name+" size "+v.size_label+" has not been physically verified yet."}); }
       if (Number(v.stock_qty)-Number(v.reserved_qty)<qty) { await client.query("ROLLBACK"); return res.status(409).json({error:"Insufficient available stock for "+v.product_name+" size "+v.size_label}); }
       subtotal += Number(v.price_cents)*qty;
     }

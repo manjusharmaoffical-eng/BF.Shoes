@@ -169,7 +169,7 @@
       const hasDiscount = Number.isFinite(mrpCents) && mrpCents > Number(product.price_cents);
       const createdAt = product.created_at ? Date.parse(product.created_at) : NaN;
       const isNew = Number.isFinite(createdAt) && Date.now() - createdAt < 30 * 24 * 60 * 60 * 1000;
-      const status = isNew ? 'New' : hasDiscount ? 'Sale' : (!available.length ? 'Sold out' : (available.length <= 2 ? 'Limited run' : 'Everyday essential'));
+      const status = product.stock_verified === false ? 'Stock check pending' : (isNew ? 'New' : hasDiscount ? 'Sale' : (!available.length ? 'Sold out' : (available.length <= 2 ? 'Limited run' : 'Everyday essential')));
       const watched = state.wishlist.has(String(product.id));
 
       return `<article class="product-card" data-product="${escapeHtml(product.id)}">
@@ -315,7 +315,7 @@
       '<img id="detail-main-image" src="' + escapeHtml(images[0].image_url) + '" alt="' + escapeHtml(images[0].alt_text || product.name) + '">' +
       '</div><div class="detail-thumbnails">' + galleryMarkup + '</div>' +
       '<p class="detail-viewer-note">Product photos · Select a thumbnail to view another angle</p>' +
-      '</div><div class="product-detail-copy"><p class="eyebrow">BF SHOES · PRODUCT DETAILS</p><h2>' + escapeHtml(product.name) + '</h2><p class="detail-price">' + (product.price_pending_conversion ? 'Price verification pending' : money(product.price_cents, product.currency)) + '</p><p class="detail-description">' + escapeHtml(product.description || product.short_description || 'BF SHOES footwear') + '</p><h3>Select size</h3><div class="product-sizes detail-sizes">' + (sizeMarkup || '<span>No sizes listed</span>') + '</div><p class="detail-stock" id="detail-stock">' + (selectedVariant ? Number(selectedVariant.stock_qty) + ' in stock' : 'Select an available size') + '</p><button type="button" class="button button-dark detail-add" id="detail-add" ' + (!selectedVariant || product.price_pending_conversion ? 'disabled' : '') + '>Add to bag</button><div class="detail-benefits"><span>Return and exchange requests are reviewed by the BF SHOES team</span></div></div></div>';
+      '</div><div class="product-detail-copy"><p class="eyebrow">BF SHOES · PRODUCT DETAILS</p><h2>' + escapeHtml(product.name) + '</h2><p class="detail-price">' + (product.price_pending_conversion ? 'Price verification pending' : money(product.price_cents, product.currency)) + '</p><p class="detail-description">' + escapeHtml(product.description || product.short_description || 'BF SHOES footwear') + '</p><h3>Select size</h3><div class="product-sizes detail-sizes">' + (sizeMarkup || '<span>No sizes listed</span>') + '</div><p class="detail-stock" id="detail-stock">' + (product.stock_verified === false ? 'Stock verification pending' : (selectedVariant ? Number(selectedVariant.stock_qty) + ' in stock' : 'Select an available size')) + '</p><button type="button" class="button button-dark detail-add" id="detail-add" ' + (!selectedVariant || product.price_pending_conversion ? 'disabled' : '') + '>Add to bag</button><div class="detail-benefits"><span>Return and exchange requests are reviewed by the BF SHOES team</span></div></div></div>';
     modal.querySelector('.product-detail-close')?.focus();
     content.querySelectorAll('[data-detail-image]').forEach(button => button.addEventListener('click', () => {
       const index = Number(button.dataset.detailImage);

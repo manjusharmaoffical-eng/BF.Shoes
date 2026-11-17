@@ -201,7 +201,7 @@ router.post("/products/:id/variants", authenticate, requireScope("products:write
 router.get("/inventory", authenticate, requireScope("inventory:read"), async (req, res, next) => {
   try {
     const result = await pool.query(
-      `SELECT v.id, v.sku, v.size_label, v.color_name, v.stock_qty, v.active,
+      `SELECT v.id, v.sku, v.size_label, v.color_name, v.stock_qty, v.stock_verified, v.active,
               p.id AS product_id, p.name AS product_name
        FROM variants v JOIN products p ON p.id=v.product_id
        ORDER BY p.name, v.size_label, v.color_name LIMIT 500`
@@ -229,7 +229,7 @@ router.patch("/inventory/:sku", authenticate, requireScope("inventory:write"), a
     const nextQty = result.rows[0].stock_qty + parsed.data.delta;
     if (nextQty < 0) { await client.query("ROLLBACK"); return res.status(409).json({ error: "Stock cannot be negative" }); }
     const updated = await client.query(
-      "UPDATE variants SET stock_qty=$1, updated_at=now() WHERE id=$2 RETURNING *",
+      "UPDATE variants SET stock_qty=$1, stock_verified=true, updated_at=now() WHERE id=$2 RETURNING *",
       [nextQty, result.rows[0].id]
     );
     await client.query(
@@ -289,7 +289,7 @@ router.post("/orders", authenticate, requireScope("orders:write"), async (req, r
     for (const item of parsed.data.items) quantities.set(item.sku, (quantities.get(item.sku) || 0) + item.quantity);
     const skus = [...quantities.keys()].sort();
     const found = await client.query(
-      `SELECT v.id AS variant_id, v.sku, v.size_label, v.color_name, v.stock_qty,
+      `SELECT v.id AS variant_id, v.sku, v.size_label, v.color_name, v.stock_qty, v.stock_verified,
               v.active AS variant_active, p.name AS product_name, p.price_cents, p.unit_cost_cents, p.currency, p.active AS product_active
        FROM variants v JOIN products p ON p.id=v.product_id
        WHERE v.sku = ANY($1::text[]) ORDER BY v.sku FOR UPDATE OF v`,
@@ -301,6 +301,7 @@ router.post("/orders", authenticate, requireScope("orders:write"), async (req, r
     for (const [sku, qty] of quantities) {
       const v = bySku.get(sku);
       if (!v.variant_active || !v.product_active) { await client.query("ROLLBACK"); return res.status(409).json({ error: `SKU unavailable: ${sku}` }); }
+      if (!v.stock_verified) { await client.query("ROLLBACK"); return res.status(409).json({ error: `Stock for ${sku} has not been physically verified yet.` }); }
       if (v.stock_qty < qty) { await client.query("ROLLBACK"); return res.status(409).json({ error: `Insufficient stock for ${sku}`, available: v.stock_qty }); }
       subtotal += v.price_cents * qty;
       if (!Number.isSafeInteger(subtotal) || subtotal > 2000000000) { await client.query("ROLLBACK"); return res.status(400).json({ error: "Order total exceeds limit" }); }
