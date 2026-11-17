@@ -21,7 +21,7 @@ test("conventional favicon URL is redirected to the existing brand SVG", () => {
 test("homepage mobile controls have usable minimum touch sizes", () => {
   assert.match(css, /\.product-sizes \.size-option\{min-width:36px;min-height:36px/);
   assert.match(css, /\.site-header \.main-nav a\{font-size:12px;min-height:36px/);
-  assert.match(css, /\.product-card \.add-row \.button\{min-height:42px/);
+  assert.match(css, /\.detail-add\{min-height:44px/);
 });
 
 test("homepage welcomes visitors with the local BF signature sneaker hero and responsive 3D styling", () => {
@@ -36,10 +36,10 @@ test("homepage welcomes visitors with the local BF signature sneaker hero and re
 test("mobile header lays out all primary navigation links in a visible grid", () => {
   assert.match(css, /@media\(max-width:600px\)[\s\S]*?\.site-header \.main-nav\{[\s\S]*?display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
   assert.match(css, /\.site-header \.main-nav a\{[\s\S]*?justify-content:center/);
-  assert.match(html, /href="\/collections\.html">Collections<\/a>/);
-  assert.match(html, /href="\/men\.html">Men<\/a>/);
-  assert.match(html, /href="\/women\.html">Women<\/a>/);
-  assert.match(html, /href="\/about\.html">About<\/a>/);
+  assert.match(html, /class="everyday-nav"[\s\S]*?href="\/collections\.html">COLLECTIONS<\/a>/);
+  assert.match(html, /class="everyday-nav"[\s\S]*?href="\/men\.html">MEN<\/a>/);
+  assert.match(html, /class="everyday-nav"[\s\S]*?href="\/women\.html">WOMEN<\/a>/);
+  assert.match(html, /class="main-nav"[\s\S]*?href="\/about\.html">About<\/a>/);
 });
 
 test("mobile market selector has readable foreground and background contrast", () => {
@@ -65,4 +65,13 @@ test("product detail gallery uses a public read-only endpoint, not owner-only AI
   assert.match(storefront, /SELECT pi\.image_url, pi\.alt_text[\s\S]*?FROM product_images pi[\s\S]*?p\.active = true/);
   assert.match(app, /\/api\/v1\/store\/products\//);
   assert.doesNotMatch(app, /\/api\/v1\/ai-studio\/products\//);
+});
+
+test("homepage keeps shoe size and colour selection inside the product details view", () => {
+  assert.doesNotMatch(html, /<details open><summary>(?:Size|Color)<\\/summary>/);
+  assert.doesNotMatch(app, /data-size-product=/);
+  assert.doesNotMatch(app, /data-quick-add=/);
+  assert.match(app, /data-detail-size=/);
+  assert.match(app, /data-detail-color=/);
+  assert.match(app, /View details &amp; options/);
 });
