@@ -372,7 +372,7 @@
       : '<p class="detail-stock">Colour information has not been added for this product yet.</p>';
     const renderSizeMarkup = () => variants
       .filter(v => !selectedColor || String(v.color_name || '').trim() === selectedColor)
-      .map(v => '<button type="button" class="size-option ' + (v.sku === selectedSku ? 'selected' : '') + '" data-detail-size="' + escapeHtml(v.sku) + '" ' + (v.stock_verified !== false && Number(v.stock_qty) <= 0 ? 'disabled' : '') + '>' + escapeHtml(v.size_label) + '</button>').join('');
+      .map(v => '<button type="button" class="size-option ' + (v.sku === selectedSku ? 'selected' : '') + '" data-detail-size="' + escapeHtml(v.sku) + '" ' + (v.stock_verified === false || Number(v.stock_qty) <= 0 ? 'disabled' : '') + '>' + escapeHtml(v.size_label) + '</button>').join('');
     let sizeMarkup = renderSizeMarkup();
     const galleryMarkup = images.map((image, index) => '<button type="button" class="detail-thumb ' + (index === 0 ? 'active' : '') + '" data-detail-image="' + index + '" aria-label="View product angle ' + (index + 1) + '"><img src="' + escapeHtml(image.image_url) + '" alt="' + escapeHtml(image.alt_text || product.name) + '"></button>').join('');
     content.innerHTML = '<div class="product-detail-layout"><div class="product-detail-gallery"><div class="product-detail-stage" id="detail-stage">' +
