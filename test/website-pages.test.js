@@ -45,6 +45,13 @@ test('direct cart and checkout URLs safely open the matching in-page overlay', a
   assert.ok(app.includes('if (!storefrontProductsReady) return;'));
   assert.ok(app.includes('loadProducts().then(() =>'));
   assert.ok(app.includes('if (state.cart.length)'));
+  assert.doesNotMatch(cart, /<script>/);
+  assert.doesNotMatch(checkout, /<script>/);
+});
+
+test('short Admin URL serves the existing admin document before static fallback', async () => {
+  const server = await readFile(new URL('../src/server.js', import.meta.url), 'utf8');
+  assert.match(server, /app\.get\("\/admin", \(_req, res\) => res\.sendFile\(path\.resolve\(__dirname, "\.\.\/frontend\/admin\.html"\)\)\)/);
 });
 
 test('kids collection only includes products explicitly labelled for kids', async () => {
