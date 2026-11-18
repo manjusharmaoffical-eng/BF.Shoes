@@ -71,5 +71,5 @@ test('AI product image prompts use the BF SHOES white, red and black palette', (
 });
 
 test('finance funding repayment selector formats balances in the selected market currency', () => {
-  assert.match(adminJs, /money\(f\.outstanding_principal_cents,currency\)\+' remaining'/);
+  assert.match(adminJs, /money\(f\.outstanding_principal_cents,currency\)\+' remaining\)/);
 });
