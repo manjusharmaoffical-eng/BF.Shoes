@@ -51,3 +51,14 @@ test("India totals reject negative, unsafe and over-100-percent inputs", () => {
   assert.throws(() => calculateIndiaTotals(100, 0, 10001), /exceeds 100%/);
   assert.throws(() => calculateIndiaTotals(2000000000, 1, 0), /exceeds supported limit/);
 });
+
+test("public storefront never advertises the unverified ₹55 delivery fee", async () => {
+  const fs = await import("node:fs/promises");
+  const homepage = await fs.readFile(new URL("../frontend/index.html", import.meta.url), "utf8");
+  const app = await fs.readFile(new URL("../frontend/app.js", import.meta.url), "utf8");
+  const policies = await fs.readFile(new URL("../frontend/policies.html", import.meta.url), "utf8");
+  assert.doesNotMatch(homepage + app + policies, /₹55|Flat delivery charge/i);
+  assert.match(homepage, /Delivery fee pending confirmation/);
+  assert.match(app, /delivery fee has not been confirmed/);
+  assert.match(policies, /no fee is published or charged/);
+});

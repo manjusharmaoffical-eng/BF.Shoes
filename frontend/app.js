@@ -615,7 +615,7 @@
     if (submit) submit.innerHTML = selectedPayment === 'cod' ? 'Place COD order <span>↗</span>' : (isIndia ? 'Continue to PayU <span>↗</span>' : 'Continue to PayTabs <span>↗</span>');
     const cartNote = $('#cart-delivery-note');
     if (cartNote) cartNote.innerHTML = isIndia
-      ? 'Flat delivery charge: ₹55 for PIN code 500052. See our <a href="/policies.html#shipping">Shipping Policy</a>.'
+      ? 'Delivery is currently limited to PIN code 500052. The delivery fee has not been confirmed and will not be charged until verified. See our <a href="/policies.html#shipping">Shipping Policy</a>.'
       : 'UAE delivery is subject to verified delivery coverage and the fee shown before payment.';
     $('#cart-payu-note')?.classList.toggle('hidden', !isIndia);
   }
