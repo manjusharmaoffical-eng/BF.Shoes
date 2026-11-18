@@ -25,3 +25,9 @@
 4. Complete/verify India GST and UAE VAT profiles, delivery fees, gateway merchant credentials and callback/webhook configuration through secure Vercel environment variables and owner-approved documents. Keep both checkouts and COD disabled until all safeguards pass.
 5. Run authenticated admin E2E tests for product/gallery/AI tools, inventory, warehouse, orders/returns, finance/P&L, email and staff/API security.
 6. Do not promote preview or change production aliases until the above database and owner checks pass.
+
+
+## Follow-up verification after checkpoint commit
+- Checkpoint commit `c4e8708965843fa17f24ad51bd1682adf356a299` has its own Vercel preview deployment `dpl_7xvrqDMkY4MseAHByKzFH5FWvdKa`, now READY. Its build reports 237 tests passed, 0 failed.
+- GitHub Actions on the exact checkpoint head `c4e8708965843fa17f24ad51bd1682adf356a299`: three workflow runs completed successfully (`44271211629`, `44271211621`, `44271202781`). The preceding commit `f6b2ab31a714d7c0c028644eb9a6bb8ebcd28267` had a test-only failure in the admin funding selector assertion; the current head's assertion now matches the rendered string and CI passes. No production release action was taken.
+- PR #64 remains open and unmerged. The PR includes extensive operational changes and the documented production database/backup gate remains in force.
