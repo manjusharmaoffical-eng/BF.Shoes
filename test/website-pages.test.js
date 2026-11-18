@@ -39,8 +39,8 @@ test('direct cart and checkout URLs safely open the matching in-page overlay', a
   const checkout = await readFile(new URL('../frontend/checkout.html', import.meta.url), 'utf8');
   assert.ok(app.includes("window.location.hash === '#cart'"));
   assert.ok(app.includes("window.location.hash === '#checkout'"));
-  assert.ok(cart.includes("window.location.search + '#cart'"));
-  assert.ok(checkout.includes("window.location.search + '#checkout'"));
+  assert.ok(cart.includes('http-equiv="refresh" content="0;url=/#cart"'));
+  assert.ok(checkout.includes('http-equiv="refresh" content="0;url=/#checkout"'));
   assert.ok(checkout.includes('Checkout remains unavailable'));
   assert.ok(app.includes('if (!storefrontProductsReady) return;'));
   assert.ok(app.includes('loadProducts().then(() =>'));
