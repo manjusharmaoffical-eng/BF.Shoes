@@ -3,7 +3,7 @@ import { z } from "zod";
 import { pool } from "./db.js";
 import { aggregateStorefrontItems, storefrontRequestFingerprint } from "./storefront-policies.js";
 import { deliverEmail } from "./email.js";
-import { parseIndiaMarketEnv, calculateIndiaTotals } from "./india-market-policy.js";
+import { parseIndiaMarketEnv, calculateIndiaTotals, resolveIndiaGstStatus } from "./india-market-policy.js";
 import { randomBytes } from "node:crypto";
 import QRCode from "qrcode";
 import { payuConfigured, publicBaseUrl, payuPaymentUrl, payuRequestHash, payuResponseHash, safeHashEqual, verifyPayuPayment } from "./payu.js";
@@ -179,7 +179,6 @@ async function getIndiaMarketConfig(db = pool) {
   const reasons = [];
   if (env.deliveryFeePaise === null || !Number.isSafeInteger(env.deliveryFeePaise) || env.deliveryFeePaise < 0 || env.deliveryFeePaise > 2000000000) reasons.push("delivery_fee_not_configured");
   if (!env.deliveryPincodes.includes("500052")) reasons.push("pin_500052_not_configured");
-  if (env.gstStatus === "unconfigured") reasons.push("gst_status_not_confirmed");
   const currencies = await db.query("SELECT currency, count(*)::int AS product_count FROM products WHERE active=TRUE GROUP BY currency");
   // INR and AED are separate market catalogs; AED products never trigger an India conversion.
   // India and UAE catalogs are intentionally separate. AED products must not block
@@ -192,10 +191,12 @@ async function getIndiaMarketConfig(db = pool) {
     if (r.rowCount !== 1 || r.rows[0].currency !== "INR" || !String(r.rows[0].registration_number || "").trim() || !String(r.rows[0].seller_state || "").trim() || !Number.isSafeInteger(Number(r.rows[0].tax_rate_bps)) || Number(r.rows[0].tax_rate_bps) <= 0 || Number(r.rows[0].tax_rate_bps) > 10000) reasons.push("valid_in_gst_profile_required");
     else { taxProfile = r.rows[0]; taxRate = Number(r.rows[0].tax_rate_bps); }
   }
+  const gstStatus = resolveIndiaGstStatus(env.gstStatus, taxProfile);
+  if (gstStatus === "unconfigured") reasons.push("gst_status_not_confirmed");
   const onlineReady = env.paymentGateway === "payu" && env.paymentMethods.includes("payu") && payuConfigured();
   if (!onlineReady) reasons.push("payu_credentials_not_configured");
   if (process.env.INDIA_CHECKOUT_VERIFIED !== "true") reasons.push("india_checkout_not_owner_verified");
-  return { currency: "INR", country: "IN", delivery_pincodes: env.deliveryPincodes, target_pincode: "500052", delivery_fee_paise: env.deliveryFeePaise, payment_methods: env.paymentMethods, payment_gateway: env.paymentGateway, online_payment_ready: onlineReady, online_payment_note: onlineReady ? "PayU credentials are configured; checkout remains closed until owner, GST, price and delivery verification plus end-to-end payment testing are complete." : "PayU merchant key, salt, enablement and HTTPS callback URL are required before online payments can be accepted.", gst_status: env.gstStatus, gst_rate_bps: env.gstStatus === "registered" ? (taxProfile ? taxRate : null) : (env.gstStatus === "not_registered" ? 0 : null), checkout_ready: reasons.length === 0, setup_required: [...new Set(reasons)], tax_profile: taxProfile };
+  return { currency: "INR", country: "IN", delivery_pincodes: env.deliveryPincodes, target_pincode: "500052", delivery_fee_paise: env.deliveryFeePaise, payment_methods: env.paymentMethods, payment_gateway: env.paymentGateway, online_payment_ready: onlineReady, online_payment_note: onlineReady ? "PayU credentials are configured; checkout remains closed until owner, GST, price and delivery verification plus end-to-end payment testing are complete." : "PayU merchant key, salt, enablement and HTTPS callback URL are required before online payments can be accepted.", gst_status: gstStatus, gst_rate_bps: gstStatus === "registered" ? taxRate : (gstStatus === "not_registered" ? 0 : null), checkout_ready: reasons.length === 0, setup_required: [...new Set(reasons)], tax_profile: taxProfile };
 }
 
 storefrontRouter.get("/config", async (_req, res, next) => {
