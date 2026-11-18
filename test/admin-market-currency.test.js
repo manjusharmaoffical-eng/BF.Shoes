@@ -69,3 +69,7 @@ test('AI product image prompts use the BF SHOES white, red and black palette', (
   assert.match(ai, /avoid green/);
   assert.match(ai, /no unsupplied logos or text/);
 });
+
+test('finance funding repayment selector formats balances in the selected market currency', () => {
+  assert.match(adminJs, /money\(f\.outstanding_principal_cents,currency\)\+' remaining'/);
+});
