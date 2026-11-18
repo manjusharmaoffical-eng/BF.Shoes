@@ -5,7 +5,7 @@ const root = new URL('../frontend/', import.meta.url);
 
 test('BF SHOES customer website contains 25 separate HTML pages', async () => {
   const files = (await readdir(root)).filter(name => name.endsWith('.html'));
-  assert.equal(files.length, 25);
+  assert.equal(files.length, 27);
 });
 
 test('all 17 added pages have SEO metadata, canonical URLs and a route back to the store', async () => {
@@ -40,4 +40,12 @@ test('homepage navigation and sitemap expose the added customer pages', async ()
     assert.ok(html.includes('/' + page + '.html') || sitemap.includes('/' + page + '.html'), page + ' discoverability');
     assert.ok(sitemap.includes('https://www.bfshoes.online/' + page + '.html'), page + ' sitemap entry');
   }
+});
+
+test('direct cart and checkout URLs safely open the matching in-page overlays', async () => {
+  const cart = await readFile(new URL('../frontend/cart.html', import.meta.url), 'utf8');
+  const checkout = await readFile(new URL('../frontend/checkout.html', import.meta.url), 'utf8');
+  assert.match(cart, /http-equiv="refresh" content="0;url=\/#cart"/);
+  assert.match(checkout, /http-equiv="refresh" content="0;url=\/#checkout"/);
+  assert.match(checkout, /Checkout remains unavailable until payment, delivery and tax verification is complete/);
 });
