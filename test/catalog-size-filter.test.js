@@ -35,3 +35,8 @@ test('size and colour choices are scoped to the selected product detail view', (
   assert.match(app, /colorNames\.length/);
   assert.match(app, /selectedColor/);
 });
+
+test('product detail size options disable unverified or unavailable stock', () => {
+  assert.match(app, /v\.stock_verified === false \|\| Number\(v\.stock_qty\) <= 0 \? 'disabled' : ''/);
+  assert.match(app, /variant\.stock_verified === false \? 'Stock verification pending'/);
+});
