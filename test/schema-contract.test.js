@@ -265,3 +265,11 @@ test("closing the payment QR panel does not expose an empty checkout error", asy
   assert.match(app, /for \(const selector of \['\.form-grid', '\.payment-options', '\.checkout-summary', '#place-order', '\.privacy-note'\]/);
   assert.match(app, /if \(show\) \$\('#checkout-error'\)\?\.classList\.add\('hidden'\)/);
 });
+
+test("public India GST status is not reported as registered before a valid tax profile exists", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  const marketPolicy = await readFile(new URL("../src/india-market-policy.js", import.meta.url), "utf8");
+  assert.match(marketPolicy, /export function resolveIndiaGstStatus/);
+  assert.match(storefront, /resolveIndiaGstStatus\(env\.gstStatus, taxProfile\)/);
+  assert.match(storefront, /gst_status: gstStatus/);
+});
