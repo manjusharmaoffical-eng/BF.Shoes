@@ -23,3 +23,10 @@ test('cart updates, market changes and successful orders persist the correct car
   assert.match(source, /state\.market = nextMarket;[\s\S]{0,120}state\.cart = state\.cartByMarket\[state\.market\]/);
   assert.match(source, /state\.cart = \[\]; state\.cartByMarket\[state\.market\] = state\.cart; persistCart\(\)/);
 });
+
+test('deep-link overlays wait for product hydration and do not open empty checkout', () => {
+  assert.match(source, /let storefrontProductsReady = false/);
+  assert.match(source, /if \(!storefrontProductsReady\) return/);
+  assert.match(source, /loadProducts\(\)\.then\(\(\) => \{/);
+  assert.match(source, /if \(state\.cart\.length\)/);
+});

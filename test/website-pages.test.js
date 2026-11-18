@@ -42,6 +42,14 @@ test('direct cart and checkout URLs safely open the matching in-page overlay', a
   assert.ok(cart.includes("window.location.search + '#cart'"));
   assert.ok(checkout.includes("window.location.search + '#checkout'"));
   assert.ok(checkout.includes('Checkout remains unavailable'));
+  assert.ok(app.includes('if (!storefrontProductsReady) return;'));
+  assert.ok(app.includes('loadProducts().then(() =>'));
+  assert.ok(app.includes('if (state.cart.length)'));
+});
+
+test('kids collection only includes products explicitly labelled for kids', async () => {
+  const app = await readFile(new URL('../frontend/store-pages.js', import.meta.url), 'utf8');
+  assert.match(app, /if \(collection === 'kids'\) return audience === 'kids'/);
 });
 
 test('homepage and collection pages honour explicit market URLs and same-origin product images', async () => {

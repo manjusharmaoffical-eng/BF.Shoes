@@ -31,6 +31,7 @@
       return ids.includes(String(product.id));
     }
     if (collection === 'men') return audience === 'men' || audience === 'male' || /(^|[\\s_-])men(?:$|[\\s_-])/.test(category + ' ' + type + ' ' + String(product.slug || '').toLowerCase());
+    if (collection === 'kids') return audience === 'kids' || /kids|children/.test(type + ' ' + String(product.slug || '').toLowerCase());
     if (collection === 'women') return audience === 'women' || audience === 'female' || /(^|[\\s_-])women(?:$|[\\s_-])/.test(category + ' ' + type + ' ' + String(product.slug || '').toLowerCase());
     if (collection === 'sports') return /sport|athletic|training/.test(text);
     if (collection === 'running') return /run|jog|performance/.test(text);

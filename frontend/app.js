@@ -876,15 +876,30 @@
   const initialDeliveryNote = $('#market-delivery-note');
   if (initialDeliveryNote) initialDeliveryNote.textContent = state.market === 'IN' ? 'Delivery to PIN 500052' : 'UAE delivery setup pending';
   renderCart();
-  loadProducts();
   loadCheckoutReadiness();
   loadActiveCampaign();
   syncCustomerWishlist();
   window.addEventListener('bf-customer-session', syncCustomerWishlist);
+  let storefrontProductsReady = false;
   function openRequestedOverlay() {
-    if (window.location.hash === '#cart') setDrawer(true);
-    else if (window.location.hash === '#checkout') { setDrawer(false); setCheckout(true); }
+    if (!storefrontProductsReady) return;
+    if (window.location.hash === '#cart') {
+      setCheckout(false);
+      setDrawer(true);
+    } else if (window.location.hash === '#checkout') {
+      setCheckout(false);
+      if (state.cart.length) {
+        setDrawer(false);
+        setCheckout(true);
+      } else {
+        setDrawer(true);
+        toast('Add a product to your bag before checkout.');
+      }
+    }
   }
   window.addEventListener('hashchange', openRequestedOverlay);
-  openRequestedOverlay();
+  loadProducts().then(() => {
+    storefrontProductsReady = true;
+    openRequestedOverlay();
+  });
 })();
