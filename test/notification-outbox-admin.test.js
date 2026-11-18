@@ -16,11 +16,18 @@ test("notification queue is owner-only and never exposes email body or provider 
 });
 
 test("notification retry is bounded, prevents duplicate concurrent sends and rejects already-sent rows", () => {
-  assert.match(email, /FOR UPDATE/);
-  assert.match(email, /row\.attempts >= 5/);
-  assert.match(email, /row\.status === "sent"/);
-  assert.match(email, /row\.status === "pending" && row\.attempts > 0/);
-  assert.match(email, /status='sent',sent_at=now\(\),last_error=NULL/);
+  const retry = email.slice(email.indexOf("export async function retryQueuedEmail"), email.indexOf("// Bounded worker for Vercel Cron"));
+  assert.match(retry, /FOR UPDATE/);
+  assert.match(retry, /row\.attempts >= MAX_ATTEMPTS/);
+  assert.match(email, /const MAX_ATTEMPTS = 5/);
+  assert.match(retry, /row\.status === "sent"/);
+  assert.match(retry, /row\.status === "sending"/);
+  assert.match(retry, /status='sending',sending_at=now\(\),attempts=attempts\+1/);
+  assert.match(retry, /status='sent',sending_at=NULL,sent_at=now\(\),last_error=NULL/);
+  assert.ok(retry.lastIndexOf('await client.query("COMMIT")') < retry.indexOf("sendWithResend(row)"), "claim must commit before provider network request");
+  assert.match(email, /AbortSignal\.timeout\(PROVIDER_TIMEOUT_MS\)/);
+  assert.match(email, /Idempotency-Key/);
+  assert.match(email, /bf-shoes-notification\/" \+ row\.id/);
 });
 
 test("admin email queue has manual retry controls and explicit owner-only guidance", () => {
@@ -35,7 +42,9 @@ test("admin email queue has manual retry controls and explicit owner-only guidan
 test("scheduled email worker claims rows with SKIP LOCKED and caps retries and batch size", () => {
   assert.match(email, /export async function processEmailOutbox/);
   assert.match(email, /FOR UPDATE SKIP LOCKED/);
-  assert.match(email, /attempts < 5/);
+  assert.match(email, /status='sending',sending_at=now\(\),attempts=n\.attempts\+1/);
+  assert.match(email, /attempts < \$1/);
+  assert.match(email, /interval '15 minutes'/);
   assert.match(email, /Math\.min\(25/);
   assert.match(email, /configured: false, processed: 0/);
 });
@@ -60,4 +69,6 @@ test("order and return status changes enqueue customer-facing email without expo
   assert.match(returns, /if \(parsed\.data\.customer_message\)/);
   assert.doesNotMatch(returns, /textBody:[^\n]*internal_note/);
   assert.match(schema, /'order_status_update','return_status_update'/);
+  assert.match(schema, /status TEXT NOT NULL DEFAULT 'pending' CHECK \(status IN \('pending','sending','sent','failed'\)\)/);
+  assert.match(schema, /ALTER TABLE notification_outbox ADD COLUMN IF NOT EXISTS sending_at TIMESTAMPTZ/);
 });

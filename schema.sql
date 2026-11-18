@@ -175,12 +175,16 @@ CREATE TABLE IF NOT EXISTS notification_outbox (
   recipient TEXT NOT NULL,
   subject TEXT NOT NULL,
   text_body TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','sent','failed')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','sending','sent','failed')),
   attempts INTEGER NOT NULL DEFAULT 0,
   last_error TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  sending_at TIMESTAMPTZ,
   sent_at TIMESTAMPTZ
 );
+ALTER TABLE notification_outbox ADD COLUMN IF NOT EXISTS sending_at TIMESTAMPTZ;
+ALTER TABLE notification_outbox DROP CONSTRAINT IF EXISTS notification_outbox_status_check;
+ALTER TABLE notification_outbox ADD CONSTRAINT notification_outbox_status_check CHECK (status IN ('pending','sending','sent','failed'));
 ALTER TABLE notification_outbox DROP CONSTRAINT IF EXISTS notification_outbox_kind_check;
 ALTER TABLE notification_outbox ADD CONSTRAINT notification_outbox_kind_check
   CHECK (kind IN ('order_confirmation','newsletter_welcome','order_status_update','return_status_update'));
