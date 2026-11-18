@@ -257,6 +257,27 @@
     }
   }
 
+  let storefrontProductsReady = false;
+  function openStorefrontPanelFromHash() {
+    if (!storefrontProductsReady) return;
+    const hash = window.location.hash.toLowerCase();
+    if (hash === '#cart') {
+      setCheckout(false);
+      setDrawer(true);
+      return;
+    }
+    if (hash === '#checkout') {
+      setCheckout(false);
+      if (state.cart.length) {
+        setDrawer(false);
+        setCheckout(true);
+      } else {
+        setDrawer(true);
+        toast('Add a product to your bag before checkout.');
+      }
+    }
+  }
+
   function setSuccess(open, order = null) {
     if($('#success-backdrop')) $('#success-backdrop').classList.toggle('visible', open);
     if($('#success-backdrop')) $('#success-backdrop').setAttribute('aria-hidden', String(!open));
@@ -871,7 +892,11 @@
   const initialDeliveryNote = $('#market-delivery-note');
   if (initialDeliveryNote) initialDeliveryNote.textContent = state.market === 'IN' ? 'Delivery to PIN 500052' : 'UAE delivery setup pending';
   renderCart();
-  loadProducts();
+  window.addEventListener('hashchange', openStorefrontPanelFromHash);
+  loadProducts().then(() => {
+    storefrontProductsReady = true;
+    openStorefrontPanelFromHash();
+  });
   loadCheckoutReadiness();
   loadActiveCampaign();
   syncCustomerWishlist();

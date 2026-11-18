@@ -24,3 +24,12 @@ test('cart updates, market changes and successful orders persist the correct car
   assert.match(source, /state\.market = nextMarket;[\s\S]{0,120}state\.cart = state\.cartByMarket\[state\.market\]/);
   assert.match(source, /state\.cart = \[\]; state\.cartByMarket\[state\.market\] = state\.cart; persistCart\(\)/);
 });
+
+test('cart and checkout deep links wait for product hydration and open only existing in-page panels', () => {
+  assert.match(source, /let storefrontProductsReady = false/);
+  assert.match(source, /function openStorefrontPanelFromHash/);
+  assert.match(source, /hash === '#cart'/);
+  assert.match(source, /hash === '#checkout'/);
+  assert.match(source, /loadProducts\(\)\.then\(\(\) => \{/);
+  assert.match(source, /storefrontProductsReady = true/);
+});
