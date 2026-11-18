@@ -187,6 +187,14 @@ test("storefront exposes separate UAE and India market configuration with owner-
   assert.doesNotMatch(storefront, /const (?:india|uae)CheckoutEnabled = true/);
 });
 
+test("public India GST status is not reported as registered before a valid tax profile exists", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  const marketPolicy = await readFile(new URL("../src/india-market-policy.js", import.meta.url), "utf8");
+  assert.match(marketPolicy, /export function resolveIndiaGstStatus/);
+  assert.match(storefront, /resolveIndiaGstStatus\(env\.gstStatus, taxProfile\)/);
+  assert.match(storefront, /gst_status: gstStatus/);
+});
+
 test("public product catalog selects currency by explicit market", async () => {
   const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
   assert.match(storefront, /req\.query\.market \|\| "IN"/);

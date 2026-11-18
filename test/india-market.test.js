@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { INDIA_PINCODES, parseIndiaMarketEnv, calculateIndiaTotals } from "../src/india-market-policy.js";
+import { INDIA_PINCODES, parseIndiaMarketEnv, calculateIndiaTotals, resolveIndiaGstStatus } from "../src/india-market-policy.js";
 
 test("India market defaults to PIN 500052 and keeps unknown delivery fee unknown", () => {
   const c = parseIndiaMarketEnv({});
@@ -22,6 +22,23 @@ test("India market rejects unlisted PINs and unsupported payment methods", () =>
   assert.deepEqual(parseIndiaMarketEnv({ INDIA_PAYMENT_GATEWAY: "other", INDIA_PAYMENT_METHODS: "payu" }).paymentMethods, []);
   assert.equal(parseIndiaMarketEnv({ INDIA_PAYMENT_GATEWAY: "payu", INDIA_GST_STATUS: "registered" }).paymentGateway, "payu");
   assert.equal(parseIndiaMarketEnv({ INDIA_PAYMENT_GATEWAY: "fake-gateway" }).paymentGateway, "unconfigured");
+});
+
+test("India GST status stays pending until one complete GST profile is verified", () => {
+  const validProfile = {
+    currency: "INR",
+    registration_number: "TEST-GSTIN",
+    seller_state: "Telangana",
+    tax_rate_bps: 500
+  };
+  assert.equal(resolveIndiaGstStatus("registered", null), "unconfigured");
+  assert.equal(resolveIndiaGstStatus("registered", { ...validProfile, registration_number: "" }), "unconfigured");
+  assert.equal(resolveIndiaGstStatus("registered", { ...validProfile, seller_state: "" }), "unconfigured");
+  assert.equal(resolveIndiaGstStatus("registered", { ...validProfile, currency: "AED" }), "unconfigured");
+  assert.equal(resolveIndiaGstStatus("registered", { ...validProfile, tax_rate_bps: 0 }), "unconfigured");
+  assert.equal(resolveIndiaGstStatus("registered", validProfile), "registered");
+  assert.equal(resolveIndiaGstStatus("not_registered", null), "not_registered");
+  assert.equal(resolveIndiaGstStatus("unconfigured", validProfile), "unconfigured");
 });
 
 test("India totals calculate only the explicitly configured fee and tax rate", () => {

@@ -12,6 +12,20 @@ export function parseIndiaMarketEnv(env = {}) {
   return { deliveryFeePaise, deliveryPincodes, paymentMethods, gstStatus, paymentGateway };
 }
 
+export function resolveIndiaGstStatus(configuredStatus, taxProfile) {
+  if (configuredStatus === "not_registered") return "not_registered";
+  if (configuredStatus !== "registered" || !taxProfile) return "unconfigured";
+  const registrationNumber = String(taxProfile.registration_number || "").trim();
+  const sellerState = String(taxProfile.seller_state || "").trim();
+  const taxRateBps = Number(taxProfile.tax_rate_bps);
+  const validProfile = taxProfile.currency === "INR" &&
+    registrationNumber.length > 0 &&
+    sellerState.length > 0 &&
+    Number.isSafeInteger(taxRateBps) &&
+    taxRateBps > 0 && taxRateBps <= 10000;
+  return validProfile ? "registered" : "unconfigured";
+}
+
 export function calculateIndiaTotals(subtotalPaise, deliveryFeePaise, taxRateBps = 0) {
   for (const [name, value] of [["subtotal", subtotalPaise], ["delivery fee", deliveryFeePaise], ["tax rate", taxRateBps]]) {
     if (!Number.isSafeInteger(value) || value < 0) throw new TypeError(`${name} must be a non-negative safe integer`);
