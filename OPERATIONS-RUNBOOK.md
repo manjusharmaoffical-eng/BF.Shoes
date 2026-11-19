@@ -58,6 +58,6 @@ Vercel preview and production builds do **not** run database migrations by defau
 
 After the operator has confirmed that `DATABASE_URL` points to the intended BF SHOES database, run `npm run schema-check`. The checker compares all schema-defined public tables, columns and indexes with PostgreSQL inside a `BEGIN READ ONLY` transaction. It never applies migrations or changes data. A mismatch report must be reviewed before any migration; do not point it at an unverified production database.
 
-### Current additive schema delta (not applied)
+### Current schema verification
 
-The latest read-only drift check against the locally configured Neon connection found only `customer_wishlist`, `customer_wishlist_customer_created_idx`, and `product_images.view_angle` missing from the expected schema. A focused idempotent SQL delta is recorded at `migrations/2026-11-17-wishlist-and-gallery-view-angle.sql`. This connection has not been proven to be the production database; do not apply the file until the target host/database is confirmed and a verified backup exists.
+The latest read-only schema check on the locally configured database reports 32 expected tables and 57 expected indexes, with no missing tables, columns, or indexes (`in_sync: true`). This confirms the schema is in sync with the connection used for that check; it does not independently prove that the connection is the production database. The historical additive migration `migrations/2026-11-17-wishlist-and-gallery-view-angle.sql` remains in the repository for audit history and must not be replayed against production without first confirming the target database and reviewing backup/restore readiness.
