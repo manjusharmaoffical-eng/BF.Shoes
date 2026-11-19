@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { hideUnverifiedPriceClaims } from "../src/storefront-policies.js";
 import { readFileSync } from "node:fs";
 
 const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
@@ -49,3 +50,31 @@ test("storefront and admin clearly label pending physical stock counts", () => {
   assert.match(app, /Stock verification pending/);
   assert.match(admin, /Pending physical count/);
 });
+
+test("public catalog removes unverified currency amounts from product descriptions and attributes", () => {
+  const product = {
+    name: "BF SPEED RUN",
+    description: "Classic black-and-white sneaker. Owner-confirmed selling price ₹699 INR. Size variants still need setup.",
+    short_description: "Verified India price ₹777. Sizes and stock pending setup.",
+    attributes: {
+      design_detail: "India catalog entry. Owner-confirmed selling price ₹699 INR. Black-and-white finish.",
+      fit_notes: "Use UK size guide.",
+      gallery_views: ["front", "back"],
+      promo_note: "Limited offer ₹ 1,000 pending verification."
+    },
+    price_cents: null,
+    mrp_cents: null,
+    price_pending_conversion: true
+  };
+  const safe = hideUnverifiedPriceClaims(product);
+  assert.equal(safe.description, "Classic black-and-white sneaker. Size variants still need setup.");
+  assert.equal(safe.short_description, "Sizes and stock pending setup.");
+  assert.equal(safe.attributes.design_detail, "India catalog entry. Black-and-white finish.");
+  assert.equal(safe.attributes.fit_notes, "Use UK size guide.");
+  assert.deepEqual(safe.attributes.gallery_views, ["front", "back"]);
+  assert.equal(Object.hasOwn(safe.attributes, "promo_note"), false);
+  assert.equal(safe.price_cents, null);
+  assert.equal(safe.mrp_cents, null);
+});
+
+[executed on device: localhost (b60a640a-1f7c-4aa3-9adb-03323a022350)]

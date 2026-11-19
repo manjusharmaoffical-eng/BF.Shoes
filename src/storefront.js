@@ -1,7 +1,7 @@
 import express from "express";
 import { z } from "zod";
 import { pool } from "./db.js";
-import { aggregateStorefrontItems, storefrontRequestFingerprint } from "./storefront-policies.js";
+import { aggregateStorefrontItems, hideUnverifiedPriceClaims, storefrontRequestFingerprint } from "./storefront-policies.js";
 import { deliverEmail } from "./email.js";
 import { parseIndiaMarketEnv, calculateIndiaTotals, resolveIndiaGstStatus } from "./india-market-policy.js";
 import { randomBytes } from "node:crypto";
@@ -165,8 +165,9 @@ storefrontRouter.get("/products", async (req, res, next) => {
       : process.env.UAE_PRICING_VERIFIED === "true";
     const products = result.rows.map(product => {
       const priceVerified = pricingVerified && !product.price_pending_conversion;
+      const safeProduct = priceVerified ? product : hideUnverifiedPriceClaims(product);
       return {
-        ...product,
+        ...safeProduct,
         // Never disclose stored INR/AED amounts through the public API until
         // the owner has verified the selected market's actual selling prices.
         price_cents: priceVerified ? product.price_cents : null,
@@ -875,3 +876,5 @@ storefrontRouter.post("/orders", async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: "Please check your checkout details", details: parsed.error.flatten() });
   return res.status(503).json({ error: "Direct order creation is disabled. Use the market-specific PayU or PayTabs route only after the owner verifies checkout setup." });
 });
+
+[executed on device: localhost (b60a640a-1f7c-4aa3-9adb-03323a022350)]
