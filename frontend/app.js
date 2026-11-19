@@ -585,6 +585,10 @@
 
   function updateCheckoutMarketForm() {
     const isIndia = state.market === 'IN';
+    const deliveryHeading = $('#market-delivery-heading');
+    if (deliveryHeading) deliveryHeading.textContent = isIndia ? 'INDIA DELIVERY' : 'UAE DELIVERY';
+    const deliveryDetail = $('#market-delivery-detail');
+    if (deliveryDetail) deliveryDetail.textContent = isIndia ? 'PIN 500052 · Delivery fee pending confirmation' : 'UAE delivery coverage and fee pending confirmation';
     const countryLabel = $('#shipping-country-label');
     if (countryLabel) countryLabel.value = isIndia ? 'India' : 'United Arab Emirates';
     $('#india-pin-field')?.classList.toggle('hidden', !isIndia);
@@ -869,8 +873,6 @@
     state.pendingCheckout = null;
     state.selectedSizes = {};
     try { localStorage.setItem('bf-market', state.market); } catch {}
-    const deliveryNote = $('#market-delivery-note');
-    if (deliveryNote) deliveryNote.textContent = state.market === 'IN' ? 'Delivery to PIN 500052' : 'UAE delivery setup pending';
     const selectedCountry = $('#shipping-country');
     if (selectedCountry) selectedCountry.value = state.market;
     updateCheckoutMarketForm();
@@ -881,8 +883,6 @@
   });
   if ($('#market-selector')) $('#market-selector').value = state.market;
   updateCheckoutMarketForm();
-  const initialDeliveryNote = $('#market-delivery-note');
-  if (initialDeliveryNote) initialDeliveryNote.textContent = state.market === 'IN' ? 'Delivery to PIN 500052' : 'UAE delivery setup pending';
   renderCart();
   loadCheckoutReadiness();
   loadActiveCampaign();
