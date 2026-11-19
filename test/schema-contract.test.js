@@ -283,5 +283,5 @@ test("unverified, missing or non-positive product prices never become a zero-pri
   assert.match(app, /priceReady \? money\(product\.price_cents, product\.currency\) : 'Price verification pending'/);
   assert.match(app, /const moneyLine = priceReady/);
   assert.match(app, /const mrpLine = priceReady && Number\.isSafeInteger\(mrpCents\)/);
-  assert.match(app, /Number\(product\.stock_qty\) <= 0 \|\| !priceReady/);
+  assert.match(app, /Number\(variant\.stock_qty\) <= 0 \|\| !priceReady/);
 });
