@@ -21,7 +21,9 @@ test("variant stock defaults to unverified and the migration is additive", () =>
 test("public catalog never advertises unverified quantities or unverified market prices", () => {
   assert.match(storefront, /CASE WHEN v\.stock_verified THEN v\.stock_qty ELSE 0 END/);
   assert.match(storefront, /'stock_verified', v\.stock_verified/);
-  assert.match(storefront, /price_pending_conversion: !pricingVerified \|\| product\.price_pending_conversion/);
+  assert.match(storefront, /price_pending_conversion: !priceVerified/);
+  assert.match(storefront, /price_cents: priceVerified \? product\.price_cents : null/);
+  assert.match(storefront, /mrp_cents: priceVerified \? product\.mrp_cents : null/);
 });
 
 test("all shopper and staff order paths reject stock without a physical verification", () => {

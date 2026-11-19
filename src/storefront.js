@@ -163,11 +163,18 @@ storefrontRouter.get("/products", async (req, res, next) => {
     const pricingVerified = currency === "INR"
       ? process.env.INDIA_PRICING_VERIFIED === "true"
       : process.env.UAE_PRICING_VERIFIED === "true";
-    const products = result.rows.map(product => ({
-      ...product,
-      price_verified: pricingVerified && !product.price_pending_conversion,
-      price_pending_conversion: !pricingVerified || product.price_pending_conversion
-    }));
+    const products = result.rows.map(product => {
+      const priceVerified = pricingVerified && !product.price_pending_conversion;
+      return {
+        ...product,
+        // Never disclose stored INR/AED amounts through the public API until
+        // the owner has verified the selected market's actual selling prices.
+        price_cents: priceVerified ? product.price_cents : null,
+        mrp_cents: priceVerified ? product.mrp_cents : null,
+        price_verified: priceVerified,
+        price_pending_conversion: !priceVerified
+      };
+    });
     res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
     res.json({ data: products, market, currency });
   } catch (err) { next(err); }
