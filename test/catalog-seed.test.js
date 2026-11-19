@@ -8,11 +8,11 @@ const admin = await readFile(new URL("../frontend/admin.js", import.meta.url), "
 const html = await readFile(new URL("../frontend/index.html", import.meta.url), "utf8");
 const assets = await readdir(new URL("../frontend/assets/catalog/", import.meta.url));
 
-test("catalog seeds 16 men's and women's styles in INR and AED", () => {
+test("catalog seeds 24 men's and women's styles in INR and AED", () => {
   assert.match(schema, /BF SHOES initial men and women footwear catalog/);
   assert.match(schema, /VALUES \('INR',69900,99900,'IN'\),\('AED',2725,3900,'AE'\)/);
   assert.match(schema, /ON CONFLICT \(slug\) DO NOTHING/);
-  assert.equal((schema.match(/\('(men|women)-[a-z-]+','BF /g) || []).length, 16);
+  assert.equal((schema.match(/\('(men|women)-[a-z-]+','BF /g) || []).length, 24);
 });
 
 test("MRP is supported and inventory is not invented", () => {
@@ -27,12 +27,18 @@ test("MRP is supported and inventory is not invented", () => {
 });
 
 test("all product illustrations carry BF branding and filters", async () => {
-  assert.equal(assets.length, 16);
+  assert.equal(assets.length, 24);
   for (const file of assets) {
     const svg = await readFile(new URL("../frontend/assets/catalog/" + file, import.meta.url), "utf8");
     assert.match(svg, /BF SHOES/);
     assert.match(svg, />BF<\/text>/);
   }
-  assert.match(html, /data-category-jump="heels"/);
-  assert.match(html, /data-category="stiletto"/);
+  assert.doesNotMatch(html, /data-category-jump=|data-category=/);
+  assert.doesNotMatch(html, /id="catalog-sidebar"|id="mobile-filter-trigger"|id="product-sort"/);
+});
+
+
+test('catalog illustration URLs use the primary BF SHOES domain for VPS portability', () => {
+  assert.match(schema, /https:\/\/www\.bfshoes\.online\/assets\/catalog\//);
+  assert.doesNotMatch(schema, /bf-shoes\.vercel\.app\/assets\/catalog/);
 });

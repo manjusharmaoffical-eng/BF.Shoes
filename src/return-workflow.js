@@ -39,14 +39,3 @@ export function validateReturnItems(requestedItems, orderItems, requestType) {
     return { order_item_id: original.id, quantity: item.quantity, requested_size: requestType === 'exchange' ? requestedSize : '' };
   });
 }
-
-export const RETURN_WINDOW_MS = 12 * 60 * 60 * 1000;
-
-export function isWithinReturnWindow(deliveredAt, now = Date.now()) {
-  const deliveredTime = new Date(deliveredAt).getTime();
-  const currentTime = Number(now);
-  return Number.isFinite(deliveredTime) &&
-    Number.isFinite(currentTime) &&
-    currentTime >= deliveredTime &&
-    currentTime <= deliveredTime + RETURN_WINDOW_MS;
-}

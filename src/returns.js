@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { pool } from './db.js';
 import { authenticate, requireScope } from './auth.js';
 import { getCustomerSession } from './customer-auth.js';
-import { canTransitionReturnStatus, isWithinReturnWindow, RETURN_STATUSES, validateReturnItems } from './return-workflow.js';
+import { canTransitionReturnStatus, RETURN_STATUSES, validateReturnItems } from './return-workflow.js';
+import { deliverEmail } from './email.js';
 
 export const returnsRouter = express.Router();
 
@@ -28,7 +29,7 @@ returnsRouter.post('/', async (req, res, next) => {
     client = await pool.connect();
     await client.query('BEGIN');
     const orderResult = await client.query(
-      `SELECT o.id,o.order_number,o.status,o.currency,o.shipping_country,COALESCE(o.delivered_at,o.updated_at) AS delivered_at
+      `SELECT o.id,o.order_number,o.status,o.currency,o.shipping_country,o.customer_email
        FROM orders o JOIN customer_accounts c ON lower(c.email)=lower(o.customer_email)
        WHERE o.order_number=$1 AND c.id=$2 AND c.active=true FOR UPDATE OF o`,
       [parsed.data.order_number, session.row.id]
@@ -36,7 +37,6 @@ returnsRouter.post('/', async (req, res, next) => {
     const order = orderResult.rows[0];
     if (!order) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Order not found in your account.' }); }
     if (order.status !== 'delivered') { await client.query('ROLLBACK'); return res.status(409).json({ error: 'A return or exchange request can be submitted after the order is marked delivered.' }); }
-    if (!isWithinReturnWindow(order.delivered_at)) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'Return or exchange requests must be submitted within 12 hours after delivery.' }); }
     const existing = await client.query("SELECT id FROM return_requests WHERE order_id=$1 AND status NOT IN ('rejected','cancelled')", [order.id]);
     if (existing.rowCount) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'A return or exchange request already exists for this order.' }); }
     const orderItems = await client.query('SELECT id,quantity FROM order_items WHERE order_id=$1', [order.id]);
@@ -64,6 +64,14 @@ returnsRouter.post('/', async (req, res, next) => {
       [session.row.id, request.id]
     );
     await client.query('COMMIT');
+    try {
+      await deliverEmail({
+        kind: 'return_status_update',
+        recipient: order.customer_email,
+        subject: `BF SHOES ${request.request_type} request received for order #${order.order_number}`,
+        textBody: `Your BF SHOES ${request.request_type} request for order #${order.order_number} has been received and is waiting for review.\n\nNo refund, return fee or inventory change has been made. We will update you when the request is reviewed.`
+      });
+    } catch { /* Request creation must remain committed even if email queuing is unavailable. */ }
     return res.status(201).json({ data: { ...request, currency: order.currency, items }, message: 'Request submitted. No refund, fee or stock change has been made.' });
   } catch (err) {
     if (client) await client.query('ROLLBACK').catch(() => {});
@@ -126,7 +134,7 @@ returnsRouter.patch('/admin/:id', authenticate, requireScope('orders:write'), as
   try {
     client = await pool.connect();
     await client.query('BEGIN');
-    const found = await client.query('SELECT id,status FROM return_requests WHERE id=$1 FOR UPDATE', [req.params.id]);
+    const found = await client.query('SELECT r.id,r.status,o.customer_email,o.order_number FROM return_requests r JOIN orders o ON o.id=r.order_id WHERE r.id=$1 FOR UPDATE OF r', [req.params.id]);
     if (!found.rowCount) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Return request not found.' }); }
     const previous = found.rows[0];
     if (!canTransitionReturnStatus(previous.status, parsed.data.status)) {
@@ -149,6 +157,16 @@ returnsRouter.patch('/admin/:id', authenticate, requireScope('orders:write'), as
       [req.actor.id, req.params.id]
     );
     await client.query('COMMIT');
+    if (parsed.data.customer_message) {
+      try {
+        await deliverEmail({
+          kind: 'return_status_update',
+          recipient: previous.customer_email,
+          subject: `BF SHOES return/exchange request for order #${previous.order_number}`,
+          textBody: `Your BF SHOES return/exchange request for order #${previous.order_number} is now: ${parsed.data.status}.\n\nMessage from BF SHOES: ${parsed.data.customer_message}\n\nThis update does not itself issue a refund, charge a fee or change stock.`
+        });
+      } catch { /* Keep the review committed; queue failures must not roll it back. */ }
+    }
     return res.json({ data: updated.rows[0], message: 'Request status updated. No refund, fee or inventory change was triggered.' });
   } catch (err) {
     if (client) await client.query('ROLLBACK').catch(() => {});

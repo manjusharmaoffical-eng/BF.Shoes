@@ -51,5 +51,6 @@ test("all order creation and cancellation flows use the warehouse allocation led
   assert.match(storefront, /storefront_payu_paid/);
   assert.match(storefront, /storefront_paytabs_paid/);
   assert.match(storefront, /storefront_binance_paid/);
-  assert.match(storefront, /storefront_cod_order/);
+  assert.doesNotMatch(storefront, /storefront_cod_order/);
+  assert.match(storefront, /Direct order creation is disabled/);
 });

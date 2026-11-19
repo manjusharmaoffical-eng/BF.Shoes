@@ -29,13 +29,15 @@ test('admin mobile form controls remain touch-friendly', () => {
 });
 
 
-test('homepage category pills and category cards actually filter the product catalogue', async () => {
+test('homepage has one main category navigation and removes only duplicate category links from the footer', async () => {
   const home = await readFile(new URL('../frontend/index.html', import.meta.url), 'utf8');
-  const app = await readFile(new URL('../frontend/app.js', import.meta.url), 'utf8');
-  for (const category of ['all', 'men', 'women', 'sports', 'casual']) {
-    assert.match(home, new RegExp('data-category-jump="' + category + '"'));
+  assert.doesNotMatch(home, /class="category-showcase"|data-category-jump=/);
+  const navStart = home.indexOf('<nav class="everyday-nav"');
+  const nav = home.slice(navStart, home.indexOf('</nav>', navStart) + 6);
+  const footerStart = home.indexOf('<div class="footer-bottom">');
+  const footer = home.slice(footerStart, home.indexOf('</div>', footerStart) + 6);
+  for (const href of ['/men.html','/women.html','/collections.html']) {
+    assert.equal(nav.split('href="' + href + '"').length - 1, 1);
+    assert.equal(footer.split('href="' + href + '"').length - 1, 0);
   }
-  assert.match(app, /\$\$\('\[data-category-jump\]'\)/);
-  assert.match(app, /state\.categories=category==='all'\?\[\]:\[category\]/);
-  assert.match(app, /input\.checked=state\.categories\.includes/);
 });

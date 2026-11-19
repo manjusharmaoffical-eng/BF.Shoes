@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { canTransitionReturnStatus, isWithinReturnWindow, validateReturnItems } from '../src/return-workflow.js';
+import { canTransitionReturnStatus, validateReturnItems } from '../src/return-workflow.js';
+import { readFile } from 'node:fs/promises';
 
 const orderItems = [
   { id: 'item-1', quantity: 2 },
@@ -50,12 +51,11 @@ test('return workflow does not initiate a refund, fee or inventory mutation', as
   assert.doesNotMatch(source, /UPDATE variants|INSERT INTO inventory_movements|refund_payment|createRefund/i);
 });
 
-test('return and exchange requests are accepted only within 12 hours after delivery', () => {
-  const delivered = Date.parse('2026-11-14T10:00:00.000Z');
-  const hour = 60 * 60 * 1000;
-  assert.equal(isWithinReturnWindow(delivered, delivered + 11 * hour), true);
-  assert.equal(isWithinReturnWindow(delivered, delivered + 12 * hour), true);
-  assert.equal(isWithinReturnWindow(delivered, delivered + 12 * hour + 1), false);
-  assert.equal(isWithinReturnWindow(delivered, delivered - 1), false);
-  assert.equal(isWithinReturnWindow('invalid-date', delivered), false);
+test('return requests do not impose an invented return window before owner policy is confirmed', async () => {
+  const workflow = await readFile(new URL('../src/return-workflow.js', import.meta.url), 'utf8');
+  const routes = await readFile(new URL('../src/returns.js', import.meta.url), 'utf8');
+  const policies = await readFile(new URL('../frontend/policies.html', import.meta.url), 'utf8');
+  assert.doesNotMatch(workflow, /RETURN_WINDOW|isWithinReturnWindow|12\s*\*\s*60/);
+  assert.match(routes, /order\.status !== 'delivered'/);
+  assert.match(policies, /return window, eligibility rules.*not yet configured/);
 });

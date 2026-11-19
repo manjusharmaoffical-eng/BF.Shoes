@@ -15,6 +15,8 @@ import { ultronRouter } from "./ultron.js";
 import { invoicesRouter } from "./invoices.js";
 import { warehouseRouter } from "./warehouse.js";
 import { returnsRouter } from "./returns.js";
+import { timingSafeEqual } from "node:crypto";
+import { processEmailOutbox } from "./email.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -72,6 +74,20 @@ async function healthCheck(_req, res) {
 }
 app.get("/health", healthCheck);
 app.get("/api/v1/health", healthCheck);
+app.get("/api/cron/email-outbox", async (req, res) => {
+  const secret = process.env.CRON_SECRET || "";
+  const supplied = req.get("authorization") || "";
+  const expected = secret ? `Bearer ${secret}` : "";
+  const authorized = secret.length >= 32 && supplied.length === expected.length && timingSafeEqual(Buffer.from(supplied), Buffer.from(expected));
+  if (!authorized) return res.status(secret ? 401 : 503).json({ error: "Scheduled worker is not available" });
+  try {
+    const result = await processEmailOutbox({ limit: 10 });
+    if (!result.configured) return res.status(503).json({ error: "Email provider is not configured", processed: 0 });
+    res.set("Cache-Control", "no-store").json({ data: result });
+  } catch {
+    res.status(500).json({ error: "Email queue processing failed" });
+  }
+});
 
 app.use("/api/v1/auth/login", rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false }));
 // Public storefront endpoints are deliberately separated from admin/integration routes.
@@ -85,6 +101,10 @@ app.use("/api/v1/customer-auth", customerAuthRouter);
 app.use("/api/v1/returns", returnsRouter);
 app.use("/api/v1/newsletter", rateLimit({ windowMs: 60 * 60_000, limit: 5, standardHeaders: "draft-7", legacyHeaders: false }), newsletterRouter);
 app.use("/api/v1/business", businessRouter);
+const aiCopyLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false });
+const aiImageLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 3, standardHeaders: "draft-7", legacyHeaders: false });
+app.use(["/api/v1/ai/product-copy", "/api/v1/ai-studio/product-copy"], aiCopyLimiter);
+app.use(["/api/v1/ai/product-image", "/api/v1/ai-studio/product-image"], aiImageLimiter);
 app.use("/api/v1/finance", financeRouter);
 app.use("/api/v1/ai", aiStudioRouter);
 app.use("/api/v1/ai-studio", aiStudioRouter);
@@ -93,6 +113,7 @@ app.use("/api/v1/invoices", invoicesRouter);
 app.use("/api/v1/warehouse", warehouseRouter);
 app.use("/api/v1", router);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+app.get("/admin", (_req, res) => res.sendFile(path.resolve(__dirname, "../frontend/admin.html")));
 app.get("/favicon.ico", (_req, res) => res.redirect(302, "/favicon.svg"));
 app.use(express.static(path.resolve(__dirname, "../frontend"), { index: "index.html", maxAge: process.env.NODE_ENV === "production" ? "1h" : 0 }));
 app.use((_req, res) => res.status(404).json({ error: "Not found" }));

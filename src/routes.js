@@ -8,6 +8,8 @@ import { canTransitionOrder, orderRequestFingerprint } from "./policies.js";
 import { allocateOrderWarehouseStock, restoreOrderWarehouseStock } from "./warehouse-stock.js";
 
 export const router = express.Router();
+const isOwner = actor => actor?.type === "admin" && actor?.role === "admin";
+const INTEGRATION_SCOPES = ALL_SCOPES.filter(scope => scope !== "keys:write");
 
 const DUMMY_PASSWORD_HASH = await bcrypt.hash("not-a-real-bf-shoes-password", 12);
 
@@ -99,11 +101,16 @@ router.get("/products", authenticate, requireScope("products:read"), async (req,
        GROUP BY p.id ORDER BY p.created_at DESC LIMIT 200`,
       [req.actor.role === "admin"]
     );
-    res.json({ data: result.rows });
+    const products = result.rows.map(product => {
+      if (!isOwner(req.actor)) delete product.unit_cost_cents;
+      return product;
+    });
+    res.json({ data: products });
   } catch (err) { next(err); }
 });
 
 router.post("/products", authenticate, requireScope("products:write"), async (req, res, next) => {
+  if (!isOwner(req.actor) && Object.hasOwn(req.body || {}, "unit_cost_cents")) return res.status(403).json({ error: "Only the owner can record actual product unit costs" });
   const parsed = productSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid product", details: parsed.error.flatten() });
   const p = parsed.data;
@@ -121,7 +128,9 @@ router.post("/products", authenticate, requireScope("products:write"), async (re
       [req.actor.type, req.actor.id, "product.create", "product", result.rows[0].id]
     );
     await client.query("COMMIT");
-    res.status(201).json({ data: result.rows[0] });
+    const created = { ...result.rows[0] };
+    if (!isOwner(req.actor)) delete created.unit_cost_cents;
+    res.status(201).json({ data: created });
   } catch (err) {
     if (client) await client.query("ROLLBACK").catch(() => {});
     if (err.code === "23505") return res.status(409).json({ error: "Product slug already exists" });
@@ -146,11 +155,12 @@ const productUpdateSchema = z.object({
   active: z.boolean().optional()
 }).strict().refine(v => Object.keys(v).length > 0);
 router.patch("/products/:id", authenticate, requireScope("products:write"), async (req,res,next) => {
+ if(!isOwner(req.actor) && Object.hasOwn(req.body || {}, "unit_cost_cents")) return res.status(403).json({error:"Only the owner can update actual product unit costs"});
  const parsed=productUpdateSchema.safeParse(req.body);
  if(!parsed.success)return res.status(400).json({error:"Invalid product update",details:parsed.error.flatten()});
  const entries=Object.entries(parsed.data),values=entries.map(([,v])=>v),sets=entries.map(([k],i)=>`${k}=$${i+1}`);
  values.push(req.params.id);
- try{const result=await pool.query(`UPDATE products SET ${sets.join(", ")},updated_at=now() WHERE id=$${values.length} RETURNING id,name,slug,description,short_description,seo_title,seo_description,brand,image_url,price_cents,mrp_cents,unit_cost_cents,currency,active,updated_at`,values);if(!result.rowCount)return res.status(404).json({error:"Product not found"});await pool.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES($1,$2,'product.update','product',$3)",[req.actor.type,req.actor.id,result.rows[0].id]);res.json({data:result.rows[0]})}catch(err){next(err)}
+ try{const result=await pool.query(`UPDATE products SET ${sets.join(", ")},updated_at=now() WHERE id=$${values.length} RETURNING id,name,slug,description,short_description,seo_title,seo_description,brand,image_url,price_cents,mrp_cents,unit_cost_cents,currency,active,updated_at`,values);if(!result.rowCount)return res.status(404).json({error:"Product not found"});await pool.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES($1,$2,$3,'product',$4)",[req.actor.type,req.actor.id,Object.hasOwn(parsed.data,"unit_cost_cents")?"product.cost.update":"product.update",result.rows[0].id]);const updated={...result.rows[0]};if(!isOwner(req.actor))delete updated.unit_cost_cents;res.json({data:updated})}catch(err){next(err)}
 });
 
 const variantSchema = z.object({
@@ -191,7 +201,7 @@ router.post("/products/:id/variants", authenticate, requireScope("products:write
 router.get("/inventory", authenticate, requireScope("inventory:read"), async (req, res, next) => {
   try {
     const result = await pool.query(
-      `SELECT v.id, v.sku, v.size_label, v.color_name, v.stock_qty, v.active,
+      `SELECT v.id, v.sku, v.size_label, v.color_name, v.stock_qty, v.stock_verified, v.active,
               p.id AS product_id, p.name AS product_name
        FROM variants v JOIN products p ON p.id=v.product_id
        ORDER BY p.name, v.size_label, v.color_name LIMIT 500`
@@ -204,6 +214,35 @@ const stockSchema = z.object({
   delta: z.number().int().min(-1000000).max(1000000).refine(v => v !== 0),
   reason: z.string().trim().min(3).max(200)
 });
+router.put("/inventory/:sku/count", authenticate, requireScope("inventory:write"), async (req, res, next) => {
+  const parsed = z.object({
+    stock_qty: z.number().int().min(0).max(1000000),
+    reason: z.string().trim().min(3).max(200)
+  }).strict().safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid physical stock count", details: parsed.error.flatten() });
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query("BEGIN");
+    const found = await client.query("SELECT id,stock_qty FROM variants WHERE sku=$1 FOR UPDATE", [req.params.sku]);
+    if (!found.rowCount) { await client.query("ROLLBACK"); return res.status(404).json({ error: "SKU not found" }); }
+    const allocated = await client.query("SELECT COALESCE(sum(quantity),0)::int AS quantity FROM warehouse_inventory WHERE variant_id=$1", [found.rows[0].id]);
+    if (parsed.data.stock_qty < Number(allocated.rows[0].quantity)) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "Counted stock cannot be lower than warehouse-assigned units.", allocated: Number(allocated.rows[0].quantity) });
+    }
+    const delta = parsed.data.stock_qty - Number(found.rows[0].stock_qty);
+    const updated = await client.query("UPDATE variants SET stock_qty=$1,stock_verified=true,updated_at=now() WHERE id=$2 RETURNING *", [parsed.data.stock_qty, found.rows[0].id]);
+    if (delta !== 0) await client.query("INSERT INTO inventory_movements(variant_id,delta,reason,actor_admin_id) VALUES($1,$2,$3,$4)", [found.rows[0].id,delta,"physical_count:"+parsed.data.reason,req.actor.type === "admin" ? req.actor.id : null]);
+    await client.query("INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES($1,$2,'inventory.stock.verified','variant',$3)", [req.actor.type,req.actor.id,String(found.rows[0].id)]);
+    await client.query("COMMIT");
+    return res.json({ data: updated.rows[0], delta, verified: true });
+  } catch (err) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
+    next(err);
+  } finally { client?.release(); }
+});
+
 router.patch("/inventory/:sku", authenticate, requireScope("inventory:write"), async (req, res, next) => {
   const parsed = stockSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid stock adjustment", details: parsed.error.flatten() });
@@ -219,7 +258,7 @@ router.patch("/inventory/:sku", authenticate, requireScope("inventory:write"), a
     const nextQty = result.rows[0].stock_qty + parsed.data.delta;
     if (nextQty < 0) { await client.query("ROLLBACK"); return res.status(409).json({ error: "Stock cannot be negative" }); }
     const updated = await client.query(
-      "UPDATE variants SET stock_qty=$1, updated_at=now() WHERE id=$2 RETURNING *",
+      "UPDATE variants SET stock_qty=$1, stock_verified=true, updated_at=now() WHERE id=$2 RETURNING *",
       [nextQty, result.rows[0].id]
     );
     await client.query(
@@ -270,7 +309,7 @@ router.post("/orders", authenticate, requireScope("orders:write"), async (req, r
         if (existing.rows[0].request_fingerprint !== fingerprint) {
           return res.status(409).json({ error: "Idempotency-Key was already used for a different request" });
         }
-        const replayItems = await client.query("SELECT * FROM order_items WHERE order_id=$1 ORDER BY id", [existing.rows[0].id]);
+        const replayItems = await client.query("SELECT id,order_id,variant_id,sku,product_name,size_label,color_name,unit_price_cents,quantity,line_total_cents FROM order_items WHERE order_id=$1 ORDER BY id", [existing.rows[0].id]);
         return res.status(200).json({ data: { ...existing.rows[0], items: replayItems.rows }, idempotent_replay: true });
       }
     }
@@ -279,7 +318,7 @@ router.post("/orders", authenticate, requireScope("orders:write"), async (req, r
     for (const item of parsed.data.items) quantities.set(item.sku, (quantities.get(item.sku) || 0) + item.quantity);
     const skus = [...quantities.keys()].sort();
     const found = await client.query(
-      `SELECT v.id AS variant_id, v.sku, v.size_label, v.color_name, v.stock_qty,
+      `SELECT v.id AS variant_id, v.sku, v.size_label, v.color_name, v.stock_qty, v.stock_verified,
               v.active AS variant_active, p.name AS product_name, p.price_cents, p.unit_cost_cents, p.currency, p.active AS product_active
        FROM variants v JOIN products p ON p.id=v.product_id
        WHERE v.sku = ANY($1::text[]) ORDER BY v.sku FOR UPDATE OF v`,
@@ -291,6 +330,7 @@ router.post("/orders", authenticate, requireScope("orders:write"), async (req, r
     for (const [sku, qty] of quantities) {
       const v = bySku.get(sku);
       if (!v.variant_active || !v.product_active) { await client.query("ROLLBACK"); return res.status(409).json({ error: `SKU unavailable: ${sku}` }); }
+      if (!v.stock_verified) { await client.query("ROLLBACK"); return res.status(409).json({ error: `Stock for ${sku} has not been physically verified yet.` }); }
       if (v.stock_qty < qty) { await client.query("ROLLBACK"); return res.status(409).json({ error: `Insufficient stock for ${sku}`, available: v.stock_qty }); }
       subtotal += v.price_cents * qty;
       if (!Number.isSafeInteger(subtotal) || subtotal > 2000000000) { await client.query("ROLLBACK"); return res.status(400).json({ error: "Order total exceeds limit" }); }
@@ -319,7 +359,8 @@ router.post("/orders", authenticate, requireScope("orders:write"), async (req, r
         [v.variant_id, -qty, "order_created", order.id]
       );
       await allocateOrderWarehouseStock(client, { orderId: order.id, variantId: v.variant_id, quantity: qty, reason: "order_created", actorAdminId: req.actor.type === "admin" ? req.actor.id : null });
-      items.push(item.rows[0]);
+      const { unit_cost_cents: _internalCost, ...customerSafeItem } = item.rows[0];
+      items.push(customerSafeItem);
     }
     await client.query(
       "INSERT INTO audit_events(actor_type, actor_id, action, resource_type, resource_id) VALUES($1,$2,$3,$4,$5)",
@@ -335,7 +376,7 @@ router.post("/orders", authenticate, requireScope("orders:write"), async (req, r
         if (existing.rows[0].request_fingerprint !== fingerprint) {
           return res.status(409).json({ error: "Idempotency-Key was already used for a different request" });
         }
-        const replayItems = await pool.query("SELECT * FROM order_items WHERE order_id=$1 ORDER BY id", [existing.rows[0].id]);
+        const replayItems = await pool.query("SELECT id,order_id,variant_id,sku,product_name,size_label,color_name,unit_price_cents,quantity,line_total_cents FROM order_items WHERE order_id=$1 ORDER BY id", [existing.rows[0].id]);
         return res.status(200).json({ data: { ...existing.rows[0], items: replayItems.rows }, idempotent_replay: true });
       }
     }
@@ -354,7 +395,7 @@ router.get("/orders/:id", authenticate, requireScope("orders:read"), async (req,
   try {
     const result = await pool.query("SELECT * FROM orders WHERE id=$1", [req.params.id]);
     if (!result.rowCount) return res.status(404).json({ error: "Order not found" });
-    const items = await pool.query("SELECT * FROM order_items WHERE order_id=$1", [req.params.id]);
+    const items = await pool.query("SELECT id,order_id,variant_id,sku,product_name,size_label,color_name,unit_price_cents,quantity,line_total_cents FROM order_items WHERE order_id=$1", [req.params.id]);
     res.json({ data: { ...result.rows[0], items: items.rows } });
   } catch (err) { next(err); }
 });
@@ -400,6 +441,14 @@ router.patch("/orders/:id/status", authenticate, requireScope("orders:write"), a
       [req.actor.type, req.actor.id, "order.status_change", "order", old.id]
     );
     await client.query("COMMIT");
+    try {
+      await deliverEmail({
+        kind: "order_status_update",
+        recipient: old.customer_email,
+        subject: `BF SHOES order #${old.order_number} update`,
+        textBody: `Your BF SHOES order #${old.order_number} status is now: ${nextStatus}. Track your order at ${process.env.PUBLIC_SITE_URL || "https://www.bfshoes.online"}/track-order.html.`
+      });
+    } catch { /* The order update must remain committed even if email queuing is unavailable. */ }
     res.json({ data: updated.rows[0] });
   } catch (err) { if (client) await client.query("ROLLBACK").catch(() => {}); next(err); }
   finally { client?.release(); }
@@ -411,9 +460,9 @@ router.post("/admin/api-keys", authenticate, requireScope("keys:write"), async (
   }
   const schema = z.object({
     label: z.string().trim().min(2).max(100),
-    scopes: z.array(z.enum(ALL_SCOPES)).min(1).max(ALL_SCOPES.length),
+    scopes: z.array(z.enum(INTEGRATION_SCOPES)).min(1).max(INTEGRATION_SCOPES.length),
     expires_at: z.string().datetime().optional()
-  });
+  }).refine(value => !value.expires_at || Date.parse(value.expires_at) > Date.now(), { message: "API key expiry must be in the future", path: ["expires_at"] });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid API key request", details: parsed.error.flatten() });
   const key = newApiKey();

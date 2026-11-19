@@ -41,7 +41,8 @@ test("schema.sql contains the required business tables and columns", () => {
 
 test("checkout schema accepts PayU and PayTabs behind market behind verification gates", async () => {
   const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
-  assert.match(storefront, /payment_method:\s*z\.enum\(\["cod", "payu", "payu_qr", "paytabs"\]\)/, "Checkout schema must accept COD, PayU or PayTabs");
+  assert.match(storefront, /payment_method:\s*z\.enum\(\["payu", "payu_qr", "paytabs", "cod"\]\)/, "Checkout schema must accept the supported online methods and COD");
+  assert.match(storefront, /storefrontRouter\.use\(codRouter\)/);
   assert.match(storefront, /India online checkout is configured for PayU only/);
   assert.match(storefront, /paymentProvider: "PayU"/);
   assert.match(storefront, /payuConfigured\(\)/);
@@ -76,9 +77,10 @@ test("public catalog exposes family and audience fields for customer filters", a
   assert.match(storefront, /to_jsonb\(p\)->>'audience'/);
   assert.match(storefront, /to_jsonb\(p\)->>'product_type'/);
   assert.match(storefront, /to_jsonb\(p\)->'attributes'/);
-  assert.match(app, /product\.audience/);
-  assert.match(html, /data-category="watches"/);
-  assert.match(html, /data-category="eyewear"/);
+  assert.doesNotMatch(app, /state\.categories|matchesCategory/);
+  assert.match(html, /href="\/watches\.html">WATCHES<\/a>/);
+  assert.match(html, /href="\/eyewear\.html">EYEWEAR<\/a>/);
+  assert.doesNotMatch(html, /data-category=/);
 });
 
 
@@ -109,7 +111,7 @@ test("homepage has one current BF hero and no duplicate legacy hero markup or im
   assert.equal((html.match(/<main\b/g) || []).length, 1);
   assert.equal((html.match(/<section class="hero hero-reference"/g) || []).length, 1);
   assert.match(html, /WELCOME TO BF SHOES/);
-  assert.match(html, /href="#footer">About/);
+  assert.match(html, /href="\/about\.html">About/);
   assert.match(css, /background-image:url\('\/assets\/bf-home-hero\.jpeg'\)/);
   assert.doesNotMatch(css, /images\.unsplash\.com|banner-left-shoe\.jpg/);
   assert.match(css, /#c8102e/);
@@ -136,7 +138,7 @@ test("homepage product cards use local BF artwork when catalog image URLs are mi
   const app = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8");
   const css = await readFile(new URL("../frontend/styles.css", import.meta.url), "utf8");
   assert.match(app, /FALLBACK_IMAGE\s*=\s*['"]\/assets\/bf-speed-run-product\.jpeg['"]/);
-  assert.match(app, /return candidate \|\| productFallback\(product\)/);
+  assert.match(app, /const productImage = product => normalizeImageUrl\(product\?\.image_url\) \|\| productFallback\(product\)/);
   assert.match(app, /const productFallback = product => \/speed\[- \]run\/i/);
   const placeholder = await readFile(new URL("../frontend/assets/bf-product-placeholder.svg", import.meta.url), "utf8");
   assert.match(placeholder, /BF/);
@@ -149,7 +151,7 @@ test("storefront catalog respects the active market currency", async () => {
   const app = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8");
   assert.ok(app.includes("const marketCurrency = state.market === 'AE' ? 'AED' : 'INR'"));
   assert.match(app, /const marketProducts = state\.products\.filter\(product => product\.currency === marketCurrency\)/);
-  assert.match(app, /state\.checkoutReady = Boolean\(indiaReady \|\| uaeReady\)/);
+  assert.match(app, /state\.checkoutReady = onlineReady \|\| codReady/);
 });
 
 
@@ -183,6 +185,14 @@ test("storefront exposes separate UAE and India market configuration with owner-
   assert.match(storefront, /const indiaCheckoutEnabled = process\.env\.INDIA_CHECKOUT_VERIFIED === "true"/);
   assert.match(storefront, /const uaeCheckoutEnabled = process\.env\.UAE_CHECKOUT_VERIFIED === "true"/);
   assert.doesNotMatch(storefront, /const (?:india|uae)CheckoutEnabled = true/);
+});
+
+test("public India GST status is not reported as registered before a valid tax profile exists", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  const marketPolicy = await readFile(new URL("../src/india-market-policy.js", import.meta.url), "utf8");
+  assert.match(marketPolicy, /export function resolveIndiaGstStatus/);
+  assert.match(storefront, /resolveIndiaGstStatus\(env\.gstStatus, taxProfile\)/);
+  assert.match(storefront, /gst_status: gstStatus/);
 });
 
 test("public product catalog selects currency by explicit market", async () => {
@@ -237,7 +247,7 @@ test("secure PayU checkout QR is transaction-specific, time-limited and status-c
   const app = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8");
   const html = await readFile(new URL("../frontend/index.html", import.meta.url), "utf8");
   const payPage = await readFile(new URL("../frontend/pay.js", import.meta.url), "utf8");
-  assert.match(storefront, /payment_method: z\.enum\(\["cod", "payu", "payu_qr", "paytabs"\]\)/);
+  assert.match(storefront, /payment_method: z\.enum\(\["payu", "payu_qr", "paytabs", "cod"\]\)/);
   assert.match(storefront, /randomBytes\(24\)\.toString\("hex"\)/);
   assert.match(storefront, /qr_expires_at/);
   assert.match(storefront, /qrUrl\.hash/);
@@ -247,7 +257,8 @@ test("secure PayU checkout QR is transaction-specific, time-limited and status-c
   assert.match(storefront, /storefrontRouter\.get\("\/payments\/payu\/qr"/);
   assert.match(storefront, /storefrontRouter\.get\("\/payments\/payu\/qr-status"/);
   assert.match(storefront, /order_reservations WHERE order_id=\$1/);
-  assert.match(app, /payment_method: state\.market === 'AE' \? 'paytabs' : String\(formData\.get\('payment_method'\)/);
+  assert.match(app, /payment_method: String\(formData\.get\('payment_method'\)/);
+  assert.match(app, /payload\.payment_method === 'cod'/);
   assert.match(app, /payu-qr-status/);
   assert.match(html, /value="payu_qr"/);
   assert.match(payPage, /https:\/\/secure\.payu\.in\/_payment/);

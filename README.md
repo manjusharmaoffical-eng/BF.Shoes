@@ -4,11 +4,11 @@ Express API, storefront, admin dashboard, PostgreSQL schema, inventory/order wor
 
 ## Current deployment requirements
 
-- Node.js 22+ or Docker with Compose.
+- Node.js 24+ or Docker with Compose.
 - PostgreSQL reachable from the API; keep database credentials server-side.
 - A strong `JWT_SECRET` (at least 32 bytes).
 - A public domain and TLS reverse proxy for production. The Compose file binds the API to `127.0.0.1:3000` so it is not directly exposed to the Internet.
-- Optional `OPENAI_API_KEY` for AI copy/image generation; optional Cloudinary credentials for persistent generated-image hosting; optional Resend `RESEND_API_KEY` and verified `EMAIL_FROM` for email.
+- Optional `OPENAI_API_KEY` for AI copy/image generation; optional Cloudinary credentials for persistent generated-image hosting; optional Resend `RESEND_API_KEY` and verified `EMAIL_FROM` for email. Scheduled email delivery uses the daily Vercel Cron job in `vercel.json` (03:17 UTC; Hobby-compatible); set a random `CRON_SECRET` of at least 32 bytes in the deployment environment. A Pro plan can support more frequent runs if later configured. Without Resend credentials the outbox safely remains queued.
 
 ## Configure a new environment
 
@@ -41,8 +41,9 @@ The Docker image copies both `src/` and `frontend/`; without the frontend assets
 - Storefront is configured for INR and delivery PIN 500052 only. No other PIN is accepted.
 - Existing catalog rows priced in AED are not modified or silently relabelled as INR. The catalog flags these products as requiring price conversion, and checkout stays disabled until active product prices are verified and entered in INR.
 - Set `INDIA_DELIVERY_FEE_PAISE` only to the actual confirmed fee (100 paise = INR 1). Keep it blank until confirmed; zero means explicitly free delivery, not an unknown fee.
-- India online checkout is configured for PayU Hosted Checkout only. Do not use Razorpay or silently fall back to COD. PayU remains disabled until merchant credentials, verified INR pricing, the confirmed delivery fee, the active GST profile and end-to-end payment verification are complete.
-- Set `INDIA_GST_STATUS=registered` only after confirming the seller is GST-registered and creating exactly one active `IN_GST` profile with the correct GSTIN, seller state, INR currency and legally applicable rate; use `not_registered` only when verified. The app does not invent a GST rate or tax profile.
+- Keep India tax and payment setup in a pending/unconfigured state while the owner is an individual seller preparing to register in India. The admin workflow must not invent a GSTIN, seller state, tax rate, delivery fee, or merchant status.
+- Payment provider modules and verification logic exist in the codebase, but merchant onboarding and live credentials are not complete. Keep online payment and checkout gated until the owner has a merchant account, supplies verified commercial/tax settings through secure provider/admin settings, and completes sandbox plus end-to-end verification.
+- After GST registration, set `INDIA_GST_STATUS=registered` only with a verified GSTIN, seller state, INR currency and legally applicable rate in the tax profile. The app must not invent a GST rate or tax profile.
 
 ## Feature configuration
 
@@ -50,7 +51,7 @@ The Docker image copies both `src/` and `frontend/`; without the frontend assets
 - Email delivery requires a Resend API key and a verified `EMAIL_FROM` sender. Without these, notification messages are queued but not sent.
 - Finance & P/L reports are scoped to INR orders, INR expenses and INR funding. AED amounts are not converted or mixed into the India report. Funding records now carry an explicit currency. Reports are estimates from recorded product costs, delivered orders, expenses, and paid interest; missing product costs mean final profit is intentionally marked incomplete. If there are no delivered INR orders, the dashboard says so instead of implying historical AED sales are INR.
 - Tax invoice profiles require correct legal seller details and jurisdiction-specific rates; validate statutory compliance before issuing invoices.
-- **Live India checkout remains gated off until all catalog prices are verified in INR, the actual delivery fee for PIN 500052 is configured, the seller GST status and active GST profile (real GSTIN, seller state and applicable rate) are verified, and GST is correctly calculated and invoiced.** Do not accept live orders until `/api/v1/store/config` reports `checkout_ready: true` and PayU sandbox callback, Verify Payment, duplicate-callback and stock-reservation tests have passed.
+- **Live India checkout remains gated off until all catalog prices are verified in INR, the actual delivery fee for PIN 500052 is configured, COD support is confirmed, and the seller GST status plus the active GST profile (real GSTIN, seller state and applicable rate) are verified.** Do not accept live orders until `/api/v1/store/config` reports `checkout_ready: true` and an end-to-end test has been completed.
 
 ## Development checks
 
@@ -60,13 +61,16 @@ git diff --check
 ````
 
 
-### Online payments (India — PayU)
-India's selected gateway is PayU Hosted Checkout. The server creates a transaction with a SHA-512 request hash, posts the customer to PayU's hosted payment page, validates the reverse response hash, and confirms successful transactions server-side through PayU's Verify Payment API. The transaction is protected with order idempotency and stock reservations. Do not mark an order paid from a browser redirect alone.
+### Online payments and live checkout
+Payment gateway modules include provider-side order/signature/webhook validation, but no merchant account or live credentials have been confirmed for BF SHOES. Do not mark an order paid or accept live checkout until merchant onboarding is complete, credentials are stored in the hosting provider's secure environment settings, and sandbox plus authenticated end-to-end verification passes. Keep GST/VAT profiles and delivery charges pending until the owner supplies verified values. Checkout must remain gated while any required commercial setting is unknown.
 
-Keep `PAYU_ENABLED=false`, `INDIA_CHECKOUT_VERIFIED=false`, and checkout disabled until the PayU merchant account is verified, Test Key/Salt are stored in Vercel Environment Variables, and a successful test transaction plus callback/verification checks have passed. Use `PAYU_ENV=test` for testing; switch to `production` only after PayU approves the merchant account and live credentials are issued. Never put the merchant Salt in frontend code or a URL. Both endpoints validate PayU's reverse SHA-512 response hash and verify successful transactions server-side; the webhook endpoint returns an HTTP acknowledgement for PayU retries. Register these public HTTPS endpoints in the PayU dashboard when merchant access is available: callback `https://bfshoes.online/api/v1/store/payments/payu/callback` and webhook `https://bfshoes.online/api/v1/store/payments/payu/webhook`.
+## Self-hosted deployment
 
-PayU references:
-- Hosted Checkout: https://docs.payu.in/docs/prebuilt-checkout-page-integration
-- Hashing and reverse-hash validation: https://docs.payu.in/docs/hashing-request-and-response
-- Test integration: https://docs.payu.in/docs/test-integration
-- Production checklist: https://docs.payu.in/docs/integration-checklist-merchant-hosted-checkout
+A Docker Compose deployment path with PostgreSQL, health checks, private networking and a separate migration step is documented in `VPS-DEPLOYMENT.md`. It is prepared only; do not point DNS or move production data until a VPS is selected and a verified restore/cutover drill is approved.
+
+
+### PayU hosted checkout and QR
+
+India's selected provider is PayU Hosted Checkout. The implementation supports request/reverse SHA-512 hash validation, server-side payment verification, callback/webhook reconciliation, idempotent payment attempts, stock reservations, and time-limited QR handoff. PayU remains disabled until the owner has a merchant account, credentials, verified INR pricing, a valid GST profile, verified delivery settings and an explicitly approved checkout release. Never set `INDIA_CHECKOUT_VERIFIED=true` as a workaround for missing onboarding or tax information.
+
+The UAE provider selection is PayTabs, but its credentials, AED pricing, delivery and VAT profile remain unconfigured. UAE checkout stays disabled until each requirement is verified. No provider fallback is enabled.

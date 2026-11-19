@@ -15,7 +15,7 @@ test("admin product form exposes INR and AED currency choices", () => {
   assert.match(adminHtml, /name="currency"/);
   assert.match(adminHtml, /value="INR"/);
   assert.match(adminHtml, /value="AED"/);
-  assert.match(adminHtml, /Unit cost \(same currency as product/);
+  assert.match(adminHtml, /Unit cost \(owner only; actual purchase cost/);
 });
 
 test("admin saves and formats each product using its selected currency", () => {
@@ -68,4 +68,8 @@ test('AI product image prompts use the BF SHOES white, red and black palette', (
   assert.match(ai, /clean white, bold red, and deep black/);
   assert.match(ai, /avoid green/);
   assert.match(ai, /no unsupplied logos or text/);
+});
+
+test('finance funding repayment selector formats balances in the selected market currency', () => {
+  assert.match(adminJs, /money\(f\.outstanding_principal_cents,currency\)\+' remaining\)/);
 });

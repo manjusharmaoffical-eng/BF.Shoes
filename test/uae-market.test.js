@@ -10,11 +10,12 @@ test("UAE checkout configuration stays closed when real fee, coverage and VAT st
   assert.equal(c.vatStatus, "unconfigured");
 });
 
-test("UAE delivery configuration only accepts known emirates and supported COD", () => {
-  const c = parseUaeMarketEnv({ UAE_DELIVERY_FEE_FILS: "0", UAE_DELIVERY_EMIRATES: "Dubai, Fake City, Dubai, Sharjah", UAE_PAYMENT_METHODS: "cod,upi,card", UAE_VAT_STATUS: "not_registered" });
+test("UAE delivery configuration only accepts known emirates and the selected PayTabs provider", () => {
+  const c = parseUaeMarketEnv({ UAE_DELIVERY_FEE_FILS: "0", UAE_DELIVERY_EMIRATES: "Dubai, Fake City, Dubai, Sharjah", UAE_PAYMENT_METHODS: "paytabs,cod,upi,card", UAE_VAT_STATUS: "not_registered" });
   assert.equal(c.fee, 0);
   assert.deepEqual(c.configuredEmirates, ["Dubai", "Sharjah"]);
-  assert.deepEqual(c.paymentMethods, ["cod"]);
+  assert.deepEqual(c.paymentMethods, ["paytabs"]);
+  assert.deepEqual(parseUaeMarketEnv({ UAE_PAYMENT_METHODS: "cod" }).paymentMethods, [], "COD is not enabled as an unverified fallback");
   assert.equal(c.vatStatus, "not_registered");
   assert.equal(UAE_EMIRATES.length, 7);
 });

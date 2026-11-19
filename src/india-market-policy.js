@@ -8,8 +8,22 @@ export function parseIndiaMarketEnv(env = {}) {
   const gstStatus = ["registered", "not_registered"].includes(env.INDIA_GST_STATUS) ? env.INDIA_GST_STATUS : "unconfigured";
   const paymentGateway = env.INDIA_PAYMENT_GATEWAY === "payu" ? "payu" : "unconfigured";
   const configuredMethods = String(env.INDIA_PAYMENT_METHODS || "").split(",").map(x => x.trim().toLowerCase());
-  const paymentMethods = [...new Set(configuredMethods.filter(method => method === "cod" || (method === "payu" && paymentGateway === "payu")))];
+  const paymentMethods = [...new Set(configuredMethods.filter(method => method === "payu" && paymentGateway === "payu"))];
   return { deliveryFeePaise, deliveryPincodes, paymentMethods, gstStatus, paymentGateway };
+}
+
+export function resolveIndiaGstStatus(configuredStatus, taxProfile) {
+  if (configuredStatus === "not_registered") return "not_registered";
+  if (configuredStatus !== "registered" || !taxProfile) return "unconfigured";
+  const registrationNumber = String(taxProfile.registration_number || "").trim();
+  const sellerState = String(taxProfile.seller_state || "").trim();
+  const taxRateBps = Number(taxProfile.tax_rate_bps);
+  const validProfile = taxProfile.currency === "INR" &&
+    registrationNumber.length > 0 &&
+    sellerState.length > 0 &&
+    Number.isSafeInteger(taxRateBps) &&
+    taxRateBps > 0 && taxRateBps <= 10000;
+  return validProfile ? "registered" : "unconfigured";
 }
 
 export function calculateIndiaTotals(subtotalPaise, deliveryFeePaise, taxRateBps = 0) {

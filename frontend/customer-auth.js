@@ -16,6 +16,7 @@
   let customer = null;
   let token = null;
   const SESSION_KEY = 'bf-shoes-customer-token';
+  const notifySession = () => window.dispatchEvent(new CustomEvent('bf-customer-session', { detail: { signedIn: Boolean(customer) } }));
 
   try { token = sessionStorage.getItem(SESSION_KEY); } catch { token = null; }
 
@@ -89,6 +90,7 @@
     setMode('signin');
     showMessage('You have signed out.');
     accountButton.setAttribute('aria-label', 'Sign in to your account');
+    notifySession();
   });
   form?.addEventListener('submit', async event => {
     event.preventDefault();
@@ -111,6 +113,7 @@
       form.reset();
       renderAccount();
       accountButton.setAttribute('aria-label', 'Signed in customer account');
+      notifySession();
     } catch (err) {
       showMessage(err.message || 'Something went wrong. Please try again.', true);
     } finally {
@@ -120,6 +123,7 @@
   });
   setMode('signin');
   restoreSession().then(() => {
+    notifySession();
     if (customer && backdrop?.classList.contains('visible')) renderAccount();
   });
 })();

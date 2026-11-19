@@ -1,0 +1,11 @@
+[Unit]
+Description=Run BF SHOES email outbox worker every five minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=bf-shoes-email-outbox.service
+
+[Install]
+WantedBy=timers.target

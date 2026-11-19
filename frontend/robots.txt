@@ -1,4 +1,7 @@
 User-agent: *
 Allow: /
 Disallow: /admin.html
-Sitemap: https://bf-shoes.vercel.app/sitemap.xml
+Disallow: /pay.html
+Disallow: /payment-result.html
+Disallow: /upi-payment.html
+Sitemap: https://www.bfshoes.online/sitemap.xml
