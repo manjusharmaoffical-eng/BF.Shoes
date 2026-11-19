@@ -76,5 +76,3 @@ test("public catalog removes unverified currency amounts from product descriptio
   assert.equal(safe.price_cents, null);
   assert.equal(safe.mrp_cents, null);
 });
-
-[executed on device: localhost (b60a640a-1f7c-4aa3-9adb-03323a022350)]

@@ -58,5 +58,3 @@ export function hideUnverifiedPriceClaims(product) {
   }
   return safe;
 }
-
-[executed on device: localhost (b60a640a-1f7c-4aa3-9adb-03323a022350)]

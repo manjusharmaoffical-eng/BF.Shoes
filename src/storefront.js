@@ -876,5 +876,3 @@ storefrontRouter.post("/orders", async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: "Please check your checkout details", details: parsed.error.flatten() });
   return res.status(503).json({ error: "Direct order creation is disabled. Use the market-specific PayU or PayTabs route only after the owner verifies checkout setup." });
 });
-
-[executed on device: localhost (b60a640a-1f7c-4aa3-9adb-03323a022350)]

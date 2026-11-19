@@ -38,3 +38,9 @@
 3. Reconcile the India gateway requirement with the live code before any provider change; keep checkout closed until credentials, tax, delivery and prices are verified.
 4. Confirm production DB target and backup/restore drill before any migration; then resolve the prepared notification-outbox constraint migration only after review/approval.
 5. Complete owner-supplied price, physical stock, product photo, GST/VAT, delivery and merchant onboarding items before opening checkout.
+
+
+## Follow-up deployment repair
+- The first Vercel build for commit `4796705a2d8c4736f2a68991230137c70a333b0f` stopped during JavaScript syntax checks because a terminal status footer had been appended to the three changed source/test files when they were copied into the GitHub commit. The local Termux source was clean and the local build had passed.
+- The footer has been removed from the source/test files in this follow-up commit. No application logic was changed beyond the already-tested price-claim sanitizer.
+- The failed build did not move the production alias; it remained on the previous READY deployment. Wait for the follow-up deployment and verify the alias before considering this fix live.
