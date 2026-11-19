@@ -12,7 +12,7 @@ test('cart persistence stores only SKU and quantity in separate market buckets',
 });
 
 test('restored cart is revalidated against current market, verified price and available stock', () => {
-  assert.match(source, /item\.currency === currency && !item\.price_pending_conversion/);
+  assert.match(source, /item\.currency === currency && hasVerifiedPrice\(item\)/);
   assert.match(source, /Number\(variant\?\.stock_qty\) \|\| 0/);
   assert.match(source, /Math\.min\(10, stock,/);
   assert.match(source, /hydrateCart\(\);\s*renderCart\(\);/);
