@@ -58,7 +58,7 @@
   // Fail closed when a product has no verified, positive integer selling price.
   const hasVerifiedPrice = product => {
     const cents = Number(product?.price_cents);
-    return Boolean(product) && product.price_pending_conversion !== true && product.price_verified !== false && Number.isSafeInteger(cents) && cents > 0;
+    return Boolean(product) && product.price_verified === true && product.price_pending_conversion !== true && Number.isSafeInteger(cents) && cents > 0;
   };
   // Delivery and tax amounts are never guessed; public config exposes readiness only.
   const deliveryFeeCents = () => null;
