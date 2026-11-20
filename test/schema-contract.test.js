@@ -278,6 +278,7 @@ test("unverified, missing or non-positive product prices never become a zero-pri
   const app = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8");
   assert.match(app, /const hasVerifiedPrice = product =>/);
   assert.match(app, /Number\.isSafeInteger\(cents\) && cents > 0/);
+  assert.match(app, /product\.price_verified === true/);
   assert.match(app, /hasVerifiedPrice\(item\)/);
   assert.match(app, /if \(!hasVerifiedPrice\(product\) \|\| product\?\.currency !== activeCurrency\)/);
   assert.match(app, /priceReady \? money\(product\.price_cents, product\.currency\) : 'Price verification pending'/);
