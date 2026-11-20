@@ -41,9 +41,18 @@
 ## Remaining blockers and next specific tasks
 1. Resolve Vercel preview resource provisioning (platform support/account quota/temporary resource issue) so PR #66 can be browser-verified; do not merge or promote while the preview is unavailable.
 2. Verify the market-aware delivery trust-strip fix in a preview: current live UAE selector still displays India/PIN copy.
-3. Confirm the India payment provider: current production config is PayU, while previous owner instructions selected Razorpay. Do not change provider without confirmation. Keep both markets' checkout/COD disabled.
+3. India gateway decision is final: the user selected PayU on 2026-11-15; production config sets `INDIA_PAYMENT_GATEWAY=payu` and `INDIA_PAYMENT_METHODS=payu`. UAE remains PayTabs. Production `PAYU_ENABLED=false` and `PAYU_ENV=test`; PayU merchant key/salt entries are scoped to Preview, not Production. Two old Razorpay secret entries remain in Production env metadata but are not selected by the current provider config; their values were not read and they were not deleted. India GST status is registered, but there is no active tax profile. Keep payments/checkout disabled until PayU merchant verification, production credentials, verified prices, delivery and GST profile are all ready.
 4. Obtain owner-confirmed prices, four-angle product photos, kids catalogue details, size/colour mappings and physical stock counts for the 294 variants. Do not invent them.
 5. Obtain verified India delivery fee/coverage and GST profile, UAE delivery fee/coverage and VAT profile; keep checkout disabled until every readiness gate is satisfied.
 6. Record owner-confirmed unit costs for all 50 products before finance/P&L can be complete.
 7. Confirm production DATABASE_URL maps to the intended Neon project without exposing its value; configure automatic backups and complete a restore drill before migrations.
 8. Complete authenticated admin end-to-end tests, email delivery tests, and AI tool verification only when approved credentials/test targets are available. Do not spend AI credits or send real customer emails without approval.
+
+
+## Run 4 additional CI hardening
+- Updated `.github/workflows/ci.yml` and `.github/workflows/test.yml` from `actions/checkout@v4` / `actions/setup-node@v4` to the current Node 24 runtime releases `@v7`; verified both upstream action manifests use `node24`.
+- Added explicit `permissions: contents: read` to `.github/workflows/test.yml` to keep its token scope least-privilege.
+- Commits: `9c0292822e3cd76b00c2ccc31e123beb4ca6c75b` (ci.yml) and `d37b99a473ca3cf0cff3edd3359cd3d9b30a92fc` (test.yml).
+- Both workflows completed successfully on head `d37b99a473ca3cf0cff3edd3359cd3d9b30a92fc`: runs `44692498785` and `44692498968`; each reports 241 tests, 241 pass, 0 fail, and syntax/dependency checks passed. The prior Node 20 action-runtime deprecation warning no longer appeared in these run logs.
+- Latest feature preview `dpl_CYVxZFRHaX7SNnwzvSjN5EHHvH9X` still fails before build logs with `BUILD_FAILED: Resource provisioning failed`; production alias remains untouched.
+- India provider decision corrected from an earlier checkpoint note: the final user instruction was PayU (2026-11-15), not Razorpay. No provider change is required.
