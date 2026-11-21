@@ -273,3 +273,30 @@ test("closing the payment QR panel does not expose an empty checkout error", asy
   assert.match(app, /for \(const selector of \['\.form-grid', '\.payment-options', '\.checkout-summary', '#place-order', '\.privacy-note'\]/);
   assert.match(app, /if \(show\) \$\('#checkout-error'\)\?\.classList\.add\('hidden'\)/);
 });
+
+test("unverified, missing or non-positive product prices never become a zero-price cart item", async () => {
+  const app = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8");
+  assert.match(app, /const hasVerifiedPrice = product =>/);
+  assert.match(app, /Number\.isSafeInteger\(cents\) && cents > 0/);
+  assert.match(app, /product\.price_verified === true/);
+  assert.match(app, /hasVerifiedPrice\(item\)/);
+  assert.match(app, /if \(!hasVerifiedPrice\(product\) \|\| product\?\.currency !== activeCurrency\)/);
+  assert.match(app, /priceReady \? money\(product\.price_cents, product\.currency\) : 'Price verification pending'/);
+  assert.match(app, /const moneyLine = priceReady/);
+  assert.match(app, /const mrpLine = priceReady && Number\.isSafeInteger\(mrpCents\)/);
+  assert.match(app, /Number\(variant\.stock_qty\) <= 0 \|\| !priceReady/);
+});
+
+
+test("all order creation paths reject invalid stored product prices", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  const cod = await readFile(new URL("../src/cod.js", import.meta.url), "utf8");
+  const routes = await readFile(new URL("../src/routes.js", import.meta.url), "utf8");
+  assert.match(storefront, /isValidPriceCents\(v\.price_cents\)/);
+  assert.match(storefront, /isValidPriceCents\(product\.price_cents\)/);
+  assert.match(storefront, /p\.price_cents IS NULL OR p\.price_cents <= 0/);
+  assert.match(storefront, /bool_and\(price_cents IS NOT NULL AND price_cents > 0\)/);
+  assert.match(cod, /isValidPriceCents\(item\.price_cents\)/);
+  assert.match(cod, /invalid_price_products/);
+  assert.match(routes, /isValidPriceCents\(v\.price_cents\)/);
+});

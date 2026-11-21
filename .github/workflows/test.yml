@@ -4,27 +4,25 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Run unit tests
+      - name: Run the exact Vercel build command
         env:
           # Unit tests use injected DB mocks; this only initializes pg.Pool and is never a real database.
           DATABASE_URL: postgresql://bf_shoes_test:bf_shoes_test@127.0.0.1:5432/bf_shoes_test
           DATABASE_SSL: "false"
-        run: npm test
-      - name: Check JavaScript syntax
-        run: |
-          for file in src/*.js frontend/*.js test/*.js; do
-            node --check "$file"
-          done
+        run: npm run vercel-build
