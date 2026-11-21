@@ -62,10 +62,11 @@
 7. Verify production DATABASE_URL maps to the intended Neon project without exposing its value; configure automatic backups and perform a restore drill before migrations.
 8. Complete authenticated admin, orders/returns, email-delivery and AI product-tool tests. Do not spend AI credits or send real customer emails without approval.
 
-## Live data snapshot (last verified in run 4)
-- 50 active products (25 INR, 25 AED); 294 variants.
-- 0 physically verified stock variants; 0 Kids products.
-- 0 owner-verified market prices; 48 SVG catalogue images, 2 missing primary images, 0 saved gallery images.
-- 50 products missing unit cost; 0 active GST/VAT tax profiles.
+## Read-only Neon main-branch inspection (2026-11-21)
+- Neon project `little-rice-43748903`, default/main branch `br-hidden-cake-b8hotf4j`, database `neondb`, was inspected using SELECT-only queries. The project was created via the Vercel Marketplace, but the secret Vercel `DATABASE_URL` value was not read; exact Vercel-production-to-Neon mapping remains unproven.
+- Admin setup exists on this Neon main branch: 3 active accounts total (1 `admin` owner role, 2 `manager` roles). All 3 active password_hash fields are non-empty, `$2`-prefixed and at least 60 characters. No email addresses or hashes were retrieved, and no login attempt was made. Treat authenticated production admin access as not yet E2E verified.
+- 50 active products, 25 INR and 25 AED; 294 active variants; 0 Kids products.
+- All 50 stored price_cents values are positive, but owner price verification remains false/unconfirmed; public API must continue withholding them until explicit market verification.
+- 0 physically verified stock variants; 50 products missing unit cost; 0 active GST/VAT profiles; 0 saved gallery images. Prior browser audit found 48 SVG catalogue images and 2 missing primary images.
 - India provider PayU; UAE provider PayTabs. Both checkouts and COD remain disabled.
-- No live product, stock, price, tax, order, payment or production environment changes were made in run 5.
+- This inspection performed no database writes, migrations, password reads, price changes, stock changes, tax changes, orders or payments.
