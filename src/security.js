@@ -30,6 +30,12 @@ export function createAccessToken(admin) {
   );
 }
 
+export function sessionVersionMatches(admin, claims) {
+  const current = Number(admin?.session_version ?? 0);
+  const issued = Number(claims?.sv);
+  return Number.isSafeInteger(current) && Number.isSafeInteger(issued) && current === issued;
+}
+
 export function verifyAccessToken(token) {
   return jwt.verify(token, process.env.JWT_SECRET, {
     issuer: "bf-shoes-api", audience: "bf-shoes-admin", algorithms: ["HS256"]
