@@ -13,7 +13,7 @@ const readyEnv = {
 };
 const db = {
   async query(sql) {
-    if (sql.includes("GROUP BY p.currency")) return { rows: [{ currency: "INR", product_count: 10, verified_stock_variants: 4 }, { currency: "AED", product_count: 10, verified_stock_variants: 3 }] };
+    if (sql.includes("GROUP BY p.currency")) return { rows: [{ currency: "INR", product_count: 10, invalid_price_products: 0, verified_stock_variants: 4 }, { currency: "AED", product_count: 10, invalid_price_products: 0, verified_stock_variants: 3 }] };
     if (sql.includes("GROUP BY jurisdiction")) return { rows: [
       { jurisdiction: "IN_GST", count: 1, india_valid: true, uae_valid: null, tax_rate_bps: 500 },
       { jurisdiction: "AE_VAT", count: 1, india_valid: null, uae_valid: true, tax_rate_bps: 500 }
@@ -46,9 +46,22 @@ test("COD stays disabled if any market verification flag or required tax profile
   }
 });
 
+test("COD remains disabled when any active product in a market has an invalid stored price", async () => {
+  const invalidPriceDb = { async query(sql) {
+    if (sql.includes("GROUP BY p.currency")) return { rows: [
+      { currency: "INR", product_count: 10, invalid_price_products: 1, verified_stock_variants: 4 },
+      { currency: "AED", product_count: 10, invalid_price_products: 1, verified_stock_variants: 3 }
+    ] };
+    return db.query(sql);
+  } };
+  const result = await getCodMarketReadiness(invalidPriceDb, readyEnv);
+  assert.equal(result.IN.enabled, false);
+  assert.equal(result.AE.enabled, false);
+});
+
 test("COD remains disabled when the selected market has no physically verified available stock", async () => {
   const noVerifiedStockDb = { async query(sql) {
-    if (sql.includes("GROUP BY p.currency")) return { rows: [{ currency: "INR", product_count: 10, verified_stock_variants: 0 }, { currency: "AED", product_count: 10, verified_stock_variants: 0 }] };
+    if (sql.includes("GROUP BY p.currency")) return { rows: [{ currency: "INR", product_count: 10, invalid_price_products: 0, verified_stock_variants: 0 }, { currency: "AED", product_count: 10, invalid_price_products: 0, verified_stock_variants: 0 }] };
     return db.query(sql);
   } };
   const result = await getCodMarketReadiness(noVerifiedStockDb, readyEnv);
@@ -76,5 +89,6 @@ test("COD checkout has a dedicated idempotent endpoint and never creates a payme
   assert.match(route, /storefront_cod_order/);
   assert.doesNotMatch(route, /INSERT INTO payment_attempts/);
   assert.match(route, /stock_verified/);
+  assert.match(route, /isValidPriceCents\\(item\\.price_cents\\)/);
   assert.match(route, /shipping_emirate/);
 });
