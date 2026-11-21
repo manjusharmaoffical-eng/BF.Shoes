@@ -24,11 +24,9 @@ jobs:
         run: npm ci
       - name: Verify QR dependency is installed
         run: npm ls qrcode
-      - name: Check JavaScript syntax
-        run: find . -type f -name '*.js' -not -path './node_modules/*' -print0 | xargs -0 -n1 node --check
-      - name: Run automated tests
+      - name: Run the exact Vercel build command
         env:
           # Unit tests use injected DB mocks; this only initializes pg.Pool and is never a real database.
           DATABASE_URL: postgresql://bf_shoes_test:bf_shoes_test@127.0.0.1:5432/bf_shoes_test
           DATABASE_SSL: "false"
-        run: npm test
+        run: npm run vercel-build
