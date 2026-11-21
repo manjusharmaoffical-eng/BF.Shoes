@@ -298,5 +298,5 @@ test("all order creation paths reject invalid stored product prices", async () =
   assert.match(storefront, /bool_and\(price_cents IS NOT NULL AND price_cents > 0\)/);
   assert.match(cod, /isValidPriceCents\(item\.price_cents\)/);
   assert.match(cod, /invalid_price_products/);
-  assert.match(routes, /isValidPriceCents\\(v\\.price_cents\\)/);
+  assert.match(routes, /isValidPriceCents\(v\.price_cents\)/);
 });
