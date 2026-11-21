@@ -21,6 +21,15 @@ export function aggregateStorefrontItems(items) {
   return quantities;
 }
 
+export function isValidPriceCents(value) {
+  const cents = typeof value === "number"
+    ? value
+    : typeof value === "string" && /^\d+$/.test(value)
+      ? Number(value)
+      : Number.NaN;
+  return Number.isSafeInteger(cents) && cents > 0;
+}
+
 const UNVERIFIED_PRICE_AMOUNT = /(?:₹\s*|Rs\.?\s*|\bINR\s*|\bAED\s*|د\.إ\s*|Dhs\.?\s*)\d[\d,]*(?:\.\d{1,2})?|\b\d[\d,]*(?:\.\d{1,2})?\s*(?:INR|AED|Rs\.?)/i;
 const UNVERIFIED_PRICE_LABEL = /\b(?:verified|owner[-\s]confirmed)\s+(?:(?:india|uae|inr|aed)\s+)?(?:selling\s+)?price\b/i;
 
