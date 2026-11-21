@@ -3,7 +3,7 @@
 ## Source and PR state
 - Repository: `manjusharmaoffical-eng/BF.Shoes`.
 - Working branch: `feature/price-verification-guard`.
-- Latest verified branch head: `2b3605e5674b00976578f56e805376e3da49a318`.
+- Latest code head: `2b3605e5674b00976578f56e805376e3da49a318`; the run 5 checkpoint-only commit is `fcbecf46516aeddfd09d128677bb9b35e976e459`.
 - Draft PR #66 remains OPEN, DRAFT, not merged; base branch `work/catalog-expansion-watches-eyewear` at `58fa7ea2f8413b7abfa4cad8b92de1d99663e84a`.
 - PR body updated with run 5 implementation, CI and deployment status.
 
@@ -46,7 +46,7 @@
 - Both workflows installed dependencies and completed successfully. No production DB, payment gateway, email provider or AI generation was invoked.
 
 ## Vercel preview blocker
-- Latest feature-branch preview `dpl_2NBMRf4NpxSWMvnPMqsngbNWGYB8` (same head) is ERROR with `BUILD_FAILED: Resource provisioning failed`; no build events were emitted.
+- Latest feature-branch preview `dpl_G45kbxsYpsXfL5Vf5EYKEqvXrUjC` (checkpoint-only head) is ERROR with `BUILD_FAILED: Resource provisioning failed`; no build events were emitted. The preceding code-head preview `dpl_2NBMRf4NpxSWMvnPMqsngbNWGYB8` failed identically.
 - Manual redeploy `dpl_EStP9c8eRWbFDxLq88KcAxAVPN7Q` failed with the same error. Several earlier preview deployments also failed before build logs.
 - GitHub Actions now prove the exact application build command passes; remaining preview failure is Vercel resource provisioning, not a failed test/build step.
 - Vercel team plan is Hobby. No paid build machine, plan upgrade, purchase or billing change was attempted.
