@@ -62,7 +62,7 @@ router.post("/auth/change-password", authenticate, async (req, res, next) => {
     }
     const passwordHash = await bcrypt.hash(parsed.data.new_password, 12);
     await client.query("UPDATE admins SET password_hash=$1, session_version=session_version+1 WHERE id=$2", [passwordHash, admin.id]);
-    await client.query("INSERT INTO audit_events(actor_type, actor_id, action, resource_type, resource_id) VALUES('admin',$1,'admin.password_change','admin',$1::text)", [admin.id]);
+    await client.query("INSERT INTO audit_events(actor_type, actor_id, action, resource_type, resource_id) VALUES('admin',$1,'admin.password_change','admin',$2)", [admin.id, String(admin.id)]);
     await client.query("COMMIT");
     res.json({ message: "Password changed. All existing admin sessions have been revoked. Sign in again." });
   } catch (err) {
