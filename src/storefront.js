@@ -1,7 +1,7 @@
 import express from "express";
 import { z } from "zod";
 import { pool } from "./db.js";
-import { aggregateStorefrontItems, hideUnverifiedPriceClaims, storefrontRequestFingerprint } from "./storefront-policies.js";
+import { aggregateStorefrontItems, hideUnverifiedPriceClaims, isValidPriceCents, storefrontRequestFingerprint } from "./storefront-policies.js";
 import { deliverEmail } from "./email.js";
 import { parseIndiaMarketEnv, calculateIndiaTotals, resolveIndiaGstStatus } from "./india-market-policy.js";
 import { randomBytes } from "node:crypto";
@@ -81,8 +81,8 @@ storefrontRouter.get("/market-config", async (_req, res, next) => {
   try {
     const result = await pool.query(
       `SELECT
-         EXISTS (SELECT 1 FROM products WHERE active = true AND currency = 'INR') AS india_pricing_configured,
-         EXISTS (SELECT 1 FROM products WHERE active = true AND currency = 'AED') AS uae_pricing_configured,
+         (SELECT count(*) > 0 AND bool_and(price_cents IS NOT NULL AND price_cents > 0) FROM products WHERE active = true AND currency = 'INR') AS india_pricing_configured,
+         (SELECT count(*) > 0 AND bool_and(price_cents IS NOT NULL AND price_cents > 0) FROM products WHERE active = true AND currency = 'AED') AS uae_pricing_configured,
          (SELECT count(*) = 1 AND COALESCE(bool_and(currency = 'INR' AND trim(registration_number) <> '' AND trim(seller_state) <> '' AND tax_rate_bps BETWEEN 1 AND 10000), false) FROM tax_profiles WHERE active = true AND jurisdiction = 'IN_GST') AS india_tax_profile_configured,
          EXISTS (SELECT 1 FROM tax_profiles WHERE active = true AND jurisdiction = 'AE_VAT') AS uae_tax_profile_configured`
     );
@@ -150,7 +150,7 @@ storefrontRouter.get("/products", async (req, res, next) => {
         COALESCE(to_jsonb(p)->'attributes','{}'::jsonb) AS attributes,
         p.price_cents, p.currency, p.image_url, p.created_at,
         NULLIF(COALESCE(to_jsonb(p)->>'mrp_cents', to_jsonb(p)->>'compare_at_price_cents', to_jsonb(p)->>'original_price_cents'), '')::integer AS mrp_cents,
-        (p.currency <> $1) AS price_pending_conversion,
+        (p.currency <> $1 OR p.price_cents IS NULL OR p.price_cents <= 0) AS price_pending_conversion,
         COALESCE(bool_and(v.stock_verified) FILTER (WHERE v.id IS NOT NULL AND v.active = true), false) AS stock_verified,
         COALESCE(json_agg(json_build_object('id', v.id, 'sku', v.sku, 'size_label', v.size_label,
           'color_name', v.color_name, 'stock_qty', CASE WHEN v.stock_verified THEN v.stock_qty ELSE 0 END,
@@ -164,7 +164,7 @@ storefrontRouter.get("/products", async (req, res, next) => {
       ? process.env.INDIA_PRICING_VERIFIED === "true"
       : process.env.UAE_PRICING_VERIFIED === "true";
     const products = result.rows.map(product => {
-      const priceVerified = pricingVerified && !product.price_pending_conversion;
+      const priceVerified = pricingVerified && !product.price_pending_conversion && isValidPriceCents(product.price_cents);
       const safeProduct = priceVerified ? product : hideUnverifiedPriceClaims(product);
       return {
         ...safeProduct,
@@ -313,6 +313,7 @@ storefrontRouter.post("/orders/payu", async (req, res, next) => {
     for (const [sku,qty] of quantities) {
       const v=bySku.get(sku);
       if(!v.variant_active||!v.product_active){await client.query("ROLLBACK");return res.status(409).json({error:"A selected item is no longer available"});}
+      if(!isValidPriceCents(v.price_cents)){await client.query("ROLLBACK");return res.status(409).json({error:"A valid owner-verified selling price is required for "+v.product_name+"."});}
       if(!v.stock_verified){await client.query("ROLLBACK");return res.status(409).json({error:"Stock for "+v.product_name+" size "+v.size_label+" has not been physically verified yet."});}
       const available=Number(v.stock_qty)-Number(v.reserved_qty);
       if(available<qty){await client.query("ROLLBACK");return res.status(409).json({error:"Not enough available stock for "+v.product_name+" (size "+v.size_label+").",available});}
@@ -581,7 +582,7 @@ storefrontRouter.post("/orders/binance", async (req, res, next) => {
        COALESCE((SELECT sum(r.quantity) FROM order_reservations r WHERE r.variant_id=v.id AND r.expires_at>now()),0)::int AS reserved_qty,
        v.active AS variant_active,p.name AS product_name,p.price_cents,p.unit_cost_cents,p.currency,p.active AS product_active
        FROM variants v JOIN products p ON p.id=v.product_id WHERE v.sku=ANY($1::text[]) ORDER BY v.sku FOR UPDATE OF v`, [skus]);
-    if (found.rowCount !== skus.length || found.rows.some(v => !v.variant_active || !v.product_active || v.currency !== "AED")) {
+    if (found.rowCount !== skus.length || found.rows.some(v => !v.variant_active || !v.product_active || v.currency !== "AED" || !isValidPriceCents(v.price_cents))) {
       await client.query("ROLLBACK"); return res.status(409).json({ error: "Selected UAE products or sizes are unavailable or not priced in AED." });
     }
     let subtotal = 0;
@@ -768,7 +769,7 @@ storefrontRouter.post("/orders/paytabs", async (req, res, next) => {
        COALESCE((SELECT sum(r.quantity) FROM order_reservations r WHERE r.variant_id=v.id AND r.expires_at>now()),0)::int AS reserved_qty,
        v.active AS variant_active,p.name AS product_name,p.price_cents,p.unit_cost_cents,p.currency,p.active AS product_active
        FROM variants v JOIN products p ON p.id=v.product_id WHERE v.sku=ANY($1::text[]) ORDER BY v.sku FOR UPDATE OF v`, [skus]);
-    if (found.rowCount !== skus.length || found.rows.some(v => !v.variant_active || !v.product_active || v.currency !== "AED")) {
+    if (found.rowCount !== skus.length || found.rows.some(v => !v.variant_active || !v.product_active || v.currency !== "AED" || !isValidPriceCents(v.price_cents))) {
       await client.query("ROLLBACK"); return res.status(409).json({ error: "Selected UAE products or sizes are unavailable." });
     }
     let subtotal=0;
