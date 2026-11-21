@@ -286,3 +286,17 @@ test("unverified, missing or non-positive product prices never become a zero-pri
   assert.match(app, /const mrpLine = priceReady && Number\.isSafeInteger\(mrpCents\)/);
   assert.match(app, /Number\(variant\.stock_qty\) <= 0 \|\| !priceReady/);
 });
+
+
+test("all order creation paths reject invalid stored product prices", async () => {
+  const storefront = await readFile(new URL("../src/storefront.js", import.meta.url), "utf8");
+  const cod = await readFile(new URL("../src/cod.js", import.meta.url), "utf8");
+  const routes = await readFile(new URL("../src/routes.js", import.meta.url), "utf8");
+  assert.match(storefront, /isValidPriceCents\\(v\\.price_cents\\)/);
+  assert.match(storefront, /isValidPriceCents\\(product\\.price_cents\\)/);
+  assert.match(storefront, /p\\.price_cents IS NULL OR p\\.price_cents <= 0/);
+  assert.match(storefront, /bool_and\\(price_cents IS NOT NULL AND price_cents > 0\\)/);
+  assert.match(cod, /isValidPriceCents\\(item\\.price_cents\\)/);
+  assert.match(cod, /invalid_price_products/);
+  assert.match(routes, /isValidPriceCents\\(v\\.price_cents\\)/);
+});
