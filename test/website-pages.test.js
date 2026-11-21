@@ -57,6 +57,9 @@ test('short Admin URL serves the existing admin document before static fallback'
 test('kids collection only includes products explicitly labelled for kids', async () => {
   const app = await readFile(new URL('../frontend/store-pages.js', import.meta.url), 'utf8');
   assert.match(app, /if \(collection === 'kids'\) return audience === 'kids'/);
+  assert.match(app, /Kids collection is being prepared/);
+  assert.match(app, /owner-verified Kids products/);
+  assert.match(app, /sizes, colours and stock will appear only after they are verified/);
 });
 
 test('homepage and collection pages honour explicit market URLs and same-origin product images', async () => {

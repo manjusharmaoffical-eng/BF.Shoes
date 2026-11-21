@@ -24,15 +24,15 @@ export function createAccessToken(admin) {
     throw new Error("JWT_SECRET must be at least 32 bytes");
   }
   return jwt.sign(
-    { role: admin.role, typ: "admin" },
+    { role: admin.role, typ: "admin", sv: Number(admin.session_version ?? 0) },
     process.env.JWT_SECRET,
-    { subject: admin.id, expiresIn: "15m", issuer: "bf-shoes-api", audience: "bf-shoes-admin" }
+    { algorithm: "HS256", subject: admin.id, expiresIn: "15m", issuer: "bf-shoes-api", audience: "bf-shoes-admin" }
   );
 }
 
 export function verifyAccessToken(token) {
   return jwt.verify(token, process.env.JWT_SECRET, {
-    issuer: "bf-shoes-api", audience: "bf-shoes-admin"
+    issuer: "bf-shoes-api", audience: "bf-shoes-admin", algorithms: ["HS256"]
   });
 }
 

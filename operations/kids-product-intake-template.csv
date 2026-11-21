@@ -1,0 +1,3 @@
+market,currency,product_name,brand,category,audience,product_type,description,sku,size_label,color_name,physical_stock_qty,image_url_https,selling_price,price_currency,price_verified_by_owner,notes
+IN,INR,,BF SHOES,shoes,kids,,,,,,,,,INR,,
+AE,AED,,BF SHOES,shoes,kids,,,,,,,,,AED,,

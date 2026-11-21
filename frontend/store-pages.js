@@ -55,7 +55,13 @@
       let products = (body.data || []).filter(p => p.currency === currency && matches(p));
       if (root.dataset.sort === 'new') products.sort((a,b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
       if (!products.length) {
-        if (status) status.textContent = collection === 'wishlist' ? 'No saved products are available in this market yet.' : 'No products match this collection right now.';
+        if (status) status.textContent = collection === 'wishlist' ? 'No saved products are available in this market yet.' : collection === 'kids' ? 'Kids collection is being prepared. No owner-verified Kids products are available in this market yet.' : 'No products match this collection right now.';
+        if (collection === 'kids' && grid) {
+          const note = document.createElement('div');
+          note.className = 'store-page-empty';
+          note.textContent = 'We are preparing the Kids range. Product details, sizes, colours and stock will appear only after they are verified.';
+          grid.append(note);
+        }
         return;
       }
       for (const product of products) {

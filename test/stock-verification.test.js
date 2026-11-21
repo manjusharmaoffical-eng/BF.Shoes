@@ -33,9 +33,18 @@ test("all shopper and staff order paths reject stock without a physical verifica
   assert.match(routes, /if \(!v\.stock_verified\)/);
 });
 
-test("manual inventory, warehouse and production counts mark only adjusted variants verified", () => {
-  assert.match(routes, /UPDATE variants SET stock_qty=\$1, stock_verified=true/);
-  assert.match(warehouse, /stock_verified=true/);
+test("only explicit physical counts mark variants stock verified", () => {
+  assert.match(routes, /UPDATE variants SET stock_qty=\$1,stock_verified=true,updated_at=now\(\) WHERE id=\$2/);
+  const adjustmentRoute = routes.split('router.patch("/inventory/:sku"')[1]?.split("const orderSchema")[0] || "";
+  assert.doesNotMatch(adjustmentRoute, /stock_verified\s*=\s*true/);
+  assert.doesNotMatch(warehouse, /stock_verified\s*=\s*true/);
+});
+
+test("manual and warehouse stock adjustments are audit logged", () => {
+  assert.match(routes, /'inventory\.stock\.adjust'/);
+  assert.match(warehouse, /'warehouse\.stock\.adjust'/);
+  assert.match(routes, /INSERT INTO audit_events\(actor_type,actor_id,action,resource_type,resource_id\)/);
+  assert.match(warehouse, /INSERT INTO audit_events\(actor_type,actor_id,action,resource_type,resource_id\)/);
 });
 
 test("owner and inventory staff can record an exact physical count safely", () => {
@@ -53,7 +62,12 @@ test("storefront and admin clearly label pending physical stock counts", () => {
 
 test("public catalog removes unverified currency amounts from product descriptions and attributes", () => {
   const product = {
-    name: "BF SPEED RUN",
+    name: "BF SPEED RUN ₹699",
+    slug: "bf-speed-run-₹699",
+    brand: "BF SHOES AED 199",
+    category: "Shoes Rs. 499",
+    audience: "Kids INR 199",
+    product_type: "Running Rs. 299",
     description: "Classic black-and-white sneaker. Owner-confirmed selling price ₹699 INR. Size variants still need setup.",
     short_description: "Verified India price ₹777. Sizes and stock pending setup.",
     attributes: {
@@ -67,6 +81,12 @@ test("public catalog removes unverified currency amounts from product descriptio
     price_pending_conversion: true
   };
   const safe = hideUnverifiedPriceClaims(product);
+  assert.equal(safe.name, "BF SPEED RUN");
+  assert.equal(safe.slug, "bf-speed-run");
+  assert.equal(safe.brand, "BF SHOES");
+  assert.equal(safe.category, "Shoes");
+  assert.equal(safe.audience, "Kids");
+  assert.equal(safe.product_type, "Running");
   assert.equal(safe.description, "Classic black-and-white sneaker. Size variants still need setup.");
   assert.equal(safe.short_description, "Sizes and stock pending setup.");
   assert.equal(safe.attributes.design_detail, "India catalog entry. Black-and-white finish.");
