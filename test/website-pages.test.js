@@ -96,3 +96,14 @@ test('homepage navigation and sitemap expose the added customer pages', async ()
     assert.ok(sitemap.includes('https://www.bfshoes.online/' + page + '.html'), page + ' sitemap entry');
   }
 });
+
+
+test('homepage delivery trust strip follows the selected India or UAE market', async () => {
+  const html = await readFile(new URL('../frontend/index.html', import.meta.url), 'utf8');
+  const app = await readFile(new URL('../frontend/app.js', import.meta.url), 'utf8');
+  assert.match(html, /id="market-delivery-title">INDIA DELIVERY/);
+  assert.match(html, /id="market-delivery-detail">PIN 500052/);
+  assert.match(app, /title\.textContent = state\.market === 'IN' \? 'INDIA DELIVERY' : 'UAE DELIVERY'/);
+  assert.match(app, /UAE coverage and delivery fee pending verification/);
+  assert.match(app, /updateMarketDeliveryCopy\(\);/);
+});

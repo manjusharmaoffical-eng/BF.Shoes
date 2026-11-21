@@ -62,6 +62,14 @@
   const setupMessage = () => state.market === 'IN'
     ? 'India checkout is pending PayU merchant verification, verified INR prices, confirmed delivery fee and GST profile.'
     : 'UAE checkout is pending PayTabs merchant verification, verified AED prices, delivery fee and VAT profile.';
+  function updateMarketDeliveryCopy() {
+    const title = $('#market-delivery-title');
+    const detail = $('#market-delivery-detail');
+    if (title) title.textContent = state.market === 'IN' ? 'INDIA DELIVERY' : 'UAE DELIVERY';
+    if (detail) detail.textContent = state.market === 'IN'
+      ? 'PIN 500052 · Delivery fee pending confirmation'
+      : 'UAE coverage and delivery fee pending verification';
+  }
   const randomKey = () => Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   const normalizeImageUrl = value => {
     const raw = String(value || '').trim();
@@ -525,8 +533,8 @@
   $('#scrim')?.addEventListener('click', () => setDrawer(false));
   $('#continue-shopping')?.addEventListener('click', () => setDrawer(false));
   $('#checkout-button')?.addEventListener('click', () => { if (!state.cart.length) return; setDrawer(false); setCheckout(true); });
-  $('#close-checkout')?.addEventListener('click', () => { stopPayuQrPolling(); setCheckout(false); });
-  $('#checkout-backdrop')?.addEventListener('click', event => { if (event.target === $('#checkout-backdrop')) { stopPayuQrPolling(); setCheckout(false); } });
+  $('#close-checkout')?.addEventListener('click', () => { stopPayuQrPolling(); showPayuQrPanel(false); setCheckout(false); });
+  $('#checkout-backdrop')?.addEventListener('click', event => { if (event.target === $('#checkout-backdrop')) { stopPayuQrPolling(); showPayuQrPanel(false); setCheckout(false); } });
   $('#finish-order')?.addEventListener('click', () => { setSuccess(false); state.cart = []; state.cartByMarket[state.market] = state.cart; persistCart(); renderCart(); renderProducts(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
   $('#success-backdrop')?.addEventListener('click', event => { if (event.target === $('#success-backdrop')) setSuccess(false); });
 
@@ -693,10 +701,8 @@
   $('#payu-qr-back')?.addEventListener('click', () => {
     stopPayuQrPolling();
     const action = $('#payu-qr-back')?.dataset.action || 'close';
-    if (action === 'retry') {
-      showPayuQrPanel(false);
-      return;
-    }
+    showPayuQrPanel(false);
+    if (action === 'close' || action === 'retry') return;
     setCheckout(false);
   });
 
@@ -723,7 +729,7 @@
     }
   });
 
-  document.addEventListener('keydown', event => { if (event.key === 'Escape') { setCheckout(false); setSuccess(false); setDrawer(false); } });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') { stopPayuQrPolling(); showPayuQrPanel(false); setCheckout(false); setSuccess(false); setDrawer(false); } });
 
   $('#shipping-country')?.addEventListener('change', event => {
     const isIndia = event.target.value === 'IN';
@@ -857,6 +863,7 @@
     state.cartByMarket[state.market] = state.cart;
     persistCart();
     state.market = nextMarket;
+    updateMarketDeliveryCopy();
     state.cart = state.cartByMarket[state.market] || [];
     state.pendingCheckout = null;
     state.selectedSizes = {};
@@ -872,6 +879,7 @@
     toast(state.market === 'IN' ? 'India market selected.' : 'UAE market selected. Checkout is not available yet.');
   });
   if ($('#market-selector')) $('#market-selector').value = state.market;
+  updateMarketDeliveryCopy();
   updateCheckoutMarketForm();
   const initialDeliveryNote = $('#market-delivery-note');
   if (initialDeliveryNote) initialDeliveryNote.textContent = state.market === 'IN' ? 'Delivery to PIN 500052' : 'UAE delivery setup pending';
