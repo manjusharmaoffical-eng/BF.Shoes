@@ -89,6 +89,6 @@ test("COD checkout has a dedicated idempotent endpoint and never creates a payme
   assert.match(route, /storefront_cod_order/);
   assert.doesNotMatch(route, /INSERT INTO payment_attempts/);
   assert.match(route, /stock_verified/);
-  assert.match(route, /isValidPriceCents\\(item\\.price_cents\\)/);
+  assert.match(route, /isValidPriceCents\(item\.price_cents\)/);
   assert.match(route, /shipping_emirate/);
 });
