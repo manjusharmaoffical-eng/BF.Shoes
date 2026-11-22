@@ -5,6 +5,7 @@ import { pool } from "./db.js";
 import { authenticate, requireScope, checkPassword } from "./auth.js";
 import { ALL_SCOPES, createAccessToken, hashSecret, newApiKey } from "./security.js";
 import { canTransitionOrder, orderRequestFingerprint } from "./policies.js";
+import { isValidPriceCents } from "./storefront-policies.js";
 import { allocateOrderWarehouseStock, restoreOrderWarehouseStock } from "./warehouse-stock.js";
 
 export const router = express.Router();
@@ -334,6 +335,7 @@ router.post("/orders", authenticate, requireScope("orders:write"), async (req, r
     for (const [sku, qty] of quantities) {
       const v = bySku.get(sku);
       if (!v.variant_active || !v.product_active) { await client.query("ROLLBACK"); return res.status(409).json({ error: `SKU unavailable: ${sku}` }); }
+      if (!isValidPriceCents(v.price_cents)) { await client.query("ROLLBACK"); return res.status(409).json({ error: `A valid selling price is required for SKU ${sku}` }); }
       if (!v.stock_verified) { await client.query("ROLLBACK"); return res.status(409).json({ error: `Stock for ${sku} has not been physically verified yet.` }); }
       if (v.stock_qty < qty) { await client.query("ROLLBACK"); return res.status(409).json({ error: `Insufficient stock for ${sku}`, available: v.stock_qty }); }
       subtotal += v.price_cents * qty;

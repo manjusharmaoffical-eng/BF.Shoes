@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { aggregateStorefrontItems, storefrontRequestFingerprint } from "../src/storefront-policies.js";
+import { aggregateStorefrontItems, isValidPriceCents, storefrontRequestFingerprint } from "../src/storefront-policies.js";
 
 const checkout = {
   customer_name: " Buyer ", customer_email: "BUYER@example.com", customer_phone: "+971 50 123 4567",
@@ -38,4 +38,14 @@ test("storefront fingerprints distinguish payment method, market and delivery PI
   assert.notEqual(storefrontRequestFingerprint(checkout), storefrontRequestFingerprint({ ...checkout, shipping_country: "AE" }));
   assert.notEqual(storefrontRequestFingerprint(checkout), storefrontRequestFingerprint({ ...checkout, shipping_pincode: "110001" }));
   assert.notEqual(storefrontRequestFingerprint(checkout), storefrontRequestFingerprint({ ...checkout, shipping_emirate: "Dubai" }));
+});
+
+
+test("price validation rejects null, zero, negative, fractional and unsafe cent values", () => {
+  for (const value of [null, undefined, "", "0", 0, -1, "-1", 1.5, "1.5", " 2500", Number.MAX_SAFE_INTEGER + 1, "9007199254740992"]) {
+    assert.equal(isValidPriceCents(value), false, String(value));
+  }
+  for (const value of [1, 2500, "2500", 999999999]) {
+    assert.equal(isValidPriceCents(value), true, String(value));
+  }
 });

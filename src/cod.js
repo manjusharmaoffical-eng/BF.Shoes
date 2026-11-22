@@ -1,7 +1,7 @@
 import express from "express";
 import { z } from "zod";
 import { pool } from "./db.js";
-import { aggregateStorefrontItems, storefrontRequestFingerprint } from "./storefront-policies.js";
+import { aggregateStorefrontItems, isValidPriceCents, storefrontRequestFingerprint } from "./storefront-policies.js";
 import { parseIndiaMarketEnv, calculateIndiaTotals } from "./india-market-policy.js";
 import { parseUaeMarketEnv, calculateUaeTotals } from "./uae-market-policy.js";
 import { allocateOrderWarehouseStock } from "./warehouse-stock.js";
@@ -23,9 +23,9 @@ const schema = z.object({
 const validIdempotencyKey = value => typeof value === "string" && value.length >= 16 && value.length <= 120 && /^[a-zA-Z0-9._:-]+$/.test(value);
 
 export async function getCodMarketReadiness(db = pool, env = process.env) {
-  const products = await db.query("SELECT p.currency, count(DISTINCT p.id)::int AS product_count, count(v.id) FILTER (WHERE v.active=true AND v.stock_verified=true AND v.stock_qty>0)::int AS verified_stock_variants FROM products p LEFT JOIN variants v ON v.product_id=p.id AND v.active=true WHERE p.active=true GROUP BY p.currency");
-  const hasINR = products.rows.some(row => row.currency === "INR" && Number(row.product_count) > 0 && Number(row.verified_stock_variants) > 0);
-  const hasAED = products.rows.some(row => row.currency === "AED" && Number(row.product_count) > 0 && Number(row.verified_stock_variants) > 0);
+  const products = await db.query("SELECT p.currency, count(DISTINCT p.id)::int AS product_count, count(DISTINCT p.id) FILTER (WHERE p.price_cents IS NULL OR p.price_cents <= 0)::int AS invalid_price_products, count(v.id) FILTER (WHERE v.active=true AND v.stock_verified=true AND v.stock_qty>0)::int AS verified_stock_variants FROM products p LEFT JOIN variants v ON v.product_id=p.id AND v.active=true WHERE p.active=true GROUP BY p.currency");
+  const hasINR = products.rows.some(row => row.currency === "INR" && Number(row.product_count) > 0 && Number(row.invalid_price_products ?? 0) === 0 && Number(row.verified_stock_variants) > 0);
+  const hasAED = products.rows.some(row => row.currency === "AED" && Number(row.product_count) > 0 && Number(row.invalid_price_products ?? 0) === 0 && Number(row.verified_stock_variants) > 0);
   const india = parseIndiaMarketEnv(env);
   const uae = parseUaeMarketEnv(env);
   const tax = await db.query(
@@ -99,6 +99,7 @@ codRouter.post("/orders/cod", async (req, res, next) => {
       if (!item.variant_active || !item.product_active || item.currency !== (market === "IN" ? "INR" : "AED")) {
         await client.query("ROLLBACK"); return res.status(409).json({ error: "Selected products do not belong to the chosen market or are inactive." });
       }
+      if (!isValidPriceCents(item.price_cents)) { await client.query("ROLLBACK"); return res.status(409).json({ error: "A valid owner-verified selling price is required for " + item.product_name + "." }); }
       if (!item.stock_verified) { await client.query("ROLLBACK"); return res.status(409).json({ error: "Physical stock for " + item.product_name + " size " + item.size_label + " has not been verified." }); }
       if (Number(item.stock_qty) < quantity) { await client.query("ROLLBACK"); return res.status(409).json({ error: "Insufficient stock for " + item.product_name + " size " + item.size_label + "." }); }
       subtotal += Number(item.price_cents) * quantity;

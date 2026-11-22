@@ -94,3 +94,12 @@ test("shop category navigation stays a responsive tile grid instead of a horizon
   assert.ok(!finalGridRules.includes("overflow-x:auto"));
   assert.ok(!finalGridRules.includes("flex-wrap:nowrap"));
 });
+
+test("delivery trust strip follows the selected market without inventing UAE coverage or fees", () => {
+  assert.match(html, /id="market-delivery-title">INDIA DELIVERY/);
+  assert.match(html, /id="market-delivery-detail">PIN 500052 · Delivery fee pending confirmation/);
+  assert.match(app, /title\.textContent = state\.market === 'IN' \? 'INDIA DELIVERY' : 'UAE DELIVERY'/);
+  assert.match(app, /UAE coverage and delivery fee pending verification/);
+  assert.match(app, /updateMarketDeliveryCopy\(\);/);
+  assert.match(app, /updateCheckoutMarketForm\(\);\s*loadProducts\(\);\s*loadCheckoutReadiness\(\);/);
+});

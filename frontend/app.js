@@ -28,7 +28,7 @@
     const currency = state.market === 'AE' ? 'AED' : 'INR';
     state.cart = saved.flatMap(entry => {
       if (!entry || typeof entry.sku !== 'string') return [];
-      const product = state.products.find(item => item.currency === currency && !item.price_pending_conversion && (item.variants || []).some(variant => variant.sku === entry.sku));
+      const product = state.products.find(item => item.currency === currency && hasVerifiedPrice(item) && (item.variants || []).some(variant => variant.sku === entry.sku));
       const variant = product?.variants?.find(item => item.sku === entry.sku);
       const stock = Math.max(0, Math.floor(Number(variant?.stock_qty) || 0));
       const quantity = Math.min(10, stock, Math.floor(Number(entry.quantity) || 0));
@@ -55,6 +55,11 @@
   }, true);
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const money = (cents, currency = 'INR') => { const locale = currency === 'AED' ? 'en-AE' : 'en-IN'; const amount = (Number(cents || 0) / 100).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return currency === 'AED' ? 'AED ' + amount : '₹' + amount; };
+  // Fail closed when a product has no verified, positive integer selling price.
+  const hasVerifiedPrice = product => {
+    const cents = Number(product?.price_cents);
+    return Boolean(product) && product.price_verified === true && product.price_pending_conversion !== true && Number.isSafeInteger(cents) && cents > 0;
+  };
   // Delivery and tax amounts are never guessed; public config exposes readiness only.
   const deliveryFeeCents = () => null;
   const vatCents = () => null;
@@ -202,7 +207,8 @@
       const selected = state.selectedSizes[product.id] || (available[0] && available[0].sku) || '';
       const selectedVariant = variants.find(v => v.sku === selected && Number(v.stock_qty) > 0);
       const mrpCents = Number(product.mrp_cents || 0);
-      const hasDiscount = Number.isFinite(mrpCents) && mrpCents > Number(product.price_cents);
+      const priceReady = hasVerifiedPrice(product);
+      const hasDiscount = priceReady && Number.isSafeInteger(mrpCents) && mrpCents > Number(product.price_cents);
       const createdAt = product.created_at ? Date.parse(product.created_at) : NaN;
       const isNew = Number.isFinite(createdAt) && Date.now() - createdAt < 30 * 24 * 60 * 60 * 1000;
       const status = product.stock_verified === false ? 'Stock check pending' : (isNew ? 'New' : hasDiscount ? 'Sale' : (!available.length ? 'Sold out' : (available.length <= 2 ? 'Limited run' : 'Everyday essential')));
@@ -210,7 +216,7 @@
 
       return `<article class="product-card" data-product="${escapeHtml(product.id)}">
         <div class="product-image"><img src="${escapeHtml(productImage(product))}" alt="${escapeHtml(product.name)}" loading="${index < 3 ? 'eager' : 'lazy'}" decoding="async" /><span class="product-tag">${status}</span><button class="wishlist-toggle ${watched ? 'saved' : ''}" type="button" data-wishlist="${escapeHtml(product.id)}" aria-label="${watched ? 'Remove from wishlist' : 'Add to wishlist'}" aria-pressed="${watched}" title="${watched ? 'Remove from wishlist' : 'Add to wishlist'}"><i class="${watched ? 'fa-solid' : 'fa-regular'} fa-heart" aria-hidden="true"></i></button></div>
-        <div class="product-info"><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.brand || 'BF SHOES')} · ${escapeHtml(product.short_description || product.description || 'Everyday sneaker').slice(0, 58)}</p></div><div class="product-price-wrap"><strong class="product-price">${product.price_pending_conversion ? 'Price verification pending' : money(product.price_cents, product.currency)}</strong>${hasDiscount ? `<del class="product-mrp">${money(mrpCents, product.currency)}</del>` : ''}</div></div>
+        <div class="product-info"><div><h3>${escapeHtml(product.name)}</h3><p>${escapeHtml(product.brand || 'BF SHOES')} · ${escapeHtml(product.short_description || product.description || 'Everyday sneaker').slice(0, 58)}</p></div><div class="product-price-wrap"><strong class="product-price">${priceReady ? money(product.price_cents, product.currency) : 'Price verification pending'}</strong>${hasDiscount ? `<del class="product-mrp">${money(mrpCents, product.currency)}</del>` : ''}</div></div>
         <p class="product-view-link">View details &amp; options <span aria-hidden="true">↗</span></p>
       </article>`;
     }).join('');
@@ -239,7 +245,7 @@
 
   function addToCart(product, variant) {
     const activeCurrency = state.market === 'AE' ? 'AED' : 'INR';
-    if (product?.price_pending_conversion || product?.currency !== activeCurrency) return toast('This product needs a verified price for the selected market before it can be ordered.');
+    if (!hasVerifiedPrice(product) || product?.currency !== activeCurrency) return toast('This product needs a verified price for the selected market before it can be ordered.');
     if (!variant || Number(variant.stock_qty) <= 0) return toast('That size is out of stock.');
     const current = state.cart.find(item => item.variant.sku === variant.sku);
     const already = current?.quantity || 0;
@@ -356,11 +362,13 @@
     let selectedColor = String(initialVariant?.color_name || '');
     let selectedSku = initialVariant?.sku || '';
     const colorNames = [...new Set(variants.map(v => String(v.color_name || '').trim()).filter(Boolean))];
-    const moneyLine = product.price_pending_conversion
-      ? '<p class="detail-price-pending">Price verification pending for this market</p>'
-      : '<p class="detail-price">' + money(product.price_cents, product.currency) + '</p>';
-    const mrpLine = Number(product.mrp_cents) > Number(product.price_cents)
-      ? '<p class="detail-mrp">MRP <del>' + money(product.mrp_cents, product.currency) + '</del></p>'
+    const priceReady = hasVerifiedPrice(product);
+    const moneyLine = priceReady
+      ? '<p class="detail-price">' + money(product.price_cents, product.currency) + '</p>'
+      : '<p class="detail-price-pending">Price verification pending for this market</p>';
+    const mrpCents = Number(product.mrp_cents);
+    const mrpLine = priceReady && Number.isSafeInteger(mrpCents) && mrpCents > Number(product.price_cents)
+      ? '<p class="detail-mrp">MRP <del>' + money(mrpCents, product.currency) + '</del></p>'
       : '';
     const attributeEntries = Object.entries(product.attributes && typeof product.attributes === 'object' ? product.attributes : {})
       .filter(([key, value]) => /^[a-z0-9 _-]{1,50}$/i.test(key) && ['string','number','boolean'].includes(typeof value) && String(value).trim() !== '');
@@ -391,7 +399,7 @@
       '<p class="detail-description">' + escapeHtml(product.description || product.short_description || 'Product description has not been added yet.') + '</p>' +
       metaMarkup + colorMarkup + '<section class="detail-option-group"><h3>Size</h3><div class="product-sizes detail-sizes" id="detail-sizes">' + (sizeMarkup || '<span>No sizes have been added for this colour.</span>') + '</div></section>' +
       '<p class="detail-stock" id="detail-stock">' + (initialVariant?.stock_verified === false ? 'Stock verification pending' : initialVariant ? (Number(initialVariant.stock_qty) > 0 ? Number(initialVariant.stock_qty) + ' in stock' : 'Out of stock') : 'Size and stock information has not been added yet') + '</p>' +
-      attributeMarkup + '<button type="button" class="button button-dark detail-add" id="detail-add" ' + (!initialVariant || initialVariant.stock_verified === false || Number(initialVariant.stock_qty) <= 0 || product.price_pending_conversion ? 'disabled' : '') + '>Add to bag</button>' +
+      attributeMarkup + '<button type="button" class="button button-dark detail-add" id="detail-add" ' + (!initialVariant || initialVariant.stock_verified === false || Number(initialVariant.stock_qty) <= 0 || !priceReady ? 'disabled' : '') + '>Add to bag</button>' +
       '<div class="detail-benefits"><span>Return and exchange requests are reviewed by the BF SHOES team</span></div>' +
       '<nav class="detail-help-links" aria-label="Product help"><a href="/size-guide.html">Size guide</a><a href="/fit-guide.html">Fit guide</a><a href="/shoe-care.html">Shoe care</a><a href="/shipping.html">Shipping</a><a href="/returns.html">Returns</a></nav></div></div>';
     modal.querySelector('.product-detail-close')?.focus();
@@ -406,7 +414,7 @@
       const variant = variants.find(v => v.sku === selectedSku) || null;
       const stock = $('#detail-stock', content), add = $('#detail-add', content);
       if (stock) stock.textContent = !variant ? 'Size and stock information has not been added yet' : variant.stock_verified === false ? 'Stock verification pending' : Number(variant.stock_qty) > 0 ? Number(variant.stock_qty) + ' in stock' : 'Out of stock';
-      if (add) add.disabled = !variant || variant.stock_verified === false || Number(variant.stock_qty) <= 0 || product.price_pending_conversion;
+      if (add) add.disabled = !variant || variant.stock_verified === false || Number(variant.stock_qty) <= 0 || !priceReady;
       const sku = content.querySelector('.detail-meta dd:last-child');
       if (sku) sku.textContent = variant?.sku || 'Select a size';
       state.selectedSizes[product.id] = selectedSku;
@@ -868,8 +876,6 @@
     state.pendingCheckout = null;
     state.selectedSizes = {};
     try { localStorage.setItem('bf-market', state.market); } catch {}
-    const deliveryNote = $('#market-delivery-note');
-    if (deliveryNote) deliveryNote.textContent = state.market === 'IN' ? 'Delivery to PIN 500052' : 'UAE delivery setup pending';
     const selectedCountry = $('#shipping-country');
     if (selectedCountry) selectedCountry.value = state.market;
     updateCheckoutMarketForm();
@@ -881,8 +887,6 @@
   if ($('#market-selector')) $('#market-selector').value = state.market;
   updateMarketDeliveryCopy();
   updateCheckoutMarketForm();
-  const initialDeliveryNote = $('#market-delivery-note');
-  if (initialDeliveryNote) initialDeliveryNote.textContent = state.market === 'IN' ? 'Delivery to PIN 500052' : 'UAE delivery setup pending';
   renderCart();
   loadCheckoutReadiness();
   loadActiveCampaign();
