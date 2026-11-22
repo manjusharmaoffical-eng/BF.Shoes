@@ -303,3 +303,30 @@ test("all order creation paths reject invalid stored product prices", async () =
   assert.match(cod, /invalid_price_products/);
   assert.match(routes, /isValidPriceCents\(v\.price_cents\)/);
 });
+
+
+test("paid or review-status orders cannot be cancelled before refund verification", async () => {
+  const routes = await readFile(new URL("../src/routes.js", import.meta.url), "utf8");
+  const statusRoute = routes.split('router.patch("/orders/:id/status"')[1]?.split('router.post("/admin/api-keys"')[0];
+  assert.ok(statusRoute?.includes('nextStatus === "cancelled" && ["paid", "review"].includes(old.payment_status)'));
+  assert.ok(statusRoute?.includes("Complete and verify the refund workflow before cancelling or restoring its stock."));
+});
+
+test("API order creation requires explicit delivery fee and persists correct totals", async () => {
+  const routes = await readFile(new URL("../src/routes.js", import.meta.url), "utf8");
+  const schema = routes.split("const orderSchema = z.object({")[1]?.split("});")[0];
+  assert.ok(schema?.includes("delivery_fee_cents: z.number().int().min(0).max(2000000000)"));
+  assert.ok(routes.includes("const deliveryFeeCents = parsed.data.delivery_fee_cents"));
+  assert.ok(routes.includes("const totalCents = subtotal + deliveryFeeCents"));
+  assert.ok(routes.includes("delivery_fee_cents, total_cents, shipping_country, idempotency_key"));
+});
+
+test("tax invoices serialize numbering and include delivery in both market totals", async () => {
+  const invoices = await readFile(new URL("../src/invoices.js", import.meta.url), "utf8");
+  const lock = invoices.indexOf("pg_advisory_xact_lock(hashtext($1),hashtext('bf-shoes-tax-invoice-number'))");
+  const count = invoices.indexOf("SELECT COUNT(*)::int n FROM tax_invoices WHERE invoice_number LIKE $1");
+  const insert = invoices.indexOf("INSERT INTO tax_invoices(order_id,profile_id,invoice_number");
+  assert.ok(lock >= 0 && count > lock && insert > count);
+  assert.ok(invoices.includes("taxBase=sub+delivery"));
+  assert.ok(invoices.includes("const total=sub+delivery+cg+sg+ig+vat"));
+});
