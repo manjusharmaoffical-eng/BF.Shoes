@@ -59,3 +59,11 @@ test('return requests do not impose an invented return window before owner polic
   assert.match(routes, /order\.status !== 'delivered'/);
   assert.match(policies, /return window, eligibility rules.*not yet configured/);
 });
+
+
+test('return/exchange cannot be marked completed without verified settlement', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const source = await readFile(new URL('../src/returns.js', import.meta.url), 'utf8');
+  assert.match(source, /parsed\.data\.status === "completed"/);
+  assert.match(source, /verified refund or replacement-fulfillment workflow/);
+});

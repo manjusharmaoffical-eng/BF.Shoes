@@ -137,6 +137,12 @@ returnsRouter.patch('/admin/:id', authenticate, requireScope('orders:write'), as
     const found = await client.query('SELECT r.id,r.status,o.customer_email,o.order_number FROM return_requests r JOIN orders o ON o.id=r.order_id WHERE r.id=$1 FOR UPDATE OF r', [req.params.id]);
     if (!found.rowCount) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Return request not found.' }); }
     const previous = found.rows[0];
+    // "completed" must not be a manual status-only action: returns require a verified refund,
+    // and exchanges require verified replacement fulfillment before customer-facing completion.
+    if (parsed.data.status === "completed") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "Return/exchange settlement is not implemented yet. Do not mark completed until a verified refund or replacement-fulfillment workflow is available." });
+    }
     if (!canTransitionReturnStatus(previous.status, parsed.data.status)) {
       await client.query('ROLLBACK');
       return res.status(409).json({ error: `Invalid return request transition: ${previous.status} to ${parsed.data.status}.` });
