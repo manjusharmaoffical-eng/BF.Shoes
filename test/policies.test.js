@@ -32,6 +32,8 @@ test("order fingerprints are stable and detect changed request content", () => {
   };
   const same = { ...first, customer_email: "buyer@example.com", items: [{ sku: "BF-001", quantity: 2 }] };
   const changed = { ...first, items: [{ sku: "BF-001", quantity: 3 }] };
+  const changedDelivery = { ...first, delivery_fee_cents: 5500 };
   assert.equal(orderRequestFingerprint(first), orderRequestFingerprint(same));
   assert.notEqual(orderRequestFingerprint(first), orderRequestFingerprint(changed));
+  assert.notEqual(orderRequestFingerprint(first), orderRequestFingerprint(changedDelivery));
 });
