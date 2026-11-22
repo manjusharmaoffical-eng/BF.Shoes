@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import { pool } from "./db.js";
-import { hashSecret, safeEqual, verifyAccessToken } from "./security.js";
+import { hashSecret, safeEqual, verifyAccessToken, sessionVersionMatches } from "./security.js";
 import { scopesForAdminRole } from "./policies.js";
 
 export async function authenticate(req, res, next) {
@@ -17,7 +17,7 @@ export async function authenticate(req, res, next) {
       );
       const admin = result.rows[0];
       if (!admin?.active) return res.status(401).json({ error: "Admin account inactive" });
-      if (Number(admin.session_version ?? 0) !== Number(claims.sv)) {
+      if (!sessionVersionMatches(admin, claims)) {
         return res.status(401).json({ error: "Admin session revoked" });
       }
       req.actor = { type: "admin", id: admin.id, role: admin.role, scopes: scopesForAdminRole(admin.role) };
