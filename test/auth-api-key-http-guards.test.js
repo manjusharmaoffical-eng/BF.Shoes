@@ -52,7 +52,7 @@ test("read-only API key gets HTTP 200 for reads and HTTP 403 for every product, 
   };
 
   pool.query = async sql => {
-    const statement = String(sql).replace(/\\s+/g, " ").trim();
+    const statement = String(sql).replace(/\s+/g, " ").trim();
     if (statement.startsWith("SELECT id, key_hash, scopes, active, expires_at FROM api_keys WHERE key_prefix = $1")) {
       return { rows: [keyRecord], rowCount: 1 };
     }
@@ -72,8 +72,8 @@ test("read-only API key gets HTTP 200 for reads and HTTP 403 for every product, 
   try {
     for (const path of ["/api/v1/products", "/api/v1/inventory", "/api/v1/orders"]) {
       const response = await fetch(server.baseUrl + path, { headers: { "x-api-key": apiKey.raw } });
-      assert.equal(response.status, 200, `GET ${path}`);
       const body = await response.json();
+      assert.equal(response.status, 200, `GET ${path}: ${JSON.stringify(body)}`);
       assert.ok(Array.isArray(body.data), `GET ${path} returns a data array`);
     }
 
@@ -112,7 +112,7 @@ test("password change increments session version and the old admin JWT receives 
   const oldToken = createAccessToken(admin);
 
   pool.query = async sql => {
-    const statement = String(sql).replace(/\\s+/g, " ").trim();
+    const statement = String(sql).replace(/\s+/g, " ").trim();
     if (statement.startsWith("SELECT id, email, role, active, session_version FROM admins WHERE id = $1")) {
       return {
         rows: [{
@@ -130,7 +130,7 @@ test("password change increments session version and the old admin JWT receives 
 
   const client = {
     async query(sql, params = []) {
-      const statement = String(sql).replace(/\\s+/g, " ").trim();
+      const statement = String(sql).replace(/\s+/g, " ").trim();
       if (statement === "BEGIN" || statement === "COMMIT" || statement === "ROLLBACK") return { rows: [], rowCount: 0 };
       if (statement.startsWith("SELECT id, password_hash, active FROM admins WHERE id=$1 FOR UPDATE")) {
         return {
