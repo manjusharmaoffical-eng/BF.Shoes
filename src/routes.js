@@ -281,6 +281,7 @@ router.patch("/inventory/:sku", authenticate, requireScope("inventory:write"), a
 const orderSchema = z.object({
   customer_name: z.string().trim().min(1).max(160),
   customer_email: z.string().email().max(254),
+  delivery_fee_cents: z.number().int().min(0).max(2000000000),
   items: z.array(z.object({
     sku: z.string().trim().min(2).max(80),
     quantity: z.number().int().min(1).max(100)
@@ -343,11 +344,15 @@ router.post("/orders", authenticate, requireScope("orders:write"), async (req, r
     }
     const currency = found.rows[0].currency;
     if (found.rows.some(r => r.currency !== currency)) { await client.query("ROLLBACK"); return res.status(400).json({ error: "Mixed currencies are not supported" }); }
+    const deliveryFeeCents = parsed.data.delivery_fee_cents;
+    const totalCents = subtotal + deliveryFeeCents;
+    if (!Number.isSafeInteger(totalCents) || totalCents <= 0 || totalCents > 2000000000) { await client.query("ROLLBACK"); return res.status(400).json({ error: "Order total exceeds limit" }); }
+    const shippingCountry = currency === "AED" ? "AE" : "IN";
 
     const orderResult = await client.query(
-      `INSERT INTO orders(customer_name, customer_email, currency, subtotal_cents, idempotency_key, request_fingerprint)
-       VALUES($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [parsed.data.customer_name, parsed.data.customer_email.toLowerCase(), currency, subtotal, idempotencyKey, fingerprint]
+      `INSERT INTO orders(customer_name, customer_email, currency, subtotal_cents, delivery_fee_cents, total_cents, shipping_country, idempotency_key, request_fingerprint)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [parsed.data.customer_name, parsed.data.customer_email.toLowerCase(), currency, subtotal, deliveryFeeCents, totalCents, shippingCountry, idempotencyKey, fingerprint]
     );
     const order = orderResult.rows[0];
     const items = [];
@@ -423,6 +428,10 @@ router.patch("/orders/:id/status", authenticate, requireScope("orders:write"), a
     if (!orderRes.rowCount) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Order not found" }); }
     const old = orderRes.rows[0];
     const nextStatus = parsed.data.status;
+    if (nextStatus === "cancelled" && ["paid", "review"].includes(old.payment_status)) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: "This order has a paid or under-review payment. Complete and verify the refund workflow before cancelling or restoring its stock." });
+    }
     if (!canTransitionOrder(old.status, nextStatus)) {
       await client.query("ROLLBACK");
       return res.status(409).json({ error: `Invalid order status transition: ${old.status} -> ${nextStatus}` });
