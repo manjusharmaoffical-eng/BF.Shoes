@@ -57,6 +57,9 @@ test('short Admin URL serves the existing admin document before static fallback'
 test('kids collection only includes products explicitly labelled for kids', async () => {
   const app = await readFile(new URL('../frontend/store-pages.js', import.meta.url), 'utf8');
   assert.match(app, /if \(collection === 'kids'\) return audience === 'kids'/);
+  assert.match(app, /Kids collection is being prepared/);
+  assert.match(app, /owner-verified Kids products/);
+  assert.match(app, /sizes, colours and stock will appear only after they are verified/);
 });
 
 test('homepage and collection pages honour explicit market URLs and same-origin product images', async () => {
@@ -92,4 +95,15 @@ test('homepage navigation and sitemap expose the added customer pages', async ()
     assert.ok(html.includes('/' + page + '.html') || sitemap.includes('/' + page + '.html'), page + ' discoverability');
     assert.ok(sitemap.includes('https://www.bfshoes.online/' + page + '.html'), page + ' sitemap entry');
   }
+});
+
+
+test('homepage delivery trust strip follows the selected India or UAE market', async () => {
+  const html = await readFile(new URL('../frontend/index.html', import.meta.url), 'utf8');
+  const app = await readFile(new URL('../frontend/app.js', import.meta.url), 'utf8');
+  assert.match(html, /id="market-delivery-title">INDIA DELIVERY/);
+  assert.match(html, /id="market-delivery-detail">PIN 500052/);
+  assert.match(app, /title\.textContent = state\.market === 'IN' \? 'INDIA DELIVERY' : 'UAE DELIVERY'/);
+  assert.match(app, /UAE coverage and delivery fee pending verification/);
+  assert.match(app, /updateMarketDeliveryCopy\(\);/);
 });

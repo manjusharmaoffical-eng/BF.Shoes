@@ -24,7 +24,7 @@ router.post("/auth/login", async (req, res, next) => {
     if (!parsed.success) return res.status(400).json({ error: "Invalid login input" });
     const email = parsed.data.email.toLowerCase();
     const result = await pool.query(
-      "SELECT id, email, password_hash, role, active FROM admins WHERE email = $1",
+      "SELECT id, email, password_hash, role, active, session_version FROM admins WHERE email = $1",
       [email]
     );
     const admin = result.rows[0];
@@ -62,10 +62,10 @@ router.post("/auth/change-password", authenticate, async (req, res, next) => {
       return res.status(401).json({ error: "Current password is incorrect" });
     }
     const passwordHash = await bcrypt.hash(parsed.data.new_password, 12);
-    await client.query("UPDATE admins SET password_hash=$1 WHERE id=$2", [passwordHash, admin.id]);
-    await client.query("INSERT INTO audit_events(actor_type, actor_id, action, resource_type, resource_id) VALUES('admin',$1,'admin.password_change','admin',$1::text)", [admin.id]);
+    await client.query("UPDATE admins SET password_hash=$1, session_version=session_version+1 WHERE id=$2", [passwordHash, admin.id]);
+    await client.query("INSERT INTO audit_events(actor_type, actor_id, action, resource_type, resource_id) VALUES('admin',$1,'admin.password_change','admin',$2)", [admin.id, String(admin.id)]);
     await client.query("COMMIT");
-    res.json({ message: "Password changed. Sign out and sign in again; existing access tokens expire within 15 minutes." });
+    res.json({ message: "Password changed. All existing admin sessions have been revoked. Sign in again." });
   } catch (err) {
     if (client) await client.query("ROLLBACK").catch(() => {});
     next(err);
@@ -259,12 +259,16 @@ router.patch("/inventory/:sku", authenticate, requireScope("inventory:write"), a
     const nextQty = result.rows[0].stock_qty + parsed.data.delta;
     if (nextQty < 0) { await client.query("ROLLBACK"); return res.status(409).json({ error: "Stock cannot be negative" }); }
     const updated = await client.query(
-      "UPDATE variants SET stock_qty=$1, stock_verified=true, updated_at=now() WHERE id=$2 RETURNING *",
+      "UPDATE variants SET stock_qty=$1, updated_at=now() WHERE id=$2 RETURNING *",
       [nextQty, result.rows[0].id]
     );
     await client.query(
       "INSERT INTO inventory_movements(variant_id, delta, reason, actor_admin_id) VALUES($1,$2,$3,$4)",
       [result.rows[0].id, parsed.data.delta, parsed.data.reason, req.actor.type === "admin" ? req.actor.id : null]
+    );
+    await client.query(
+      "INSERT INTO audit_events(actor_type,actor_id,action,resource_type,resource_id) VALUES($1,$2,'inventory.stock.adjust','variant',$3)",
+      [req.actor.type, req.actor.id, String(result.rows[0].id)]
     );
     await client.query("COMMIT");
     res.json({ data: updated.rows[0] });

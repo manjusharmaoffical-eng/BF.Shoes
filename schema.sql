@@ -6,8 +6,12 @@ CREATE TABLE IF NOT EXISTS admins (
   password_hash TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'admin' CHECK (role IN ('admin', 'staff')),
   active BOOLEAN NOT NULL DEFAULT TRUE,
+  session_version INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Additive session-revocation counter for existing admin accounts.
+ALTER TABLE admins ADD COLUMN IF NOT EXISTS session_version INTEGER NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS api_keys (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

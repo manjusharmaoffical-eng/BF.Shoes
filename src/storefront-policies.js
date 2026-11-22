@@ -34,7 +34,7 @@ const UNVERIFIED_PRICE_AMOUNT = /(?:₹\s*|Rs\.?\s*|\bINR\s*|\bAED\s*|د\.إ\s*|
 const UNVERIFIED_PRICE_LABEL = /\b(?:verified|owner[-\s]confirmed)\s+(?:(?:india|uae|inr|aed)\s+)?(?:selling\s+)?price\b/i;
 
 function removeUnverifiedPriceSentences(value) {
-  const safe = String(value).split(/(?<=[.!?])\s+/u)
+  const safe = String(value).split(/(?<=[!?])\s+|(?<!Rs\.)(?<!Dhs\.)(?<=\.)\s+/iu)
     .filter(sentence => !UNVERIFIED_PRICE_AMOUNT.test(sentence) && !UNVERIFIED_PRICE_LABEL.test(sentence))
     .join(" ").trim();
   return safe || null;
@@ -56,9 +56,27 @@ function sanitizeUnverifiedPriceText(value) {
  * selling prices are still unverified. Numeric prices remain withheld by the
  * API response mapper; this also protects description/attribute fields.
  */
+function removeUnverifiedPriceAmounts(value) {
+  const pattern = new RegExp(UNVERIFIED_PRICE_AMOUNT.source, "gi");
+  const safe = String(value)
+    .replace(pattern, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/[-–—,:;|]+\s*$/u, "")
+    .trim();
+  return safe || null;
+}
+
 export function hideUnverifiedPriceClaims(product) {
   if (!product || typeof product !== "object" || Array.isArray(product)) return product;
   const safe = { ...product };
+
+  // Preserve product identity; remove only unverified currency amounts.
+  for (const field of ["name", "slug", "brand", "category", "audience", "product_type"]) {
+    if (typeof safe[field] === "string") safe[field] = removeUnverifiedPriceAmounts(safe[field]);
+  }
+
+  // Descriptive text: remove the complete sentence containing a price claim.
   for (const field of ["description", "short_description"]) {
     if (typeof safe[field] === "string") safe[field] = removeUnverifiedPriceSentences(safe[field]);
   }

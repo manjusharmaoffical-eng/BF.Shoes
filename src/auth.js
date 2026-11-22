@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import { pool } from "./db.js";
-import { hashSecret, safeEqual, verifyAccessToken } from "./security.js";
+import { hashSecret, safeEqual, verifyAccessToken, sessionVersionMatches } from "./security.js";
 import { scopesForAdminRole } from "./policies.js";
 
 export async function authenticate(req, res, next) {
@@ -12,11 +12,14 @@ export async function authenticate(req, res, next) {
         return res.status(401).json({ error: "Invalid access token" });
       }
       const result = await pool.query(
-        "SELECT id, email, role, active FROM admins WHERE id = $1",
+        "SELECT id, email, role, active, session_version FROM admins WHERE id = $1",
         [claims.sub]
       );
       const admin = result.rows[0];
       if (!admin?.active) return res.status(401).json({ error: "Admin account inactive" });
+      if (!sessionVersionMatches(admin, claims)) {
+        return res.status(401).json({ error: "Admin session revoked" });
+      }
       req.actor = { type: "admin", id: admin.id, role: admin.role, scopes: scopesForAdminRole(admin.role) };
       return next();
     }
