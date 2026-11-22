@@ -13,7 +13,7 @@ test("admin session revocation uses an additive persistent session version", () 
   assert.match(schema, /session_version INTEGER NOT NULL DEFAULT 0/);
   assert.match(schema, /ALTER TABLE admins ADD COLUMN IF NOT EXISTS session_version INTEGER NOT NULL DEFAULT 0/);
   assert.match(security, /sv: Number\(admin\.session_version \?\? 0\)/);
-  assert.match(auth, /Number\(admin\.session_version \?\? 0\) !== Number\(claims\.sv\)/);
+  assert.match(auth, /sessionVersionMatches\(admin, claims\)/);
 });
 
 test("password changes increment session version and revoke every prior admin token", () => {
