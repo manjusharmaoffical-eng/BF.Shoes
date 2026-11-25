@@ -16,11 +16,15 @@ warehouseRouter.get("/summary", requireScope("inventory:read"), async (_req, res
   try {
     const [warehouses, legacy, production, movements, lowStock] = await Promise.all([
       pool.query(`SELECT w.id,w.name,w.code,w.address,w.active,
-        COALESCE(sum(wi.quantity),0)::bigint AS units_in_stock,
-        count(wi.variant_id) FILTER (WHERE wi.quantity > 0)::int AS stocked_variants
+        COALESCE(sum(wi.quantity) FILTER (WHERE v.stock_verified=true),0)::bigint AS units_in_stock,
+        count(wi.variant_id) FILTER (WHERE wi.quantity > 0 AND v.stock_verified=true)::int AS stocked_variants,
+        COALESCE(sum(wi.quantity) FILTER (WHERE v.stock_verified=false),0)::bigint AS unverified_units
         FROM warehouses w LEFT JOIN warehouse_inventory wi ON wi.warehouse_id=w.id
+        LEFT JOIN variants v ON v.id=wi.variant_id
         GROUP BY w.id ORDER BY w.name`),
-      pool.query(`SELECT COALESCE(sum(GREATEST(v.stock_qty-COALESCE(a.allocated,0),0)),0)::bigint AS unassigned_legacy_units
+      pool.query(`SELECT
+          COALESCE(sum(GREATEST(v.stock_qty-COALESCE(a.allocated,0),0)) FILTER (WHERE v.stock_verified=true),0)::bigint AS unassigned_legacy_units,
+          COALESCE(sum(GREATEST(v.stock_qty-COALESCE(a.allocated,0),0)) FILTER (WHERE v.stock_verified=false),0)::bigint AS unverified_legacy_units
         FROM variants v LEFT JOIN (
           SELECT variant_id,sum(quantity)::bigint AS allocated FROM warehouse_inventory GROUP BY variant_id
         ) a ON a.variant_id=v.id WHERE v.active=true`),
@@ -38,7 +42,7 @@ warehouseRouter.get("/summary", requireScope("inventory:read"), async (_req, res
         COALESCE(sum(wi.quantity),0)::int AS warehouse_units
         FROM variants v JOIN products p ON p.id=v.product_id
         LEFT JOIN warehouse_inventory wi ON wi.variant_id=v.id
-        WHERE v.active=true GROUP BY p.name,v.sku,v.size_label,v.color_name
+        WHERE v.active=true AND v.stock_verified=true GROUP BY p.name,v.sku,v.size_label,v.color_name
         HAVING COALESCE(sum(wi.quantity),0) <= 5
         ORDER BY warehouse_units,v.sku LIMIT 20`)
     ]);
@@ -46,10 +50,11 @@ warehouseRouter.get("/summary", requireScope("inventory:read"), async (_req, res
     res.json({data:{
       warehouses:warehouses.rows,
       unassigned_legacy_units:legacy.rows[0].unassigned_legacy_units,
+      unverified_legacy_units:legacy.rows[0].unverified_legacy_units,
       production_daily:production.rows,
       stock_movements_daily:movements.rows,
       low_stock:lowStock.rows,
-      note:"Warehouse stock is location-assigned stock. Existing variant stock with no recorded warehouse is shown separately as unassigned legacy stock."
+      note:"Only physically verified quantities count as available warehouse stock. Unverified warehouse and legacy quantities are reported separately until a physical count is recorded."
     }});
   } catch(err){next(err);}
 });
@@ -57,8 +62,10 @@ warehouseRouter.get("/summary", requireScope("inventory:read"), async (_req, res
 warehouseRouter.get("/warehouses", requireScope("inventory:read"), async (_req,res,next)=>{
   try{
     const result=await pool.query(`SELECT w.id,w.name,w.code,w.address,w.active,
-      COALESCE(sum(wi.quantity),0)::bigint AS units_in_stock
+      COALESCE(sum(wi.quantity) FILTER (WHERE v.stock_verified=true),0)::bigint AS units_in_stock,
+      COALESCE(sum(wi.quantity) FILTER (WHERE v.stock_verified=false),0)::bigint AS unverified_units
       FROM warehouses w LEFT JOIN warehouse_inventory wi ON wi.warehouse_id=w.id
+      LEFT JOIN variants v ON v.id=wi.variant_id
       GROUP BY w.id ORDER BY w.name`);
     res.json({data:result.rows});
   }catch(err){next(err);}
