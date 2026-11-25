@@ -21,7 +21,7 @@ export function calculateProfit({ revenueCents, cogsCents, expensesCents, intere
 }
 
 
-export function calculateInventoryValuation({ stockedVariants, totalUnits, missingCostVariants, knownInventoryValueCents }) {
+export function calculateInventoryValuation({ stockedVariants, totalUnits, missingCostVariants, unverifiedVariants = 0, knownInventoryValueCents }) {
   const count = (value, label) => {
     const number = Number(value ?? 0);
     if (!Number.isSafeInteger(number) || number < 0) throw new TypeError(`${label} must be a non-negative integer`);
@@ -30,14 +30,16 @@ export function calculateInventoryValuation({ stockedVariants, totalUnits, missi
   const stocked = count(stockedVariants, "Stocked variant count");
   const units = count(totalUnits, "Stock unit count");
   const missing = count(missingCostVariants, "Missing-cost variant count");
+  const unverified = count(unverifiedVariants, "Unverified variant count");
   const knownValue = cents(knownInventoryValueCents);
   if (missing > stocked || stocked > units) throw new TypeError("Inventory counts are inconsistent");
-  const complete = missing === 0;
+  const complete = missing === 0 && unverified === 0;
   return {
     complete,
     stocked_variants: stocked,
     total_units: units,
     missing_cost_variants: missing,
+    unverified_variants: unverified,
     inventory_value_cents: complete ? String(knownValue) : null,
     known_inventory_value_cents: String(knownValue)
   };

@@ -33,12 +33,11 @@ ultronRouter.get("/help", (_req, res) => {
 ultronRouter.get("/status", async (_req, res, next) => {
   try {
     const [products, orders, costs] = await Promise.all([
-      pool.query(`SELECT count(*)::int AS active_products,
-        count(*) FILTER (WHERE v.low_stock)::int AS low_stock_variants
-        FROM products p LEFT JOIN (
-          SELECT product_id, bool_or(stock_qty <= 5) AS low_stock
-          FROM variants WHERE active = true GROUP BY product_id
-        ) v ON v.product_id = p.id WHERE p.active = true`),
+      pool.query(`SELECT count(DISTINCT p.id)::int AS active_products,
+        count(v.id) FILTER (WHERE v.stock_verified = true AND v.stock_qty <= 5)::int AS low_stock_variants,
+        count(v.id) FILTER (WHERE v.stock_verified = false)::int AS unverified_variants
+        FROM products p LEFT JOIN variants v ON v.product_id = p.id AND v.active = true
+        WHERE p.active = true`),
       pool.query(`SELECT count(*) FILTER (WHERE status IN ('confirmed','processing','shipped'))::int AS open_orders,
         count(*) FILTER (WHERE status = 'delivered' AND updated_at >= now() - interval '30 days')::int AS delivered_last_30_days
         FROM orders`),
@@ -60,7 +59,8 @@ ultronRouter.get("/status", async (_req, res, next) => {
           profit_report_complete: Number(costs.rows[0].delivered_units_missing_cost) === 0
         },
         alerts: [
-          ...(Number(products.rows[0].low_stock_variants) > 0 ? ["Low-stock variants need review."] : []),
+          ...(Number(products.rows[0].low_stock_variants) > 0 ? ["Verified low-stock variants need review."] : []),
+          ...(Number(products.rows[0].unverified_variants) > 0 ? ["Some active variants still need a physical stock count; unverified quantities are excluded from sellable stock."] : []),
           ...(Number(costs.rows[0].delivered_units_missing_cost) > 0 ? ["Some delivered order items have no recorded unit cost; profit may be incomplete."] : [])
         ]
       }
