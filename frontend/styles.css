@@ -981,3 +981,6 @@ html,body{font-family:var(--bf-font)}
 @media (min-width:1101px) { .everyday-nav-links { grid-template-columns:repeat(6,minmax(0,1fr)); } }
 @media (min-width:601px) and (max-width:1100px) { .everyday-nav-links { grid-template-columns:repeat(4,minmax(0,1fr)); } }
 @media (max-width:600px) { .everyday-nav-links { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; } }
+
+/* Preserve line breaks in reviewed AI feature bullets on the product detail page. */
+.detail-description{white-space:pre-line}
