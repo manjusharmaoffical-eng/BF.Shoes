@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 const storefront = readFileSync(new URL("../frontend/index.html", import.meta.url), "utf8");
 const adminHtml = readFileSync(new URL("../frontend/admin.html", import.meta.url), "utf8");
 const adminJs = readFileSync(new URL("../frontend/admin.js", import.meta.url), "utf8");
+const styles = readFileSync(new URL("../frontend/styles.css", import.meta.url), "utf8");
 
 test("storefront market selector markup contains no escaped newline text", () => {
   assert.match(storefront, /id="market-selector"/);
@@ -68,6 +69,7 @@ test('AI product copy exposes, edits and saves generated key feature bullets', (
   assert.match(adminJs, /aiDraft\.bullet_points\|\|\[\]/);
   assert.match(adminJs, /Key features:/);
   assert.match(adminJs, /Description plus key features must be 5,000 characters or fewer/);
+  assert.match(styles, /\.detail-description\{white-space:pre-line\}/);
 });
 
 test('AI product image prompts use the BF SHOES white, red and black palette', () => {
