@@ -26,14 +26,14 @@ test("admin inventory and finance show unverified stock as zero and pending", ()
   assert.match(admin, /Variants pending physical count/);
 });
 
-test("warehouse totals and low-stock alerts separate physically verified stock", () => {
-  assert.match(warehouse, /v\.stock_verified=true/);
-  assert.match(warehouse, /v\.stock_verified=false/);
-  assert.match(warehouse, /unverified_legacy_units/);
-  assert.match(warehouse, /unverified_units/);
-  assert.match(warehouse, /v\.active=true AND v\.stock_verified=true/);
-  assert.match(admin, /Unverified warehouse units/);
-  assert.match(admin, /Unverified legacy units/);
-  assert.match(admin, /esc\(w\.unverified_units\?\?0\)/);
-  assert.match(adminHtml, /<th>Unverified units<\/th>/);
+test("warehouse allocations are not presented as physically verified by variant-level counts", () => {
+  assert.match(warehouse, /AS allocated_units/);
+  assert.match(warehouse, /verified_sku_units/);
+  assert.match(warehouse, /unverified_sku_units/);
+  assert.match(warehouse, /v\.active=true AND v\.stock_verified=true AND v\.stock_qty<=5/);
+  assert.doesNotMatch(warehouse, /sum\(wi\.quantity\) FILTER \(WHERE v\.stock_verified=true\)/);
+  assert.doesNotMatch(admin, /Verified warehouse units/);
+  assert.match(admin, /Allocated units \(location unverified\)/);
+  assert.match(admin, /Location count pending/);
+  assert.match(adminHtml, /<th>Location count status<\/th>/);
 });
