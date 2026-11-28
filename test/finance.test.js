@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { calculateProfit } from "../src/finance-math.js";
+import { calculateProfit, calculateInventoryValuation } from "../src/finance-math.js";
 
 test("profit report stays incomplete when any sold units lack recorded cost", () => {
   assert.deepEqual(calculateProfit({ revenueCents: "10000", cogsCents: "4000", expensesCents: "1000", missingCostUnits: 2 }), {
@@ -42,4 +42,30 @@ test("finance admin shows revenue components and period expense categories", asy
   assert.match(js, /Delivery fee revenue/);
   assert.ok(js.includes("req('/finance/expenses?'+params.toString())"));
   assert.match(js, /expenses_by_category/);
+});
+
+
+test("inventory valuation stays incomplete until every variant has a verified physical count", () => {
+  const result = calculateInventoryValuation({
+    stockedVariants: 0,
+    totalUnits: 0,
+    missingCostVariants: 0,
+    unverifiedVariants: 294,
+    knownInventoryValueCents: "0"
+  });
+  assert.equal(result.complete, false);
+  assert.equal(result.unverified_variants, 294);
+  assert.equal(result.inventory_value_cents, null);
+});
+
+test("inventory valuation completes only when stock is verified and costs are recorded", () => {
+  const result = calculateInventoryValuation({
+    stockedVariants: 1,
+    totalUnits: 3,
+    missingCostVariants: 0,
+    unverifiedVariants: 0,
+    knownInventoryValueCents: "2500"
+  });
+  assert.equal(result.complete, true);
+  assert.equal(result.inventory_value_cents, "2500");
 });

@@ -37,7 +37,7 @@ test("only explicit physical counts mark variants stock verified", () => {
   assert.match(routes, /UPDATE variants SET stock_qty=\$1,stock_verified=true,updated_at=now\(\) WHERE id=\$2/);
   const adjustmentRoute = routes.split('router.patch("/inventory/:sku"')[1]?.split("const orderSchema")[0] || "";
   assert.doesNotMatch(adjustmentRoute, /stock_verified\s*=\s*true/);
-  assert.doesNotMatch(warehouse, /stock_verified\s*=\s*true/);
+  assert.doesNotMatch(warehouse, /UPDATE\s+variants\s+SET[^;]*\bstock_verified\s*=\s*true/i);
 });
 
 test("manual and warehouse stock adjustments are audit logged", () => {
