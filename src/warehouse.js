@@ -14,20 +14,17 @@ const warehouseSchema = z.object({
 
 warehouseRouter.get("/summary", requireScope("inventory:read"), async (_req, res, next) => {
   try {
-    const [warehouses, legacy, production, movements, lowStock] = await Promise.all([
+    const [warehouses, skuStock, production, movements, lowStock] = await Promise.all([
       pool.query(`SELECT w.id,w.name,w.code,w.address,w.active,
-        COALESCE(sum(wi.quantity) FILTER (WHERE v.stock_verified=true),0)::bigint AS units_in_stock,
-        count(wi.variant_id) FILTER (WHERE wi.quantity > 0 AND v.stock_verified=true)::int AS stocked_variants,
-        COALESCE(sum(wi.quantity) FILTER (WHERE v.stock_verified=false),0)::bigint AS unverified_units
+        COALESCE(sum(wi.quantity),0)::bigint AS allocated_units,
+        count(wi.variant_id) FILTER (WHERE wi.quantity > 0)::int AS allocated_variants
         FROM warehouses w LEFT JOIN warehouse_inventory wi ON wi.warehouse_id=w.id
-        LEFT JOIN variants v ON v.id=wi.variant_id
         GROUP BY w.id ORDER BY w.name`),
       pool.query(`SELECT
-          COALESCE(sum(GREATEST(v.stock_qty-COALESCE(a.allocated,0),0)) FILTER (WHERE v.stock_verified=true),0)::bigint AS unassigned_legacy_units,
-          COALESCE(sum(GREATEST(v.stock_qty-COALESCE(a.allocated,0),0)) FILTER (WHERE v.stock_verified=false),0)::bigint AS unverified_legacy_units
-        FROM variants v LEFT JOIN (
-          SELECT variant_id,sum(quantity)::bigint AS allocated FROM warehouse_inventory GROUP BY variant_id
-        ) a ON a.variant_id=v.id WHERE v.active=true`),
+          COALESCE(sum(stock_qty) FILTER (WHERE stock_verified=true),0)::bigint AS verified_sku_units,
+          COALESCE(sum(stock_qty) FILTER (WHERE stock_verified=false),0)::bigint AS unverified_sku_units,
+          count(*) FILTER (WHERE stock_verified=false)::int AS unverified_variants
+        FROM variants WHERE active=true`),
       pool.query(`SELECT date_trunc('day',completed_at)::date AS day,
         sum(good_qty)::int AS good_units,sum(rejected_qty)::int AS rejected_units,
         count(*)::int AS completed_batches
@@ -39,22 +36,21 @@ warehouseRouter.get("/summary", requireScope("inventory:read"), async (_req, res
         FROM warehouse_stock_movements WHERE created_at >= now()-interval '30 days'
         GROUP BY 1 ORDER BY 1`),
       pool.query(`SELECT p.name AS product_name,v.sku,v.size_label,v.color_name,
-        COALESCE(sum(wi.quantity),0)::int AS warehouse_units
+        v.stock_qty AS verified_stock_qty
         FROM variants v JOIN products p ON p.id=v.product_id
-        LEFT JOIN warehouse_inventory wi ON wi.variant_id=v.id
-        WHERE v.active=true AND v.stock_verified=true GROUP BY p.name,v.sku,v.size_label,v.color_name
-        HAVING COALESCE(sum(wi.quantity),0) <= 5
-        ORDER BY warehouse_units,v.sku LIMIT 20`)
+        WHERE v.active=true AND v.stock_verified=true AND v.stock_qty<=5
+        ORDER BY v.stock_qty,v.sku LIMIT 20`)
     ]);
     res.set("Cache-Control","no-store");
     res.json({data:{
       warehouses:warehouses.rows,
-      unassigned_legacy_units:legacy.rows[0].unassigned_legacy_units,
-      unverified_legacy_units:legacy.rows[0].unverified_legacy_units,
+      verified_sku_units:skuStock.rows[0].verified_sku_units,
+      unverified_sku_units:skuStock.rows[0].unverified_sku_units,
+      unverified_variants:skuStock.rows[0].unverified_variants,
       production_daily:production.rows,
       stock_movements_daily:movements.rows,
       low_stock:lowStock.rows,
-      note:"Only physically verified quantities count as available warehouse stock. Unverified warehouse and legacy quantities are reported separately until a physical count is recorded."
+      note:"Variant-level physical counts verify total SKU stock only. Warehouse quantities are allocation records and are not verified by location. Do not treat warehouse allocations as physically confirmed location-level stock."
     }});
   } catch(err){next(err);}
 });
@@ -62,10 +58,9 @@ warehouseRouter.get("/summary", requireScope("inventory:read"), async (_req, res
 warehouseRouter.get("/warehouses", requireScope("inventory:read"), async (_req,res,next)=>{
   try{
     const result=await pool.query(`SELECT w.id,w.name,w.code,w.address,w.active,
-      COALESCE(sum(wi.quantity) FILTER (WHERE v.stock_verified=true),0)::bigint AS units_in_stock,
-      COALESCE(sum(wi.quantity) FILTER (WHERE v.stock_verified=false),0)::bigint AS unverified_units
+      COALESCE(sum(wi.quantity),0)::bigint AS allocated_units,
+      count(wi.variant_id) FILTER (WHERE wi.quantity > 0)::int AS allocated_variants
       FROM warehouses w LEFT JOIN warehouse_inventory wi ON wi.warehouse_id=w.id
-      LEFT JOIN variants v ON v.id=wi.variant_id
       GROUP BY w.id ORDER BY w.name`);
     res.json({data:result.rows});
   }catch(err){next(err);}
